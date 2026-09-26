@@ -1,0 +1,43 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fontawesome5}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\hypersetup{colorlinks=true,urlcolor=blue}
+
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{} [\titlerule]
+\titlespacing{\section}{0pt}{12pt}{6pt}
+\setlist[itemize]{leftmargin=*,topsep=2pt,itemsep=2pt,parsep=0pt}
+
+\newcommand{\headerline}[2]{\begin{tabular*}{\textwidth}{@{}l@{\extracolsep{\fill}}r@{}} \textbf{#1} & #2 \end{tabular*}}
+\newcommand{\subheaderline}[2]{\begin{tabular*}{\textwidth}{@{}l@{\extracolsep{\fill}}r@{}} \textit{#1} & #2 \end{tabular*}}
+
+\begin{document}
+\begin{center}
+    {\LARGE \textbf{{{FULL_NAME}}}} \\[4pt]
+    \headerline{\faMapMarker\ {{LOCATION}}}{\faEnvelope\ {{EMAIL}} ~|~ \faPhone\ {{PHONE}}}
+    \headerline{\faLinkedin\ {{LINKEDIN}}}{\faGithub\ {{GITHUB}} ~|~ \faGlobe\ {{PORTFOLIO}}}
+\end{center}
+
+\section*{PROFESSIONAL SUMMARY}
+{{SUMMARY}}
+
+\section*{EDUCATION}
+{{EDUCATION}}
+
+\section*{EXPERIENCE}
+{{EXPERIENCE}}
+
+\section*{PROJECTS}
+{{PROJECTS}}
+
+\section*{TECHNICAL SKILLS}
+{{TECHNICAL_SKILLS}}
+
+\section*{CERTIFICATIONS}
+{{CERTIFICATIONS}}
+
+\end{document}

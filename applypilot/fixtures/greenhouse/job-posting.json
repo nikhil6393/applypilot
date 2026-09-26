@@ -1,0 +1,17 @@
+{
+  "id": 5839201,
+  "title": "Software Engineer - Payments Infrastructure",
+  "company": "Stripe",
+  "location": {
+    "name": "Remote - US"
+  },
+  "absolute_url": "https://boards.greenhouse.io/stripe/jobs/5839201",
+  "content": "Stripe build economic infrastructure for the internet. We are hiring engineers proficient in Go, Ruby, and distributed databases. Visa sponsorship provided.",
+  "updated_at": "2026-09-17T15:00:00Z",
+  "departments": [
+    { "id": 101, "name": "Engineering" }
+  ],
+  "offices": [
+    { "id": 201, "name": "Remote" }
+  ]
+}

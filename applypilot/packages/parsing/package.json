@@ -1,0 +1,15 @@
+{
+  "name": "@applypilot/parsing",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@applypilot/domain": "*",
+    "@applypilot/scoring": "*",
+    "zod": "^4.6.4"
+  }
+}

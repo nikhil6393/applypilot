@@ -1,0 +1,76 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: applypilot-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/applypilot.db
+      - LOG_FORMAT=json
+      - LOG_LEVEL=info
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - applypilot_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Enterprise Profile (PostgreSQL + Redis + Ollama) ───────────────
+  postgres:
+    profiles: ["enterprise", "full"]
+    image: postgres:16-alpine
+    container_name: applypilot-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=applypilot
+      - POSTGRES_USER=applypilot
+      - POSTGRES_PASSWORD=applypilot_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U applypilot -d applypilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    profiles: ["enterprise", "full"]
+    image: redis:7-alpine
+    container_name: applypilot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    profiles: ["ai", "full"]
+    image: ollama/ollama:latest
+    container_name: applypilot-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+volumes:
+  applypilot_data:
+  pg_data:
+  redis_data:
+  ollama_models:

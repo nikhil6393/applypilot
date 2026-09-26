@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+applypilot/node_modules/
+
+# Production build
+dist/
+applypilot/dist/
+build/
+applypilot/build/
+
+# Environment and sensitive keys
+.env*
+!.env.example
+applypilot/.env*
+!applypilot/.env.example
+
+# Local SQLite databases & logs
+*.db
+*.db-journal
+/data/
+applypilot/data/
+*.log
+npm-debug.log*
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+
+# Scraped & temporary runtime files
+applypilot/scraped_jobs.json
+applypilot/found_response.json
+applypilot/found_line.json
+applypilot/linkedin-login-debug.html
+applypilot/linkedin-login-debug.png
+applypilot/scratch/
+applypilot/test-results/
+
+# Reference & Archive folders
+ai-job-search-reference/
+archive/

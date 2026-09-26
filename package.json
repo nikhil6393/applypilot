@@ -1,0 +1,13 @@
+{
+  "name": "scrapjob-applypilot-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ApplyPilot - AI Job & Internship Automation Platform",
+  "scripts": {
+    "dev": "npm --prefix applypilot run dev",
+    "start": "npm --prefix applypilot run dev",
+    "build": "npm --prefix applypilot run build",
+    "test": "npm --prefix applypilot run test",
+    "install:all": "npm --prefix applypilot install"
+  }
+}

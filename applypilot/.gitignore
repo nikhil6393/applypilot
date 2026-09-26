@@ -1,0 +1,22 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+*.pem
+
+# Database & Runtime Data
+data/*.db
+data/*.db-journal
+scraped_jobs.json
+found_response.json
+found_line.json
+linkedin-login-debug.html
+linkedin-login-debug.png
+
+# Testing & Temp
+scratch/
+test-results/

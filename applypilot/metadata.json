@@ -1,0 +1,6 @@
+{
+  "name": "ApplyPilot",
+  "description": "Fast, resume-first job & internship auto-apply platform with LinkedIn login, live internship scraping, instant AI extraction, parallel board discovery, batch fit-scoring, bulk tailoring, and 1-click LinkedIn Easy Apply.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

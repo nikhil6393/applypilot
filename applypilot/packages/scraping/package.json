@@ -1,0 +1,14 @@
+{
+  "name": "@applypilot/scraping",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@applypilot/domain": "workspace:*",
+    "@applypilot/config": "workspace:*",
+    "cheerio": "^1.2.0",
+    "zod": "^4.6.4"
+  }
+}

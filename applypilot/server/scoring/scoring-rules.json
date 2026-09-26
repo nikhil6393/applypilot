@@ -1,0 +1,103 @@
+{
+  "version": "1.0.0",
+  "description": "ApplyPilot ATS Resume Scoring Rules — auditable, versioned, tunable config",
+
+  "categories": {
+    "formatting": {
+      "maxScore": 20,
+      "label": "ATS Layout & Contact",
+      "rules": {
+        "hasName":       { "points": 3, "condition": "name >= 2 chars" },
+        "hasEmail":      { "points": 3, "condition": "contains @" },
+        "hasPhone":      { "points": 3, "condition": "phone >= 7 digits" },
+        "hasLocation":   { "points": 2, "condition": "location >= 2 chars" },
+        "hasLinkedIn":   { "points": 3, "condition": "linkedin.com URL present" },
+        "hasPortfolio":  { "points": 2, "condition": "github.com or portfolio URL present" },
+        "hasEducation":  { "points": 2, "condition": "education section present" },
+        "hasExperience": { "points": 2, "condition": "experience or projects section present" }
+      },
+      "statusThresholds": { "excellent": 18, "good": 13 }
+    },
+    "impact": {
+      "maxScore": 25,
+      "label": "Action Verbs & Impact",
+      "scoringTiers": {
+        "verbRatioExcellent":   { "threshold": 0.75, "score": 25 },
+        "verbRatioStrong":      { "threshold": 0.55, "score": 22 },
+        "verbRatioGood":        { "threshold": 0.35, "score": 18 },
+        "verbRatioFair":        { "threshold": 0.20, "score": 14 },
+        "verbRatioMinimum":     { "threshold": 0.00, "score": 10 }
+      },
+      "fallbackTextThresholds": {
+        "excellent": { "verbCount": 6, "score": 24 },
+        "good":      { "verbCount": 4, "score": 20 },
+        "fair":      { "verbCount": 2, "score": 16 },
+        "minimum":   { "verbCount": 0, "score": 10 }
+      },
+      "statusThresholds": { "excellent": 22, "good": 16 }
+    },
+    "quantifiable": {
+      "maxScore": 25,
+      "label": "Quantifiable Metrics & ROI",
+      "scoringTiers": [
+        { "metricsCount": 6, "score": 25 },
+        { "metricsCount": 4, "score": 23 },
+        { "metricsCount": 3, "score": 20 },
+        { "metricsCount": 2, "score": 17 },
+        { "metricsCount": 1, "score": 13 },
+        { "metricsCount": 0, "score": 8 }
+      ],
+      "statusThresholds": { "excellent": 20, "good": 14 }
+    },
+    "skills": {
+      "maxScore": 20,
+      "label": "Keywords & Tech Depth",
+      "scoringTiers": [
+        { "skillsCount": 10, "score": 20 },
+        { "skillsCount":  7, "score": 18 },
+        { "skillsCount":  5, "score": 15 },
+        { "skillsCount":  3, "score": 12 },
+        { "skillsCount":  0, "score":  8 }
+      ],
+      "statusThresholds": { "excellent": 17, "good": 13 }
+    },
+    "readability": {
+      "maxScore": 10,
+      "label": "Readability & Conciseness",
+      "baseScore": 10,
+      "penalties": {
+        "perClichePoint": 1,
+        "maxClichePenalty": 4,
+        "badWordCount": { "min": 200, "max": 1200, "penalty": 3 }
+      },
+      "minimumScore": 3,
+      "statusThresholds": { "excellent": 8, "good": 6 }
+    }
+  },
+
+  "grading": {
+    "tiers": [
+      { "minScore": 92, "rating": "A+", "label": "Top 5% ATS Ready" },
+      { "minScore": 82, "rating": "A",  "label": "Strong ATS Compatibility" },
+      { "minScore": 70, "rating": "B",  "label": "Good ATS Foundation (Minor Tweaks)" },
+      { "minScore": 55, "rating": "C",  "label": "Average (Needs Polish)" },
+      { "minScore":  0, "rating": "D",  "label": "Under-Optimized" }
+    ]
+  },
+
+  "xyzFormula": {
+    "description": "Google XYZ: Accomplished [X] as measured by [Y], by doing [Z]",
+    "requirements": {
+      "hasActionVerb": true,
+      "hasMetric": true,
+      "hasContext": true,
+      "minWordCount": 10,
+      "contextWords": ["by", "using", "via", "with", "leveraging", "through", "architecting"]
+    }
+  },
+
+  "recommendedKeywordsFallback": [
+    "TypeScript", "Docker", "PostgreSQL", "System Design", "CI/CD",
+    "REST APIs", "Cloud / AWS", "Redis"
+  ]
+}

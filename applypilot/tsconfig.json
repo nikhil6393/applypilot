@@ -1,0 +1,68 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@applypilot/domain": [
+        "./packages/domain/src/index.ts"
+      ],
+      "@applypilot/config": [
+        "./packages/config/src/index.ts"
+      ],
+      "@applypilot/scraping": [
+        "./packages/scraping/src/index.ts"
+      ],
+      "@applypilot/db": [
+        "./packages/db/src/index.ts"
+      ],
+      "@applypilot/scoring": [
+        "./packages/scoring/src/index.ts"
+      ],
+      "@applypilot/ai-local": [
+        "./packages/ai-local/src/index.ts"
+      ],
+      "@applypilot/parsing": [
+        "./packages/parsing/src/index.ts"
+      ],
+      "@applypilot/security": [
+        "./packages/security/src/index.ts"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    "server.ts",
+    "server",
+    "shared",
+    "packages",
+    "scraper",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "archive",
+    "backups",
+    "**/backups/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/tests/**",
+    "**/vitest.config.ts"
+  ]
+}

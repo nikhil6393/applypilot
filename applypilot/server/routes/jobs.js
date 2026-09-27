@@ -604,7 +604,7 @@ Return strictly a JSON object with:
 - "applyUrl": direct application URL or the target URL`;
         let parsedJob = null;
         try {
-            const aiRes = await bestEffortComplete(prompt, { maxTokens: 500, temperature: 0.1 });
+            const aiRes = await bestEffortComplete(prompt, { maxTokens: 500, temperature: 0.1, signal: req.signal });
             if (aiRes?.text) {
                 const cleanJson = aiRes.text
                     .trim()

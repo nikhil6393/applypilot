@@ -171,6 +171,7 @@ Experience:\n${experienceSummary}`;
                 system: systemPrompt,
                 maxTokens: 250,
                 temperature: 0.3,
+                signal: req.signal,
             });
             aiText = result.text;
         }

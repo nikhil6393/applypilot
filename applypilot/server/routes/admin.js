@@ -743,6 +743,7 @@ adminRouter.post('/test/ai', async (req, res) => {
             maxTokens: 500,
             temperature: 0.2,
             system: sys,
+            signal: req.signal,
         });
         const durationMs = Date.now() - startTime;
         res.json({

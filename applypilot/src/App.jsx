@@ -21,6 +21,8 @@ import { KineticAuroraBackground } from './components/3d/KineticAuroraBackground
 import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useAppStore } from './store/appStore';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { NetworkStatusBanner } from './components/NetworkStatusBanner';
 
 const createEmptyResume = (currentUser) => ({
     name: currentUser?.name || '',
@@ -243,6 +245,8 @@ function MainApp() {
     return (<>
       <div className="fixed inset-0 -z-40 transition-colors duration-300 bg-[#F1F3F9]"/>
       <KineticAuroraBackground />
+      {/* Global network status banner — works across all screens */}
+      <NetworkStatusBanner />
 
       <div className="min-h-screen flex flex-col font-sans relative transition-colors duration-300 text-slate-900">
         <LoadingTransition isLoading={isTransitioning} targetStepTitle="ApplyPilot Workspace"/>
@@ -252,74 +256,76 @@ function MainApp() {
 
         {/* Main Workspace Canvas */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-8 relative">
-          <AnimatePresence mode="wait">
-            {/* Screen 1: Landing */}
-            {clientScreen === 'landing' && (<motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <LandingPage onLaunchApp={() => setClientScreen('discovery')}/>
-              </motion.div>)}
+          <ErrorBoundary onNavigateHome={() => setClientScreen('analytics')}>
+            <AnimatePresence mode="wait">
+              {/* Screen 1: Landing */}
+              {clientScreen === 'landing' && (<motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <LandingPage onLaunchApp={() => setClientScreen('discovery')}/>
+                </motion.div>)}
 
-            {/* Screen 2: Dashboard */}
-            {clientScreen === 'analytics' && (<motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <AnalyticsDashboard resume={resume} discoveredJobs={discoveredJobs} fitResults={fitResults} tailoredDocs={tailoredDocs} onNavigateToStep={(step) => setClientScreen(step)}/>
-              </motion.div>)}
+              {/* Screen 2: Dashboard */}
+              {clientScreen === 'analytics' && (<motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <AnalyticsDashboard resume={resume} discoveredJobs={discoveredJobs} fitResults={fitResults} tailoredDocs={tailoredDocs} onNavigateToStep={(step) => setClientScreen(step)}/>
+                </motion.div>)}
 
-            {/* Screen 3: Job Discovery Feed */}
-            {clientScreen === 'discovery' && resume && (<motion.div key="discovery" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <DiscoveryStep resume={resume} discoveredJobs={discoveredJobs} onJobsDiscovered={setDiscoveredJobs} onProceedToScoring={handleProceedToScoring} onSelectJobForDetail={(job) => {
-                setSelectedJob(job);
-                setClientScreen('job_detail');
-            }} onSelectJobForTailoring={(job) => {
-                setSelectedJobsForTailoring([job]);
-                setClientScreen('tailor');
-            }}/>
-              </motion.div>)}
+              {/* Screen 3: Job Discovery Feed */}
+              {clientScreen === 'discovery' && resume && (<motion.div key="discovery" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <DiscoveryStep resume={resume} discoveredJobs={discoveredJobs} onJobsDiscovered={setDiscoveredJobs} onProceedToScoring={handleProceedToScoring} onSelectJobForDetail={(job) => {
+                  setSelectedJob(job);
+                  setClientScreen('job_detail');
+              }} onSelectJobForTailoring={(job) => {
+                  setSelectedJobsForTailoring([job]);
+                  setClientScreen('tailor');
+              }}/>
+                </motion.div>)}
 
-            {/* Screen 4: Job Detail Split-Pane */}
-            {clientScreen === 'job_detail' && (<motion.div key="job_detail" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <JobDetailSplitPane jobs={discoveredJobs} selectedJob={selectedJob} resume={resume} onSelectJob={(j) => setSelectedJob(j)} onTailorJob={(j) => {
-                setSelectedJobsForTailoring([j]);
-                setClientScreen('tailor');
-            }} onBackToFeed={() => setClientScreen('discovery')}/>
-              </motion.div>)}
+              {/* Screen 4: Job Detail Split-Pane */}
+              {clientScreen === 'job_detail' && (<motion.div key="job_detail" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <JobDetailSplitPane jobs={discoveredJobs} selectedJob={selectedJob} resume={resume} onSelectJob={(j) => setSelectedJob(j)} onTailorJob={(j) => {
+                  setSelectedJobsForTailoring([j]);
+                  setClientScreen('tailor');
+              }} onBackToFeed={() => setClientScreen('discovery')}/>
+                </motion.div>)}
 
-            {/* Screen 5: Resume Studio */}
-            {clientScreen === 'resume' && (<motion.div key="resume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ResumeStep resume={resume} onUpdateResume={handleUpdateResume} onConfirmAndDiscover={handleConfirmAndDiscover} linkedInProfile={linkedInProfile} onOpenLinkedInModal={() => setIsLinkedInModalOpen(true)}/>
-              </motion.div>)}
+              {/* Screen 5: Resume Studio */}
+              {clientScreen === 'resume' && (<motion.div key="resume" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <ResumeStep resume={resume} onUpdateResume={handleUpdateResume} onConfirmAndDiscover={handleConfirmAndDiscover} linkedInProfile={linkedInProfile} onOpenLinkedInModal={() => setIsLinkedInModalOpen(true)}/>
+                </motion.div>)}
 
-            {/* Screen 6: Fit Scoring Matrix */}
-            {clientScreen === 'scoring' && resume && (<motion.div key="scoring" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ScoringStep resume={resume} jobs={discoveredJobs} fitResults={fitResults} onUpdateFitResults={setFitResults} onProceedToTailoring={handleProceedToTailoring}/>
-              </motion.div>)}
+              {/* Screen 6: Fit Scoring Matrix */}
+              {clientScreen === 'scoring' && resume && (<motion.div key="scoring" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <ScoringStep resume={resume} jobs={discoveredJobs} fitResults={fitResults} onUpdateFitResults={setFitResults} onProceedToTailoring={handleProceedToTailoring}/>
+                </motion.div>)}
 
-            {/* Screen 7: Tailoring Suite */}
-            {clientScreen === 'tailor' && resume && (<motion.div key="tailor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <TailorStep resume={resume} selectedJobs={selectedJobsForTailoring.length > 0
-                ? selectedJobsForTailoring
-                : discoveredJobs.slice(0, 10)} tailoredDocs={tailoredDocs} onUpdateTailoredDocs={setTailoredDocs}/>
-              </motion.div>)}
+              {/* Screen 7: Tailoring Suite */}
+              {clientScreen === 'tailor' && resume && (<motion.div key="tailor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <TailorStep resume={resume} selectedJobs={selectedJobsForTailoring.length > 0
+                  ? selectedJobsForTailoring
+                  : discoveredJobs.slice(0, 10)} tailoredDocs={tailoredDocs} onUpdateTailoredDocs={setTailoredDocs}/>
+                </motion.div>)}
 
-            {/* Screen 8: Saved Jobs */}
-            {clientScreen === 'saved_jobs' && (<motion.div key="saved_jobs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <SavedJobsScreen jobs={discoveredJobs} onSelectJobForDetail={(j) => {
-                setSelectedJob(j);
-                setClientScreen('job_detail');
-            }} onSelectJobForTailoring={(j) => {
-                setSelectedJobsForTailoring([j]);
-                setClientScreen('tailor');
-            }}/>
-              </motion.div>)}
+              {/* Screen 8: Saved Jobs */}
+              {clientScreen === 'saved_jobs' && (<motion.div key="saved_jobs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <SavedJobsScreen jobs={discoveredJobs} onSelectJobForDetail={(j) => {
+                  setSelectedJob(j);
+                  setClientScreen('job_detail');
+              }} onSelectJobForTailoring={(j) => {
+                  setSelectedJobsForTailoring([j]);
+                  setClientScreen('tailor');
+              }}/>
+                </motion.div>)}
 
-            {/* Screen 9: Profile & Guardrail Settings */}
-            {clientScreen === 'profile_settings' && (<motion.div key="profile_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ProfileSettingsScreen resume={resume} onUpdateResume={handleUpdateResume} settings={settings} onUpdateSettings={handleUpdateSettings}/>
-              </motion.div>)}
+              {/* Screen 9: Profile & Guardrail Settings */}
+              {clientScreen === 'profile_settings' && (<motion.div key="profile_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <ProfileSettingsScreen resume={resume} onUpdateResume={handleUpdateResume} settings={settings} onUpdateSettings={handleUpdateSettings}/>
+                </motion.div>)}
 
-            {/* Screen 10: Scraper Status Panel */}
-            {clientScreen === 'scraper_status' && (<motion.div key="scraper_status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ScraperStatusPanel />
-              </motion.div>)}
-          </AnimatePresence>
+              {/* Screen 10: Scraper Status Panel */}
+              {clientScreen === 'scraper_status' && (<motion.div key="scraper_status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <ScraperStatusPanel />
+                </motion.div>)}
+            </AnimatePresence>
+          </ErrorBoundary>
         </main>
 
         {/* Global Overlays & Modals */}

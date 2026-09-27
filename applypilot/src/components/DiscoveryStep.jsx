@@ -1228,43 +1228,162 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                   !job.salary.toLowerCase().includes('competitive') && 
                   !job.salary.toLowerCase().includes('market')
                 );
+
+                // Rotating vibrant color palettes — each card gets its own identity
+                const palettes = [
+                  {
+                    // Violet / Purple
+                    bg: 'from-[#1a0533]/90 via-[#2d0a4e]/80 to-[#1e0b3a]/90',
+                    border: 'border-purple-500/40 hover:border-purple-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(139,92,246,0.45),0_8px_20px_-4px_rgba(139,92,246,0.2)]',
+                    bar: 'from-purple-400 via-violet-500 to-fuchsia-500',
+                    radial: 'from-purple-600/25 via-violet-500/15',
+                    companyBg: 'bg-purple-950/60 border-purple-500/30',
+                    title: 'group-hover:text-purple-300',
+                    skillBg: 'bg-purple-900/50 border-purple-500/40 text-purple-200 hover:bg-purple-800/60',
+                    applyBtn: 'from-purple-600 via-violet-600 to-purple-700 hover:from-purple-500 hover:via-violet-500 hover:to-purple-600 shadow-purple-900/50',
+                    tailorBtn: 'bg-purple-900/60 hover:bg-purple-700 text-purple-300 hover:text-white border-purple-500/50',
+                    footer: 'border-purple-800/40',
+                    desc: 'text-purple-200/70',
+                    loc: 'text-purple-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-purple-900/50 border-purple-600/30 text-purple-300/80',
+                  },
+                  {
+                    // Ocean Blue / Cyan
+                    bg: 'from-[#021726]/90 via-[#052d4a]/80 to-[#031e30]/90',
+                    border: 'border-cyan-500/40 hover:border-cyan-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(6,182,212,0.45),0_8px_20px_-4px_rgba(6,182,212,0.2)]',
+                    bar: 'from-cyan-400 via-sky-500 to-blue-500',
+                    radial: 'from-cyan-500/25 via-sky-500/15',
+                    companyBg: 'bg-cyan-950/60 border-cyan-500/30',
+                    title: 'group-hover:text-cyan-300',
+                    skillBg: 'bg-cyan-900/50 border-cyan-500/40 text-cyan-200 hover:bg-cyan-800/60',
+                    applyBtn: 'from-cyan-600 via-sky-600 to-blue-700 hover:from-cyan-500 hover:via-sky-500 hover:to-blue-600 shadow-cyan-900/50',
+                    tailorBtn: 'bg-cyan-900/60 hover:bg-cyan-700 text-cyan-300 hover:text-white border-cyan-500/50',
+                    footer: 'border-cyan-800/40',
+                    desc: 'text-cyan-200/70',
+                    loc: 'text-cyan-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-cyan-900/50 border-cyan-600/30 text-cyan-300/80',
+                  },
+                  {
+                    // Emerald / Green
+                    bg: 'from-[#011a0f]/90 via-[#04321d]/80 to-[#021b10]/90',
+                    border: 'border-emerald-500/40 hover:border-emerald-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(16,185,129,0.45),0_8px_20px_-4px_rgba(16,185,129,0.2)]',
+                    bar: 'from-emerald-400 via-teal-500 to-green-500',
+                    radial: 'from-emerald-500/25 via-teal-500/15',
+                    companyBg: 'bg-emerald-950/60 border-emerald-500/30',
+                    title: 'group-hover:text-emerald-300',
+                    skillBg: 'bg-emerald-900/50 border-emerald-500/40 text-emerald-200 hover:bg-emerald-800/60',
+                    applyBtn: 'from-emerald-600 via-teal-600 to-green-700 hover:from-emerald-500 hover:via-teal-500 hover:to-green-600 shadow-emerald-900/50',
+                    tailorBtn: 'bg-emerald-900/60 hover:bg-emerald-700 text-emerald-300 hover:text-white border-emerald-500/50',
+                    footer: 'border-emerald-800/40',
+                    desc: 'text-emerald-200/70',
+                    loc: 'text-emerald-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-emerald-900/50 border-emerald-600/30 text-emerald-300/80',
+                  },
+                  {
+                    // Rose / Pink
+                    bg: 'from-[#200612]/90 via-[#3d0d1f]/80 to-[#200511]/90',
+                    border: 'border-rose-500/40 hover:border-rose-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(244,63,94,0.45),0_8px_20px_-4px_rgba(244,63,94,0.2)]',
+                    bar: 'from-rose-400 via-pink-500 to-fuchsia-500',
+                    radial: 'from-rose-500/25 via-pink-500/15',
+                    companyBg: 'bg-rose-950/60 border-rose-500/30',
+                    title: 'group-hover:text-rose-300',
+                    skillBg: 'bg-rose-900/50 border-rose-500/40 text-rose-200 hover:bg-rose-800/60',
+                    applyBtn: 'from-rose-600 via-pink-600 to-fuchsia-700 hover:from-rose-500 hover:via-pink-500 hover:to-fuchsia-600 shadow-rose-900/50',
+                    tailorBtn: 'bg-rose-900/60 hover:bg-rose-700 text-rose-300 hover:text-white border-rose-500/50',
+                    footer: 'border-rose-800/40',
+                    desc: 'text-rose-200/70',
+                    loc: 'text-rose-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-rose-900/50 border-rose-600/30 text-rose-300/80',
+                  },
+                  {
+                    // Amber / Orange
+                    bg: 'from-[#1a0d00]/90 via-[#341900]/80 to-[#1a0d00]/90',
+                    border: 'border-amber-500/40 hover:border-amber-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(245,158,11,0.45),0_8px_20px_-4px_rgba(245,158,11,0.2)]',
+                    bar: 'from-amber-400 via-orange-500 to-red-500',
+                    radial: 'from-amber-500/25 via-orange-500/15',
+                    companyBg: 'bg-amber-950/60 border-amber-500/30',
+                    title: 'group-hover:text-amber-300',
+                    skillBg: 'bg-amber-900/50 border-amber-500/40 text-amber-200 hover:bg-amber-800/60',
+                    applyBtn: 'from-amber-600 via-orange-600 to-red-700 hover:from-amber-500 hover:via-orange-500 hover:to-red-600 shadow-amber-900/50',
+                    tailorBtn: 'bg-amber-900/60 hover:bg-amber-700 text-amber-300 hover:text-white border-amber-500/50',
+                    footer: 'border-amber-800/40',
+                    desc: 'text-amber-200/70',
+                    loc: 'text-amber-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-amber-900/50 border-amber-600/30 text-amber-300/80',
+                  },
+                  {
+                    // Indigo / Blue
+                    bg: 'from-[#07091f]/90 via-[#0f1440]/80 to-[#07091f]/90',
+                    border: 'border-indigo-500/40 hover:border-indigo-400/80',
+                    glow: 'hover:shadow-[0_20px_50px_-8px_rgba(99,102,241,0.45),0_8px_20px_-4px_rgba(99,102,241,0.2)]',
+                    bar: 'from-indigo-400 via-blue-500 to-sky-400',
+                    radial: 'from-indigo-500/25 via-blue-500/15',
+                    companyBg: 'bg-indigo-950/60 border-indigo-500/30',
+                    title: 'group-hover:text-indigo-300',
+                    skillBg: 'bg-indigo-900/50 border-indigo-500/40 text-indigo-200 hover:bg-indigo-800/60',
+                    applyBtn: 'from-indigo-600 via-blue-600 to-sky-700 hover:from-indigo-500 hover:via-blue-500 hover:to-sky-600 shadow-indigo-900/50',
+                    tailorBtn: 'bg-indigo-900/60 hover:bg-indigo-700 text-indigo-300 hover:text-white border-indigo-500/50',
+                    footer: 'border-indigo-800/40',
+                    desc: 'text-indigo-200/70',
+                    loc: 'text-indigo-300/60',
+                    salary: 'bg-emerald-900/60 border-emerald-500/40 text-emerald-300',
+                    direct: 'bg-indigo-900/50 border-indigo-600/30 text-indigo-300/80',
+                  },
+                ];
+                const p = palettes[index % palettes.length];
+
                 return (
                   <motion.div
                     key={job.id}
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.28, delay: Math.min(index * 0.025, 0.25) }}
-                    whileHover={{ y: -4, scale: 1.008, transition: { type: 'spring', stiffness: 350, damping: 25 } }}
-                    whileTap={{ scale: 0.995 }}
+                    initial={{ opacity: 0, y: 18, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.32, delay: Math.min(index * 0.04, 0.3), ease: [0.25, 0.46, 0.45, 0.94] }}
+                    whileHover={{ y: -5, scale: 1.012, transition: { type: 'spring', stiffness: 320, damping: 22 } }}
+                    whileTap={{ scale: 0.992 }}
                     onClick={() => {
                         setSelectedDrawerJob(job);
                         if (onSelectJobForDetail)
                             onSelectJobForDetail(job);
                     }}
-                    className="relative p-4 rounded-2xl bg-gradient-to-br from-white via-slate-50/60 to-blue-50/25 border border-slate-200/90 hover:border-blue-400/70 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_35px_-8px_rgba(59,130,246,0.16),0_8px_16px_-4px_rgba(59,130,246,0.06)] backdrop-blur-sm transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3 group overflow-hidden"
+                    className={`relative p-4 rounded-2xl bg-gradient-to-br ${p.bg} border ${p.border} ${p.glow} shadow-[0_4px_24px_-4px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-3 group overflow-hidden`}
                   >
-                    {/* Top ambient interactive light beam on hover */}
-                    <div className="absolute top-0 inset-x-0 h-[2.5px] bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left" />
+                    {/* Animated gradient top border bar */}
+                    <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r ${p.bar} scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`} />
 
-                    {/* Corner ambient radial glow on hover */}
-                    <div className="absolute -top-16 -right-16 w-36 h-36 bg-gradient-to-br from-blue-500/10 via-indigo-500/10 to-transparent rounded-full blur-2xl group-hover:scale-150 group-hover:opacity-100 opacity-20 transition-all duration-700 pointer-events-none" />
+                    {/* Ambient radial glow in top-right corner */}
+                    <div className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br ${p.radial} to-transparent rounded-full blur-2xl opacity-30 group-hover:opacity-70 group-hover:scale-125 transition-all duration-700 pointer-events-none`} />
 
-                    <div>
+                    {/* Subtle noise/grid texture overlay */}
+                    <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                      style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '20px 20px' }}
+                    />
+
+                    <div className="relative z-10">
                       {/* Top Row: Company & Source Badges */}
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <motion.div 
-                            whileHover={{ scale: 1.08, rotate: 2 }} 
-                            className="p-1.5 rounded-xl bg-white shadow-2xs border border-slate-200/80 group-hover:border-blue-300 group-hover:shadow-md group-hover:shadow-blue-500/10 transition-all duration-300 shrink-0"
+                          <motion.div
+                            whileHover={{ scale: 1.1, rotate: 3 }}
+                            className={`p-1.5 rounded-xl ${p.companyBg} border shadow-lg shrink-0 transition-all duration-300`}
                           >
-                            <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={30}/>
+                            <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={28}/>
                           </motion.div>
                           <div className="min-w-0">
-                            <h4 className="text-xs font-bold text-slate-800 tracking-tight truncate group-hover:text-blue-600 transition-colors">
+                            <h4 className={`text-xs font-bold text-white/90 tracking-tight truncate transition-colors ${p.title}`}>
                               {job.company}
                             </h4>
-                            <div className="text-[10px] text-slate-500 flex items-center gap-1 font-medium truncate mt-0.5">
-                              <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0"/>
+                            <div className={`text-[10px] flex items-center gap-1 font-medium truncate mt-0.5 ${p.loc}`}>
+                              <MapPin className="w-2.5 h-2.5 shrink-0 opacity-70"/>
                               <span className="truncate">{job.location || 'Remote / Worldwide'}</span>
                             </div>
                           </div>
@@ -1272,16 +1391,16 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
 
                         <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                           {job.isLive ? (
-                            <span className="inline-flex items-center gap-1.5 text-[9px] font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-300/80 px-2 py-0.5 rounded-full shadow-2xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-bold text-emerald-300 bg-emerald-900/70 border border-emerald-500/50 px-2 py-0.5 rounded-full shadow-sm shadow-emerald-900/50">
                               <span className="relative flex h-1.5 w-1.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                               </span>
                               Live Role
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 px-2 py-0.5 rounded-full">
-                              <Briefcase className="w-2.5 h-2.5 text-indigo-500" />
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-300 bg-indigo-900/60 border border-indigo-500/40 px-2 py-0.5 rounded-full">
+                              <Briefcase className="w-2.5 h-2.5" />
                               Verified
                             </span>
                           )}
@@ -1294,35 +1413,35 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                               e.stopPropagation();
                               toggleBookmark(job.id);
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 active:scale-90 transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg text-white/30 hover:text-amber-400 hover:bg-amber-400/15 active:scale-90 transition-all cursor-pointer"
                             title={isSaved ? 'Remove from saved' : 'Save position'}
                           >
-                            {isSaved ? (<BookmarkCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-500"/>) : (<Bookmark className="w-3.5 h-3.5"/>)}
+                            {isSaved ? (<BookmarkCheck className="w-3.5 h-3.5 text-amber-400 fill-amber-400"/>) : (<Bookmark className="w-3.5 h-3.5"/>)}
                           </motion.button>
                         </div>
                       </div>
 
-                      {/* Job Title with hover arrow motion */}
-                      <div className="flex items-start justify-between gap-1 group/title">
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                      {/* Job Title */}
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className={`text-xs sm:text-sm font-bold text-white transition-colors line-clamp-1 ${p.title}`}>
                           {job.title}
                         </h3>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-blue-500 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-300 shrink-0" />
+                        <ArrowUpRight className="w-3.5 h-3.5 text-white/30 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-300 shrink-0" />
                       </div>
 
                       {/* Description preview */}
-                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug">
+                      <p className={`text-[11px] line-clamp-2 mt-1 leading-snug ${p.desc}`}>
                         {job.description || 'Verified engineering requisition available on official company career board.'}
                       </p>
 
-                      {/* Tech Skills Chips with micro-motion */}
+                      {/* Tech Skills Chips */}
                       {skillsToShow.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {skillsToShow.map((skill, idx) => (
-                            <motion.span 
-                              key={idx} 
-                              whileHover={{ y: -1, scale: 1.05 }}
-                              className="px-2 py-0.5 rounded-md bg-white/90 group-hover:bg-blue-50/70 text-slate-600 group-hover:text-blue-700 text-[9.5px] font-medium border border-slate-200/70 group-hover:border-blue-200/80 transition-all shadow-2xs"
+                            <motion.span
+                              key={idx}
+                              whileHover={{ y: -1.5, scale: 1.07 }}
+                              className={`px-2 py-0.5 rounded-md text-[9.5px] font-semibold border transition-all shadow-sm cursor-default ${p.skillBg}`}
                             >
                               {skill}
                             </motion.span>
@@ -1331,17 +1450,17 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                       )}
                     </div>
 
-                    {/* Bottom Action Footer (Clean: No competitive market pay line!) */}
-                    <div className="pt-2.5 border-t border-slate-100/90 flex items-center justify-between gap-2 text-xs">
+                    {/* Bottom Action Footer */}
+                    <div className={`relative z-10 pt-2.5 border-t ${p.footer} flex items-center justify-between gap-2 text-xs`}>
                       <div>
                         {hasExplicitSalary ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-200 px-2 py-0.5 rounded-lg shadow-2xs">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold border px-2 py-0.5 rounded-lg shadow-sm ${p.salary}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                             {job.salary}
                           </span>
                         ) : (
-                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 bg-slate-100/70 border border-slate-200/50 px-2 py-0.5 rounded-lg">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500/70" />
+                          <div className={`flex items-center gap-1.5 text-[10px] font-medium border px-2 py-0.5 rounded-lg ${p.direct}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
                             <span>Direct Application</span>
                           </div>
                         )}
@@ -1350,26 +1469,26 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {onSelectJobForTailoring && (
                           <motion.button
-                            whileHover={{ scale: 1.04 }}
+                            whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onSelectJobForTailoring(job)}
-                            className="px-2.5 py-1 rounded-lg bg-blue-50/90 hover:bg-blue-600 text-blue-700 hover:text-white font-semibold text-[10.5px] border border-blue-200/80 hover:border-transparent transition-all shadow-2xs hover:shadow-md hover:shadow-blue-500/25 flex items-center gap-1 cursor-pointer"
+                            className={`px-2.5 py-1 rounded-lg font-semibold text-[10.5px] border transition-all flex items-center gap-1 cursor-pointer ${p.tailorBtn}`}
                           >
                             <Sparkles className="w-2.5 h-2.5" />
-                            <span>Tailor Resume</span>
+                            <span>Tailor</span>
                           </motion.button>
                         )}
 
                         <motion.a
-                          whileHover={{ scale: 1.04 }}
+                          whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           href={targetApplyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-1 rounded-lg bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-blue-600 hover:via-indigo-600 hover:to-blue-600 text-white font-semibold text-[10.5px] flex items-center gap-1 transition-all shadow-xs hover:shadow-lg hover:shadow-blue-600/30 cursor-pointer"
+                          className={`px-3 py-1 rounded-lg bg-gradient-to-r ${p.applyBtn} text-white font-bold text-[10.5px] flex items-center gap-1 transition-all shadow-md cursor-pointer`}
                         >
                           <span>Apply</span>
-                          <ExternalLink className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform"/>
+                          <ExternalLink className="w-2.5 h-2.5"/>
                         </motion.a>
                       </div>
                     </div>
@@ -1377,6 +1496,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                 );
             })}
           </div>)}
+
       </div>
 
       {/* Slide-Over Detail Drawer */}

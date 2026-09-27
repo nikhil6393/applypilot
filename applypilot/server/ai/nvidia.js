@@ -24,8 +24,13 @@ export class NvidiaProvider {
     async chat(messages, opts = {}) {
         if (!this.isConfigured())
             return null;
+        if (opts.signal?.aborted)
+            return null;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
+        if (opts.signal) {
+            opts.signal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
         try {
             const res = await fetch(NVIDIA_BASE, {
                 method: 'POST',

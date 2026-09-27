@@ -209,3 +209,15 @@ function rowToJob(r) {
         raw,
     };
 }
+
+export function pruneExpiredJobs(daysOld = 60) {
+    try {
+        const db = getDb();
+        const cutoff = new Date(Date.now() - daysOld * 24 * 3600 * 1000).toISOString();
+        const res = db.prepare('DELETE FROM jobs WHERE posted_at < ? AND id NOT IN (SELECT job_id FROM application_records)').run(cutoff);
+        return { prunedCount: res.changes };
+    } catch (err) {
+        console.warn('[jobs] Pruning error:', err.message);
+        return { prunedCount: 0 };
+    }
+}

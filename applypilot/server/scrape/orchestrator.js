@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { upsertJob, upsertJobsBatch } from '../store/jobs.js';
+import { upsertJob, upsertJobsBatch, pruneExpiredJobs } from '../store/jobs.js';
 import { linkedinRealtime } from './linkedin-realtime.js';
 import { naukriAdvanced } from './naukri-advanced.js';
 import { greenhouse } from './greenhouse.js';
@@ -74,6 +74,10 @@ class ScrapeOrchestrator extends EventEmitter {
             clearInterval(this.timer);
             this.timer = null;
         }
+        // Auto-prune stale jobs (>60 days) to prevent disk exhaustion
+        try {
+            pruneExpiredJobs(60);
+        } catch {}
         // Schedule periodic background scraper
         this.timer = setInterval(() => {
             this.scrapeOnce({})

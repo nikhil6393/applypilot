@@ -25,8 +25,13 @@ export class OpenRouterProvider {
     async chat(messages, opts = {}) {
         if (!this.isConfigured())
             return null;
+        if (opts.signal?.aborted)
+            return null;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        if (opts.signal) {
+            opts.signal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
         try {
             const res = await fetch(OPENROUTER_BASE, {
                 method: 'POST',

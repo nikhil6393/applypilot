@@ -66,11 +66,66 @@ export function upsertJob(job) {
         salaryMin: job.salaryMin ?? null,
         salaryMax: job.salaryMax ?? null,
         salaryCurrency: job.salaryCurrency ?? null,
-        skills: JSON.stringify(job.skills),
+        skills: JSON.stringify(job.skills || []),
         hash,
         raw: job.raw ? JSON.stringify(job.raw) : null,
     });
     return { inserted: !existed && res.changes >= 1 };
+}
+
+export function upsertJobsBatch(jobs) {
+    if (!Array.isArray(jobs) || jobs.length === 0) return { insertedCount: 0, total: 0 };
+    const db = getDb();
+    const checkStmt = db.prepare('SELECT 1 AS x FROM jobs WHERE hash = ?');
+    const insertStmt = db.prepare(`
+    INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, raw)
+    VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @raw)
+    ON CONFLICT(hash) DO UPDATE SET
+      title=excluded.title,
+      description=excluded.description,
+      skills=excluded.skills,
+      salary_min=COALESCE(excluded.salary_min, jobs.salary_min),
+      salary_max=COALESCE(excluded.salary_max, jobs.salary_max)
+  `);
+
+    let insertedCount = 0;
+    const runBatch = db.transaction((items) => {
+        for (const job of items) {
+            try {
+                const hash = jobHash(job);
+                const existed = checkStmt.get(hash);
+                const res = insertStmt.run({
+                    id: job.id,
+                    title: job.title,
+                    company: job.company,
+                    source: job.source,
+                    url: job.url,
+                    applyUrl: job.applyUrl,
+                    location: job.location,
+                    remote: job.remote ? 1 : 0,
+                    description: job.description,
+                    descriptionHtml: job.descriptionHtml ?? null,
+                    postedAt: job.postedAt,
+                    fetchedAt: job.fetchedAt,
+                    employmentType: job.employmentType,
+                    salaryMin: job.salaryMin ?? null,
+                    salaryMax: job.salaryMax ?? null,
+                    salaryCurrency: job.salaryCurrency ?? null,
+                    skills: JSON.stringify(job.skills || []),
+                    hash,
+                    raw: job.raw ? JSON.stringify(job.raw) : null,
+                });
+                if (!existed && res.changes >= 1) {
+                    insertedCount++;
+                }
+            } catch (err) {
+                console.warn('[jobs] item upsert error in batch:', err.message);
+            }
+        }
+    });
+
+    runBatch(jobs);
+    return { insertedCount, total: jobs.length };
 }
 export function listJobs(opts = {}) {
     const db = getDb();

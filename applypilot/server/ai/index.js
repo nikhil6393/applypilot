@@ -2,7 +2,20 @@ import { HeuristicProvider } from './heuristic.js';
 import { NvidiaProvider } from './nvidia.js';
 import { OpenRouterProvider } from './openrouter.js';
 import { config } from '../config.js';
-import { defaultLocalAI } from '@applypilot/ai-local';
+let defaultLocalAI = {
+    checkHealth: async () => ({ provider: 'none', available: false }),
+    complete: async () => '',
+    chat: async () => null,
+};
+try {
+    const aiLocalPkg = await import('@applypilot/ai-local');
+    if (aiLocalPkg?.defaultLocalAI) {
+        defaultLocalAI = aiLocalPkg.defaultLocalAI;
+    }
+} catch {
+    // Cascades cleanly to OpenRouter / NVIDIA / Heuristic
+}
+
 export class LocalOllamaProvider {
     name = 'ollama';
     get available() {

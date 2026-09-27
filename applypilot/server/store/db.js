@@ -6,9 +6,14 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 const DATA_DIR = path.join(process.cwd(), 'data');
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+} catch (e) {
+    console.warn('[DB] Could not ensure data directory:', e.message);
 }
+
 let _db = null;
 let _currentDbPath = null;
 export function getDb() {
@@ -23,6 +28,8 @@ export function getDb() {
         _db = new Database(dbPath);
         _currentDbPath = dbPath;
         _db.pragma('journal_mode = WAL');
+        _db.pragma('synchronous = NORMAL');
+        _db.pragma('busy_timeout = 5000');
         _db.pragma('foreign_keys = ON');
         migrate(_db);
     }

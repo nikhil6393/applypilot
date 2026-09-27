@@ -127,15 +127,20 @@ jobsRouter.post('/verify-url', async (req, res) => {
     }
 });
 jobsRouter.get('/', (req, res) => {
-    const source = req.query.source || undefined;
-    const query = req.query.query || undefined;
-    const remoteOnly = req.query.remoteOnly === '1' || req.query.remoteOnly === 'true';
-    const postedWithinHours = req.query.postedWithinHours
-        ? Number(req.query.postedWithinHours)
-        : undefined;
-    const limit = req.query.limit ? Math.min(500, Number(req.query.limit)) : 100;
-    const items = listJobs({ source, query, remoteOnly, postedWithinHours, limit });
-    res.json({ items, count: items.length });
+    try {
+        const source = req.query.source || undefined;
+        const query = req.query.query || undefined;
+        const remoteOnly = req.query.remoteOnly === '1' || req.query.remoteOnly === 'true';
+        const postedWithinHours = req.query.postedWithinHours
+            ? Number(req.query.postedWithinHours)
+            : undefined;
+        const limit = req.query.limit ? Math.min(500, Number(req.query.limit)) : 100;
+        const items = listJobs({ source, query, remoteOnly, postedWithinHours, limit });
+        res.json({ items: items || [], count: (items || []).length });
+    } catch (err) {
+        console.error('[jobs] Error listing jobs from store:', err.message);
+        res.status(500).json({ error: 'Failed to retrieve jobs', items: [], count: 0 });
+    }
 });
 // ── 1. Direct Real-Time Naukri Scraper ─────────────────────────────────────
 jobsRouter.post('/scrape-naukri', async (req, res) => {

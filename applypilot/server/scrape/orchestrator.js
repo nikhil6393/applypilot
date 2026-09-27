@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { upsertJob } from '../store/jobs.js';
+import { upsertJob, upsertJobsBatch } from '../store/jobs.js';
 import { linkedinRealtime } from './linkedin-realtime.js';
 import { naukriAdvanced } from './naukri-advanced.js';
 import { greenhouse } from './greenhouse.js';
@@ -150,16 +150,20 @@ class ScrapeOrchestrator extends EventEmitter {
                 }
                 const matchingJobs = filterJobsForRequest(jobs, req);
                 stat.found = matchingJobs.length;
-                for (const j of matchingJobs) {
-                    if (!j.id)
-                        j.id = randomUUID();
-                    if (!j.fetchedAt)
-                        j.fetchedAt = new Date().toISOString();
-                    const r = upsertJob(j);
-                    if (r.inserted) {
-                        stat.new += 1;
-                        this.totalDiscovered++;
-                        this.emit('new', j);
+                if (matchingJobs.length > 0) {
+                    for (const j of matchingJobs) {
+                        if (!j.id)
+                            j.id = randomUUID();
+                        if (!j.fetchedAt)
+                            j.fetchedAt = new Date().toISOString();
+                    }
+                    const batchResult = upsertJobsBatch(matchingJobs);
+                    stat.new = batchResult.insertedCount;
+                    this.totalDiscovered += batchResult.insertedCount;
+                    if (batchResult.insertedCount > 0) {
+                        for (const j of matchingJobs) {
+                            this.emit('new', j);
+                        }
                     }
                 }
             }

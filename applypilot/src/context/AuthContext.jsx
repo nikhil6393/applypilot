@@ -66,6 +66,17 @@ export const AuthProvider = ({ children }) => {
             }
         };
         verifySession();
+
+        const handleAuthExpired = () => {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem('applypilot_user');
+            localStorage.removeItem('applypilot_token');
+            setIsAuthModalOpen(true);
+            setAuthModalTab('login');
+        };
+        window.addEventListener('applypilot:auth-expired', handleAuthExpired);
+        return () => window.removeEventListener('applypilot:auth-expired', handleAuthExpired);
     }, []);
     // Sync token and user to localStorage
     useEffect(() => {

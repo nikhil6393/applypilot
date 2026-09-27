@@ -76,6 +76,9 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                 : (selectedSourceFilter !== 'all' && selectedSourceFilter !== 'bookmarked' ? selectedSourceFilter : '');
             const sourceParam = effectiveSource ? `&source=${encodeURIComponent(effectiveSource)}` : '';
             const res = await fetch(`/api/jobs?query=${encodeURIComponent(queryRole)}${sourceParam}&limit=80`);
+            if (!res.ok) {
+                throw new Error(`Server returned ${res.status}`);
+            }
             const data = await res.json();
             if (data && Array.isArray(data.items) && data.items.length > 0) {
                 const tagged = data.items.map((j) => ({

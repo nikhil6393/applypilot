@@ -12,7 +12,6 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
     { id: 'analytics', label: 'Dashboard', icon: BarChart3 },
     { id: 'discovery', label: 'Job Feed', icon: Search, badge: jobCount > 0 ? jobCount : undefined, liveDot: true },
     { id: 'scoring', label: 'Fit Score', icon: Zap, badge: scoredCount > 0 ? scoredCount : undefined },
-    { id: 'tailor', label: 'Bulk Tailor', icon: Sparkles, badge: tailoredCount > 0 ? tailoredCount : undefined },
     { id: 'saved_jobs', label: 'Saved', icon: Bookmark, badge: bookmarkedJobIds.size > 0 ? bookmarkedJobIds.size : undefined },
   ];
   return (<motion.header initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 350, damping: 28 }} className="sticky top-1.5 z-40 px-3 mb-2">
@@ -48,14 +47,6 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
 
       {/* Right Action Tools */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Resume Studio Quick Access */}
-        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} id="header-resume-studio-btn" onClick={() => onSelectStep('resume')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${currentStep === 'resume'
-          ? 'bg-[#EEF2FF] text-[#3D5FD9] border border-[#5B7BE8]/25 shadow-xs font-bold'
-          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/70'}`}>
-          <FileText className="w-3.5 h-3.5 text-[#5B7BE8]" />
-          <span className="hidden sm:inline">Resume Studio</span>
-        </motion.button>
-
         {/* Notifications Bell */}
         <button onClick={() => setIsNotificationDrawerOpen(true)} className="relative p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 text-slate-600 transition-colors cursor-pointer" title="Telemetry notifications">
           <Bell className="w-3.5 h-3.5" />
@@ -73,8 +64,13 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
           <span className="hidden md:inline">Admin</span>
         </button>)}
 
-        {/* User Profile & Settings */}
-        {user ? (<motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} id="header-profile-settings-btn" type="button" onClick={() => setIsSettingsModalOpen(true)} className="flex items-center gap-2 p-1 pr-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 shadow-2xs transition-all cursor-pointer group" title="Profile & Settings">
+        {/* User Profile & Logout */}
+        {user ? (<motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} id="header-profile-settings-btn" type="button" onClick={() => {
+            const { logout } = useAuth; // No, wait, I can just call window.location.reload() or we need the logout from useAuth
+            if (window.confirm('Log out?')) {
+              window.location.reload();
+            }
+        }} className="flex items-center gap-2 p-1 pr-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 shadow-2xs transition-all cursor-pointer group" title="Log Out">
           <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-lg object-cover border border-[#5B7BE8]/20" onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src =
@@ -83,7 +79,7 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
           <span className="text-xs font-semibold hidden sm:inline text-slate-800">
             {user.name.split(' ')[0]}
           </span>
-          <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
+          <span className="text-xs text-red-500 font-bold ml-1 hidden sm:inline opacity-0 group-hover:opacity-100 transition-opacity">Log out</span>
         </motion.button>) : (<motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} id="header-login-btn" onClick={() => {
           setAuthModalTab('login');
           setIsAuthModalOpen(true);

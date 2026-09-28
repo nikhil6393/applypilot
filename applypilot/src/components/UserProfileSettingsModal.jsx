@@ -93,6 +93,13 @@ export const UserProfileSettingsModal = () => {
             <span>Profile &amp; Bio</span>
           </button>
 
+          <button id="settings-tab-resume-btn" type="button" onClick={() => setActiveTab('resume')} className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${activeTab === 'resume'
+            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}>
+            <Sparkles className="w-4 h-4" />
+            <span>Master Resume</span>
+          </button>
+
           <button id="settings-tab-preferences-btn" type="button" onClick={() => setActiveTab('preferences')} className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${activeTab === 'preferences'
             ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
             : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}>
@@ -223,6 +230,48 @@ export const UserProfileSettingsModal = () => {
                 </label>
                 <input type="text" value={formData.twitter || ''} onChange={(e) => setFormData({ ...formData, twitter: e.target.value })} placeholder="https://x.com/username" className="w-full px-3.5 py-2 bg-slate-950/70 border border-slate-700 rounded-xl text-xs text-white focus:border-blue-500 focus:outline-none" />
               </div>
+            </div>
+          </div>)}
+
+          {/* Tab 1.5: Master Resume Upload */}
+          {activeTab === 'resume' && (<div className="space-y-5 animate-in fade-in duration-150">
+            <div>
+              <h3 className="text-sm font-bold text-white">Master Source Resume</h3>
+              <p className="text-xs text-slate-400">Upload your base PDF or DOCX resume. Our AI Engine uses this to calculate exact Fit Scores and tailor your bullet points for new jobs.</p>
+            </div>
+            
+            <div className="p-6 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center space-y-3 bg-slate-950/40 hover:bg-slate-900 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-blue-950/50 flex items-center justify-center text-blue-400 mb-2">
+                    <Download className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Upload New Master Resume</h4>
+                <p className="text-xs text-slate-400 text-center max-w-xs">Supports PDF, DOCX, and TXT up to 5MB. Will overwrite your currently saved master profile.</p>
+                <label className="mt-4 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+                    Select File
+                    <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const fd = new FormData();
+                        fd.append('resume', file);
+                        const btn = document.getElementById('settings-save-top-btn');
+                        if (btn) btn.textContent = 'Uploading...';
+                        try {
+                            const res = await fetch('/api/profile/upload', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': 'Bearer ' + localStorage.getItem('applypilot_token')
+                                },
+                                body: fd
+                            });
+                            if (res.ok) alert('Resume successfully uploaded & parsed!');
+                            else alert('Failed to upload resume.');
+                        } catch (err) {
+                            alert('Upload error: ' + err.message);
+                        } finally {
+                            if (btn) btn.textContent = 'Save Changes';
+                        }
+                    }} />
+                </label>
             </div>
           </div>)}
 

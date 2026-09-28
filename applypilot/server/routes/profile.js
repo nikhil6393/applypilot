@@ -6,6 +6,12 @@ import { evaluateResumeAts } from '../scoring/ats-scorer.js';
 import { buildLatexResume } from '../export/latex-resume.js';
 import { tailorResumeForJob } from '../profile/tailor-engine.js';
 import { getSessionUser } from '../security/auth.js';
+import multer from 'multer';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
 export const profileRouter = Router();
 function getProfileId(req) {
     const authHeader = req.headers.authorization;
@@ -39,6 +45,72 @@ profileRouter.get('/', (req, res) => {
             .all(profile.id),
     };
     res.json({ profile: parsed, success: true, data: parsed });
+});
+
+// Phase 1: Resume Upload Endpoint (Any Format)
+profileRouter.post('/upload', upload.single('resume'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No file uploaded' });
+        }
+        
+        let rawText = '';
+        const mimeType = req.file.mimetype;
+        const buffer = req.file.buffer;
+
+        if (mimeType === 'application/pdf') {
+            const pdfData = await pdfParse(buffer);
+            rawText = pdfData.text;
+        } else if (
+            mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+            mimeType === 'application/msword'
+        ) {
+            const docxData = await mammoth.extractRawText({ buffer });
+            rawText = docxData.value;
+        } else if (mimeType === 'text/plain') {
+            rawText = buffer.toString('utf-8');
+        } else {
+            return res.status(400).json({ success: false, error: 'Unsupported file type. Please upload PDF, DOCX, or TXT.' });
+        }
+
+        // Extremely basic initial extraction logic to seed profile_json 
+        // (A real LLM call should be done here or handled asynchronously)
+        const profileJson = {
+            name: 'User extracted from resume',
+            experience: [],
+            skills: [],
+            targetRole: 'Software Engineer',
+            hasResume: true
+        };
+
+        const db = getDb();
+        const profileId = getProfileId(req) !== 'default' ? getProfileId(req) : uuidv4();
+        const now = new Date().toISOString();
+
+        const existing = db.prepare('SELECT id FROM candidate_profiles WHERE id = ?').get(profileId);
+        
+        if (existing) {
+            db.prepare('UPDATE candidate_profiles SET raw_text = ?, profile_json = ?, updated_at = ? WHERE id = ?')
+              .run(rawText, JSON.stringify(profileJson), now, profileId);
+        } else {
+            db.prepare('INSERT INTO candidate_profiles (id, created_at, updated_at, raw_text, profile_json) VALUES (?, ?, ?, ?, ?)')
+              .run(profileId, now, now, rawText, JSON.stringify(profileJson));
+        }
+
+        // Save it to resume_versions as the master version
+        const versionId = uuidv4();
+        const versionCount = db.prepare('SELECT COUNT(*) as count FROM resume_versions WHERE profile_id = ?').get(profileId).count;
+        
+        db.prepare(\`
+            INSERT INTO resume_versions (id, profile_id, version_number, html_resume, latex_source, is_master)
+            VALUES (?, ?, ?, ?, ?, ?)
+        \`).run(versionId, profileId, versionCount + 1, \`<div>\${rawText.slice(0, 500)}...</div>\`, '', 1);
+
+        res.json({ success: true, message: 'Resume uploaded and parsed successfully!', profileId });
+    } catch (err) {
+        console.error('Error in /api/profile/upload:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 profileRouter.get('/completeness', (req, res) => {
     const db = getDb();

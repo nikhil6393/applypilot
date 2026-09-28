@@ -1,27 +1,31 @@
 import { validateTruth } from './truth-validator.js';
-import { bestEffortComplete } from '../ai/index.js';
 import { getDb } from '../store/db.js';
 import { renderTailoredLatex } from '../export/latex-resume.js';
+import OpenAI from 'openai';
+
 async function aiJson(prompt, system, fallback) {
-    if (process.env.NODE_ENV === 'test' &&
-        !process.env.NVIDIA_API_KEY &&
-        !process.env.OPENROUTER_API_KEY &&
-        !process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
+        console.warn('OPENAI_API_KEY not found. Using fallback heuristics.');
         return fallback;
     }
+    
     try {
-        const { text } = await bestEffortComplete(prompt, {
-            maxTokens: 4000,
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: system },
+                { role: "user", content: prompt }
+            ],
+            response_format: { type: "json_object" },
             temperature: 0.1,
-            system,
+            max_tokens: 4000,
         });
-        const jsonStr = text
-            .trim()
-            .replace(/^```json\s*/i, '')
-            .replace(/```\s*$/i, '');
-        return JSON.parse(jsonStr);
-    }
-    catch {
+
+        const text = completion.choices[0].message.content;
+        return JSON.parse(text);
+    } catch (err) {
+        console.error('OpenAI JSON Error:', err.message);
         return fallback;
     }
 }

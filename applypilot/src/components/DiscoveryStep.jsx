@@ -1355,7 +1355,17 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                         )}
                       </div>
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        {/* Tailor feature removed as it is currently mocked */}
+                        {onSelectJobForTailoring && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.94 }}
+                            onClick={() => onSelectJobForTailoring(job)}
+                            className="px-2.5 py-1 rounded-lg font-semibold text-[10.5px] border transition-all flex items-center gap-1 cursor-pointer bg-white text-blue-600 border-blue-200/80 hover:bg-blue-600 hover:text-white hover:border-transparent shadow-sm hover:shadow-md hover:shadow-blue-400/30"
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>Tailor</span>
+                          </motion.button>
+                        )}
                         <motion.a
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.94 }}

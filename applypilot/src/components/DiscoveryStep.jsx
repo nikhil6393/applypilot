@@ -1254,20 +1254,20 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                     }}
                     className={`relative rounded-2xl overflow-hidden cursor-pointer group flex flex-col justify-between transition-all duration-300
                       ${isFeatured
-                        ? 'bg-gradient-to-br from-white via-amber-50/40 to-yellow-50/30 border-2 border-amber-300/60 shadow-[0_4px_24px_-4px_rgba(251,191,36,0.18),0_1px_4px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_40px_-8px_rgba(251,191,36,0.3),0_6px_16px_-4px_rgba(0,0,0,0.08)] hover:border-amber-400/80'
+                        ? 'bg-gradient-to-br from-[#0a0f1c] via-[#111827] to-[#0f172a] border border-slate-800 shadow-[0_8px_30px_-4px_rgba(0,0,0,0.5)] hover:shadow-[0_16px_40px_-8px_rgba(139,92,246,0.25)] hover:border-violet-500/50'
                         : 'bg-gradient-to-br from-white via-slate-50/80 to-blue-50/20 border border-slate-200/90 shadow-[0_2px_16px_-4px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_40px_-8px_rgba(59,130,246,0.18),0_6px_16px_-4px_rgba(59,130,246,0.06)] hover:border-blue-300/70'
                       }`}
                   >
-                    {/* Featured: gold shimmer top bar */}
+                    {/* Featured: violet/indigo shimmer top bar */}
                     {isFeatured && (
-                      <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500" />
+                      <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-violet-500 via-fuchsia-500 to-indigo-500" />
                     )}
                     {/* Regular: blue bar sweeps in on hover */}
                     {!isFeatured && (
                       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
                     )}
                     {/* Ambient corner glow on hover */}
-                    <div className={`absolute -top-12 -right-12 w-36 h-36 rounded-full blur-3xl pointer-events-none transition-all duration-700 opacity-0 group-hover:opacity-100 ${isFeatured ? 'bg-amber-300/20' : 'bg-blue-400/10'}`} />
+                    <div className={`absolute -top-12 -right-12 w-36 h-36 rounded-full blur-3xl pointer-events-none transition-all duration-700 opacity-0 group-hover:opacity-100 ${isFeatured ? 'bg-violet-600/30' : 'bg-blue-400/10'}`} />
 
                     <div className="relative p-4 space-y-3">
                       {/* Header: company logo + info + badges */}
@@ -1278,7 +1278,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                             className={`p-1.5 rounded-xl shrink-0 border shadow-sm transition-all duration-300
                               ${isFeatured
-                                ? 'bg-white border-amber-200/80 group-hover:shadow-md group-hover:shadow-amber-200/50'
+                                ? 'bg-slate-800 border-slate-700/80 group-hover:shadow-md group-hover:shadow-violet-500/20'
                                 : 'bg-white border-slate-200/80 group-hover:shadow-md group-hover:shadow-blue-100/80'}`}
                           >
                             <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={30}/>
@@ -1289,15 +1289,15 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                                 initial={{ opacity: 0, x: -6 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: Math.min(index * 0.045, 0.28) + 0.12 }}
-                                className="inline-flex items-center gap-1 mb-0.5 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-400 to-yellow-400 shadow-sm"
+                                className="inline-flex items-center gap-1 mb-0.5 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 shadow-sm"
                               >
-                                <span className="text-[8.5px] font-black tracking-widest text-amber-900 uppercase">✦ Featured</span>
+                                <span className="text-[8.5px] font-black tracking-widest text-white uppercase">✦ Premium</span>
                               </motion.div>
                             )}
-                            <h4 className={`text-xs font-bold tracking-tight truncate transition-colors ${isFeatured ? 'text-slate-800 group-hover:text-amber-700' : 'text-slate-800 group-hover:text-blue-600'}`}>
+                            <h4 className={`text-xs font-bold tracking-tight truncate transition-colors ${isFeatured ? 'text-slate-100 group-hover:text-violet-300' : 'text-slate-800 group-hover:text-blue-600'}`}>
                               {job.company}
                             </h4>
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1 font-medium truncate mt-0.5">
+                            <div className={`text-[10px] flex items-center gap-1 font-medium truncate mt-0.5 ${isFeatured ? 'text-slate-400' : 'text-slate-400'}`}>
                               <MapPin className="w-2.5 h-2.5 shrink-0"/>
                               <span className="truncate">{job.location || 'Remote / Worldwide'}</span>
                             </div>
@@ -1324,24 +1324,24 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                             whileHover={{ scale: 1.22, rotate: 8 }}
                             whileTap={{ scale: 0.82 }}
                             onClick={(e) => { e.stopPropagation(); toggleBookmark(job.id); }}
-                            className="p-1.5 rounded-lg text-slate-300 hover:text-amber-500 hover:bg-amber-50 transition-all cursor-pointer"
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${isFeatured ? 'text-slate-500 hover:text-violet-400 hover:bg-slate-800' : 'text-slate-300 hover:text-violet-500 hover:bg-violet-50'}`}
                             title={isSaved ? 'Remove from saved' : 'Save position'}
                           >
-                            {isSaved ? <BookmarkCheck className="w-3.5 h-3.5 text-amber-500 fill-amber-500"/> : <Bookmark className="w-3.5 h-3.5"/>}
+                            {isSaved ? <BookmarkCheck className={`w-3.5 h-3.5 ${isFeatured ? 'text-violet-400 fill-violet-400' : 'text-violet-500 fill-violet-500'}`}/> : <Bookmark className="w-3.5 h-3.5"/>}
                           </motion.button>
                         </div>
                       </div>
 
                       {/* Job Title */}
                       <div className="flex items-start justify-between gap-1">
-                        <h3 className={`text-sm font-extrabold tracking-tight line-clamp-1 transition-colors ${isFeatured ? 'text-slate-900 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-blue-700'}`}>
+                        <h3 className={`text-sm font-extrabold tracking-tight line-clamp-1 transition-colors ${isFeatured ? 'text-white group-hover:text-violet-300' : 'text-slate-900 group-hover:text-blue-700'}`}>
                           {job.title}
                         </h3>
-                        <ArrowUpRight className={`w-3.5 h-3.5 shrink-0 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-300 ${isFeatured ? 'text-amber-500' : 'text-blue-500'}`} />
+                        <ArrowUpRight className={`w-3.5 h-3.5 shrink-0 opacity-0 -translate-x-1 translate-y-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0 transition-all duration-300 ${isFeatured ? 'text-violet-400' : 'text-blue-500'}`} />
                       </div>
 
                       {/* Description */}
-                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                      <p className={`text-[11px] line-clamp-2 leading-relaxed ${isFeatured ? 'text-slate-400' : 'text-slate-500'}`}>
                         {job.description || 'Verified engineering requisition available on official company career board.'}
                       </p>
 
@@ -1354,7 +1354,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                               whileHover={{ y: -2, scale: 1.08 }}
                               className={`px-2 py-0.5 rounded-lg text-[9.5px] font-semibold border transition-all cursor-default
                                 ${isFeatured
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200/80 group-hover:bg-amber-100'
+                                  ? 'bg-slate-800/80 text-violet-300 border-slate-700 group-hover:bg-slate-800 group-hover:border-violet-500/50'
                                   : chipColors[idx % chipColors.length]}`}
                             >
                               {skill}
@@ -1365,16 +1365,16 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                     </div>
 
                     {/* Card Footer */}
-                    <div className={`px-4 pb-3.5 pt-2.5 border-t flex items-center justify-between gap-2 ${isFeatured ? 'border-amber-200/50 bg-amber-50/30' : 'border-slate-100 bg-slate-50/40'}`}>
+                    <div className={`px-4 pb-3.5 pt-2.5 border-t flex items-center justify-between gap-2 ${isFeatured ? 'border-slate-800/80 bg-[#0f172a]/60' : 'border-slate-100 bg-slate-50/40'}`}>
                       <div>
                         {hasExplicitSalary ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold border px-2 py-0.5 rounded-lg ${isFeatured ? 'text-emerald-400 bg-emerald-950/40 border-emerald-900/50' : 'text-emerald-700 bg-emerald-50 border-emerald-200'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isFeatured ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
                             {job.salary}
                           </span>
                         ) : (
-                          <div className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-lg border ${isFeatured ? 'text-amber-700 bg-amber-50 border-amber-200/60' : 'text-slate-500 bg-slate-100/80 border-slate-200/60'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isFeatured ? 'bg-amber-400' : 'bg-blue-400'}`} />
+                          <div className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-lg border ${isFeatured ? 'text-slate-400 bg-slate-800/60 border-slate-700/80' : 'text-slate-500 bg-slate-100/80 border-slate-200/60'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isFeatured ? 'bg-violet-400' : 'bg-blue-400'}`} />
                             <span>Direct Application</span>
                           </div>
                         )}
@@ -1387,7 +1387,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                             onClick={() => onSelectJobForTailoring(job)}
                             className={`px-2.5 py-1 rounded-lg font-semibold text-[10.5px] border transition-all flex items-center gap-1 cursor-pointer
                               ${isFeatured
-                                ? 'bg-white text-amber-700 border-amber-300/80 hover:bg-amber-500 hover:text-white hover:border-transparent shadow-sm hover:shadow-md hover:shadow-amber-400/30'
+                                ? 'bg-slate-800 text-slate-300 border-slate-700/80 hover:bg-slate-700 hover:text-white shadow-sm'
                                 : 'bg-white text-blue-600 border-blue-200/80 hover:bg-blue-600 hover:text-white hover:border-transparent shadow-sm hover:shadow-md hover:shadow-blue-400/30'}`}
                           >
                             <Sparkles className="w-2.5 h-2.5" />
@@ -1402,7 +1402,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                           rel="noopener noreferrer"
                           className={`px-3 py-1 rounded-lg text-white font-bold text-[10.5px] flex items-center gap-1 transition-all cursor-pointer
                             ${isFeatured
-                              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 shadow-md shadow-amber-300/30 hover:shadow-lg hover:shadow-amber-400/40'
+                              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-violet-900/40 hover:shadow-lg hover:shadow-violet-600/50'
                               : 'bg-gradient-to-r from-[#3D5FD9] to-[#5B7BE8] hover:from-[#2d4fc9] hover:to-[#4a6ad8] shadow-md shadow-blue-400/25 hover:shadow-lg hover:shadow-blue-500/35'}`}
                         >
                           <span>Apply Now</span>
@@ -1412,6 +1412,7 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                     </div>
                   </motion.div>
                 );
+            })}
           </div>)}
 
       </div>

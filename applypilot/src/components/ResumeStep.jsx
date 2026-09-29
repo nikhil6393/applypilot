@@ -11,7 +11,7 @@ import confetti from 'canvas-confetti';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../context/AuthContext';
 import { scoreResume } from '../lib/resumeScore/index';
-import ResumeWordedStudio from './resume-worded/ResumeWordedStudio';
+import ExactResumeStudio from './resume-studio/ExactResumeStudio';
 
 /** Deterministic 1-click fix handler — strictly never fabricates facts or numbers */
 function applyFixToResume(resume, issue) {
@@ -746,14 +746,13 @@ export const ResumeStep = ({
     onUpdateResume(next);
   };
 
-  // ── RESUME WORDED 3-COLUMN WORKSPACE (Default) ──
+  // ── EXACT RESUME STUDIO (Screenshots 1 & 2 Workflow) ──
   if (studioLayout === 'worded') {
     return (
       <div className="w-full">
-        <ResumeWordedStudio
+        <ExactResumeStudio
           resume={resume}
           onUpdateResume={onUpdateResume}
-          onSwitchToForm={() => setStudioLayout('form')}
         />
       </div>
     );

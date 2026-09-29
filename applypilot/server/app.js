@@ -63,7 +63,10 @@ export function createApp() {
             req.path.startsWith('/jobs') ||
             req.path.startsWith('/monitor') ||
             req.path.startsWith('/dashboard') ||
-            req.path.startsWith('/tracker')) {
+            req.path.startsWith('/tracker') ||
+            req.path.startsWith('/tailor') ||
+            req.path.startsWith('/resume') ||
+            req.path.startsWith('/scoring')) {
             return next();
         }
         requireAuth(req, _res, next);

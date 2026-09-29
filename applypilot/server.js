@@ -1552,7 +1552,7 @@ Projects:\n${projectsSummary}`;
             if (bullet && !/\d/.test(bullet)) {
                 hints.push('Add a metric to strengthen this bullet — e.g. "reduced load time by 40%", "served 10k users", "cut errors by 3x".');
             }
-            res.json({ suggestions, source: 'deterministic-v2', hints });
+            res.json({ suggestions, source: 'deterministic-v2', guardrail: 'truth-anchored', hints });
         }
         catch (e) {
             console.error('[resume/magic-write]', e.message);

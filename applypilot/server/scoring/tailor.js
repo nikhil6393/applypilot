@@ -59,7 +59,7 @@ export async function tailor(resume, job) {
         bullets,
         coverNote: cover,
         latex: renderTailoredLatex(resume, job, bullets),
-        source: 'deterministic',
+        source: 'heuristic',
         status: 'completed',
         generatedAt: new Date().toISOString(),
     };

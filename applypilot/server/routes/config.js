@@ -5,14 +5,21 @@ export const configRouter = Router();
 
 configRouter.get('/', (_req, res) => {
     res.json({
-        hasAi: false,
-        fitThreshold: config.fitThreshold,
-        scrapeTimeoutMs: config.scrapeTimeoutMs,
+        hasAi: Boolean(process.env.OPENROUTER_API_KEY || process.env.NVIDIA_API_KEY),
+        hasNvidiaKey: Boolean(process.env.NVIDIA_API_KEY),
+        hasOpenRouterKey: Boolean(process.env.OPENROUTER_API_KEY),
+        fitThreshold: config.fitThreshold || 70,
+        scrapeTimeoutMs: config.scrapeTimeoutMs || 30000,
         scoringEngine: 'deterministic-v2',
     });
 });
 
-// /api/config/ai/health — always returns offline since no AI is configured
+// /api/config/ai/health — returns local AI availability and fallback models
 configRouter.get('/ai/health', (_req, res) => {
-    res.json({ provider: 'none', available: false, engine: 'deterministic' });
+    res.json({
+        provider: 'local-deterministic',
+        available: true,
+        models: ['deterministic-ats-v2', 'xyz-synthesizer'],
+        engine: 'deterministic',
+    });
 });

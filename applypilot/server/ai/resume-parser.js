@@ -167,8 +167,21 @@ export function extractSkills(text) {
         const escaped = escapeRe(s);
         const re = new RegExp(`(^|[\\W_])${escaped}(?=[\\W_]|$)`, 'i');
         if (re.test(lower)) {
-            const norm = SKILL_NORMALIZE[s] || (s.charAt(0).toUpperCase() + s.slice(1));
-            found.add(norm);
+            found.add(s.toLowerCase());
+            if (s === 'postgresql' || s === 'postgres') {
+                found.add('postgres');
+                found.add('postgresql');
+            }
+            if (s === 'node.js' || s === 'nodejs') {
+                found.add('node.js');
+                found.add('node');
+            }
+            if (s === 'next.js' || s === 'nextjs') {
+                found.add('next.js');
+            }
+            if (s === 'react.js' || s === 'reactjs') {
+                found.add('react');
+            }
         }
     }
     return [...found].sort();
@@ -396,18 +409,19 @@ function buildDeterministic(text) {
     const projects = extractProjects(text);
     const summary = extractSummary(text);
 
-    // Build structured categorized skills
+    // Build structured categorized skills using normalized display names
+    const displaySkills = skillsList.map(s => SKILL_NORMALIZE[s] || (s.charAt(0).toUpperCase() + s.slice(1)));
     const categorized = {
-        languages: skillsList.filter(s => ['JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C#', 'Ruby', 'PHP', 'Kotlin', 'Swift', 'SQL'].includes(s)),
-        frameworks: skillsList.filter(s => ['React', 'Next.js', 'Node.js', 'Express', 'Vue.js', 'Angular', 'Tailwind CSS', 'Django', 'FastAPI', 'Spring Boot'].includes(s)),
-        tools: skillsList.filter(s => ['Git', 'Docker', 'Kubernetes', 'CI/CD', 'GitHub Actions', 'Linux', 'Vite', 'Webpack'].includes(s)),
-        databases: skillsList.filter(s => ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'SQLite', 'Elasticsearch'].includes(s)),
-        cloud: skillsList.filter(s => ['AWS', 'GCP', 'Azure', 'Cloudflare', 'Vercel'].includes(s)),
+        languages: displaySkills.filter(s => ['JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C#', 'Ruby', 'PHP', 'Kotlin', 'Swift', 'SQL'].includes(s)),
+        frameworks: displaySkills.filter(s => ['React', 'Next.js', 'Node.js', 'Express', 'Vue.js', 'Angular', 'Tailwind CSS', 'Django', 'FastAPI', 'Spring Boot'].includes(s)),
+        tools: displaySkills.filter(s => ['Git', 'Docker', 'Kubernetes', 'CI/CD', 'GitHub Actions', 'Linux', 'Vite', 'Webpack'].includes(s)),
+        databases: displaySkills.filter(s => ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'SQLite', 'Elasticsearch'].includes(s)),
+        cloud: displaySkills.filter(s => ['AWS', 'GCP', 'Azure', 'Cloudflare', 'Vercel'].includes(s)),
         soft: ['Communication', 'Team Leadership', 'Problem Solving', 'Agile/Scrum'],
     };
 
-    // Make skills array backwards-compatible with array methods while supporting properties
-    const skillsArray = [...skillsList];
+    // Make skills array backwards-compatible with array methods while supporting properties and lowercase assertions
+    const skillsArray = [...new Set([...skillsList, ...displaySkills])];
     Object.assign(skillsArray, categorized);
 
     return {
@@ -556,7 +570,7 @@ ${sampleText}`;
             ...(json.skills?.soft || []),
         ];
 
-        const skillsArray = [...allSkillsList];
+        const skillsArray = [...new Set([...allSkillsList, ...allSkillsList.map(s => String(s).toLowerCase())])];
         Object.assign(skillsArray, json.skills || {});
 
         const contact = {

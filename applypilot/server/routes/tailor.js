@@ -1,35 +1,62 @@
 import { Router } from 'express';
-import { z } from 'zod';
-import { tailor } from '../scoring/tailor.js';
+import { tailorResumeForJob } from '../profile/tailor-engine.js';
 import { getJob } from '../store/jobs.js';
-import { getResume } from '../store/resume.js';
+import { getResume, setResume } from '../store/resume.js';
+
 export const tailorRouter = Router();
-const TailorBodySchema = z.object({
-    jobId: z.string().optional(),
-    job: z
-        .object({
-        id: z.string().optional().default(''),
-        title: z.string().min(1, 'title required'),
-        company: z.string().min(1, 'company required'),
-        description: z.string().optional().default(''),
-        skills: z.array(z.string()).optional().default([]),
-    })
-        .optional(),
-});
-tailorRouter.post('/tailor', async (req, res) => {
-    const resume = getResume();
-    if (!resume)
-        return res.status(400).json({ error: 'no resume uploaded; POST /api/resume/parse first' });
-    const parsed = TailorBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-        return res.status(400).json({ error: 'invalid request body', details: parsed.error.flatten() });
+
+async function handleTailorRequest(req, res) {
+    try {
+        const body = req.body || {};
+        let resume = body.resume || getResume();
+
+        if (!resume || typeof resume !== 'object') {
+            return res.status(400).json({
+                success: false,
+                error: 'Resume is required. Provide { resume: {...}, job: {...} } or upload via /api/resume first.',
+            });
+        }
+
+        // Cache the incoming resume if provided
+        if (body.resume) {
+            try {
+                setResume(body.resume);
+            } catch {}
+        }
+
+        let targetJob = body.job;
+        if (!targetJob && body.jobId) {
+            targetJob = getJob(body.jobId);
+        }
+
+        if (!targetJob || !targetJob.title || !targetJob.company) {
+            return res.status(400).json({
+                success: false,
+                error: 'Valid job object with title and company is required.',
+            });
+        }
+
+        // Execute unified ATS tailoring engine
+        const tailoredDoc = await tailorResumeForJob(resume, targetJob);
+        const primaryBullets = tailoredDoc.tailoredResumeBullets?.[0]?.bullets || [];
+
+        return res.json({
+            success: true,
+            jobId: targetJob.id,
+            bullets: primaryBullets,
+            latex: tailoredDoc.latexSource || '',
+            ...tailoredDoc,
+            data: tailoredDoc,
+        });
+    } catch (err) {
+        console.error('[tailor] Tailoring pipeline error:', err);
+        return res.status(500).json({
+            success: false,
+            error: err.message || 'Failed to tailor resume',
+        });
     }
-    const { jobId, job: bodyJob } = parsed.data;
-    let j = bodyJob;
-    if (!j && jobId)
-        j = getJob(jobId) || undefined;
-    if (!j)
-        return res.status(400).json({ error: 'jobId or job required' });
-    const doc = await tailor(resume, j);
-    res.json(doc);
-});
+}
+
+// Support both /api/tailor and /api/tailor/tailor
+tailorRouter.post('/', handleTailorRequest);
+tailorRouter.post('/tailor', handleTailorRequest);

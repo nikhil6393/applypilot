@@ -123,6 +123,14 @@ export default function ResumeWordedStudio({
 
   const { issues = [], overallScore, grade } = scoreData;
 
+  // Resolve candidate real name
+  const candidateName =
+    resume?.name ||
+    resume?.fullName ||
+    resume?.contact?.name ||
+    (resume?.contact?.email ? resume.contact.email.split('@')[0].replace(/[._0-9]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim() : '') ||
+    'Nikhil Singh';
+
   // Selected issue pointer
   const selectedIssue = useMemo(() => {
     if (!selectedIssueId && issues.length > 0) {
@@ -187,7 +195,7 @@ export default function ResumeWordedStudio({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(resume.contact?.name || 'Resume').replace(/\s+/g, '_')}_ATS_Calibrated.doc`;
+    link.download = `${candidateName.replace(/\s+/g, '_')}_ATS_Calibrated.doc`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -217,7 +225,7 @@ export default function ResumeWordedStudio({
                 </span>
               </span>
               <p className="text-[10px] text-slate-400 truncate max-w-[220px]">
-                {resume.contact?.name || 'Candidate'}_Resume.pdf
+                {candidateName.replace(/\s+/g, '_')}_Resume.pdf
               </p>
             </div>
           </div>

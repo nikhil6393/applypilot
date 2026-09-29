@@ -3,6 +3,7 @@ import { load } from 'cheerio';
 import { validateAndFilterJobs } from './validator.js';
 import { getScraperSearchClusters } from './RoleExpansionConfig.js';
 import { enrichJobMetadata, extractEligibleBatches } from './metadata-extractor.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -180,6 +181,11 @@ export async function naukriAdvanced(req) {
                         const effectiveSkills = skills.length > 0
                             ? skills
                             : (meta.techStack && meta.techStack.length > 0 ? meta.techStack : ['Java', 'Python', 'React', 'SQL']);
+                        const rawLogo = j.logoPath || j.companyLogoUrl || j.logoPathV3 || j.staticUrl;
+                        const cleanLogo = rawLogo
+                            ? (rawLogo.startsWith('http') ? rawLogo : (rawLogo.startsWith('//') ? `https:${rawLogo}` : `https://static.naukimg.com/s/0/0/i/${rawLogo.replace(/^\//, '')}`))
+                            : undefined;
+                        const finalLogo = resolveCompanyLogo(company, cleanLogo, applyUrl);
                         const job = {
                             id: stableId(applyUrl),
                             title,
@@ -187,6 +193,7 @@ export async function naukriAdvanced(req) {
                             source: 'naukari',
                             url: applyUrl,
                             applyUrl,
+                            companyLogo: finalLogo,
                             location: jobLoc,
                             remote,
                             description: fullDesc,
@@ -293,6 +300,12 @@ export async function naukriAdvanced(req) {
                         tags.push(`💰 ${salary}`);
                     const desc = `${title} at ${company} in ${cardLoc}. Real-time posting on Naukri.`;
                     const meta = enrichJobMetadata(desc + ' ' + skills.join(' '), title);
+                    const cardLogo = $(card).find('img[class*="logo"], img.logoImage, .logo-wrap img').first().attr('src') ||
+                        $(card).find('img[class*="logo"], img.logoImage, .logo-wrap img').first().attr('data-src');
+                    const cleanCardLogo = cardLogo
+                        ? (cardLogo.startsWith('http') ? cardLogo : (cardLogo.startsWith('//') ? `https:${cardLogo}` : undefined))
+                        : undefined;
+                    const finalCardLogo = resolveCompanyLogo(company, cleanCardLogo, applyUrl);
                     const job = {
                         id: stableId(applyUrl),
                         title,
@@ -300,6 +313,7 @@ export async function naukriAdvanced(req) {
                         source: 'naukari',
                         url: applyUrl,
                         applyUrl,
+                        companyLogo: finalCardLogo,
                         location: cardLoc,
                         remote,
                         description: desc,

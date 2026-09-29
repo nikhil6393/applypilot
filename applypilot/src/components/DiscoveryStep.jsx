@@ -1267,9 +1267,9 @@ export const DiscoveryStep = ({ resume, discoveredJobs, onJobsDiscovered, onProc
                           <motion.div
                             whileHover={{ scale: 1.08, rotate: -2 }}
                             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                            className="p-1.5 rounded-xl shrink-0 border shadow-sm transition-all duration-300 bg-white border-slate-200/80 group-hover:shadow-md group-hover:shadow-blue-100/80"
+                            className="shrink-0"
                           >
-                            <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={30}/>
+                            <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={36}/>
                           </motion.div>
                           <div className="min-w-0">
                             <h4 className="text-xs font-bold tracking-tight truncate transition-colors text-slate-800 group-hover:text-blue-600">

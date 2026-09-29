@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Briefcase, ExternalLink, Bookmark, Sparkles, ShieldCheck, } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { getSafeJobApplyUrl } from '../utils/jobUtils';
+import { CompanyIcon } from './CompanyIcon';
 export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onTailorJob, onBackToFeed, }) => {
     const { isBookmarked, toggleBookmark, addToast } = useAppStore();
     const [activeTab, setActiveTab] = useState('overview');
@@ -68,9 +69,7 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
           {/* Header */}
           <div className="flex items-start justify-between flex-wrap gap-4 pb-4 border-b border-slate-100">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#5B7BE8] text-white flex items-center justify-center font-bold text-base shadow-sm flex-shrink-0">
-                {currentJob.company.slice(0, 2).toUpperCase()}
-              </div>
+              <CompanyIcon company={currentJob.company} logoUrl={currentJob.companyLogo} size={48} className="rounded-2xl shadow-sm" />
               <div>
                 <span className="text-xs font-semibold text-slate-500">{currentJob.company}</span>
                 <h1 className="text-xl sm:text-2xl font-bold text-[#111827] mt-0.5">{currentJob.title}</h1>

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { detectDomainFromQuery, matchesDomainJob, isSoftwareEngineerInternQuery, isSoftwareEngineerFullTimeQuery, matchesSoftwareEngineerInternRole, matchesSoftwareEngineerFullTimeRole, } from './RoleExpansionConfig.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 export function normalizeJobs(input) {
     return input.map((j) => ({
         ...j,
         id: j.id || randomUUID(),
         fetchedAt: j.fetchedAt || new Date().toISOString(),
         skills: Array.isArray(j.skills) ? j.skills : [],
+        companyLogo: j.companyLogo || resolveCompanyLogo(j.company, null, j.url || j.applyUrl),
     }));
 }
 function queryTerms(query) {

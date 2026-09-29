@@ -3,6 +3,7 @@ import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { ASHBY_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 const ASHBY_BOARDS = ASHBY_COMPANIES;
 function stableId(url) {
     return `ashby_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
@@ -104,10 +105,12 @@ export async function ashby(req) {
                     tags.push('🕒 Fresh (<24h)');
                 else
                     tags.push('📅 Active Hiring');
+                const compName = c.charAt(0).toUpperCase() + c.slice(1);
                 boardJobs.push({
                     id: stableId(j.applyUrl),
                     title: j.title,
-                    company: c.charAt(0).toUpperCase() + c.slice(1),
+                    company: compName,
+                    companyLogo: resolveCompanyLogo(compName, null, j.applyUrl),
                     source: 'ashby',
                     url: j.applyUrl,
                     applyUrl: j.applyUrl,

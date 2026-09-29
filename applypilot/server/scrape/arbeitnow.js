@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `arbeitnow_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -102,6 +103,7 @@ export async function arbeitnow(req) {
                 source: 'arbeitnow',
                 url: applyUrl,
                 applyUrl,
+                companyLogo: resolveCompanyLogo(item.company_name, item.company_logo_url || item.company_logo || item.logo, applyUrl),
                 location: item.location || (item.remote ? 'Remote / Worldwide' : 'Worldwide'),
                 remote: Boolean(item.remote),
                 description: cleanDesc,

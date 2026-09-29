@@ -7,6 +7,7 @@ import { load } from 'cheerio';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 const UA_LIST = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -119,6 +120,12 @@ export async function internshala(req) {
                     if (stipend)
                         tags.push(`💰 ${stipend}`);
                     tags.push('⚡ Fresh Drop');
+                    const rawLogo = $(el).find('.internship_logo img, .company-logo img, [class*="logo"] img, img[src*="logo"], img[src*="brand"]').first().attr('src') ||
+                        $(el).find('.internship_logo img, .company-logo img, [class*="logo"] img').first().attr('data-src');
+                    const cleanLogo = rawLogo
+                        ? (rawLogo.startsWith('//') ? `https:${rawLogo}` : (rawLogo.startsWith('http') ? rawLogo : `https://internshala.com${rawLogo}`))
+                        : undefined;
+                    const finalLogo = resolveCompanyLogo(company, cleanLogo, applyUrl);
                     out.push({
                         id,
                         title,
@@ -128,6 +135,7 @@ export async function internshala(req) {
                         applyUrl,
                         location: cardLoc,
                         remote,
+                        companyLogo: finalLogo,
                         description: `${title} internship at ${company} in ${cardLoc}. Verified active opportunity on Internshala.`,
                         postedAt: new Date().toISOString(),
                         postedDate: new Date().toISOString(),

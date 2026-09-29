@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { load } from 'cheerio';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `wwr_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -152,6 +153,11 @@ export async function weworkremotely(req) {
                 if (diffMin < 60)
                     tags.push('⚡ Just Posted');
                 const isoDate = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+                const enclosureImg = $(el).find('enclosure[type^="image"]').attr('url');
+                const mediaImg = $(el).find('media\\:content').attr('url');
+                const descImg = rawDesc.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
+                const cleanLogo = enclosureImg || mediaImg || descImg;
+                const finalLogo = resolveCompanyLogo(company, cleanLogo, link);
                 out.push({
                     id: stableId(link),
                     title,
@@ -159,6 +165,7 @@ export async function weworkremotely(req) {
                     source: 'weworkremotely',
                     url: link,
                     applyUrl: link,
+                    companyLogo: finalLogo,
                     location: region || 'Worldwide / Remote',
                     remote: true,
                     description: cleanDesc || title,

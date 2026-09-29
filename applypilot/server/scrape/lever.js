@@ -3,6 +3,7 @@ import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { LEVER_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `lever_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -100,10 +101,12 @@ export async function lever(req) {
                     tags.push('🕒 Fresh (<24h)');
                 else
                     tags.push('📅 Active Hiring');
+                const compName = c.charAt(0).toUpperCase() + c.slice(1);
                 companyJobs.push({
                     id: stableId(apply),
                     title: j.text,
-                    company: c.charAt(0).toUpperCase() + c.slice(1),
+                    company: compName,
+                    companyLogo: resolveCompanyLogo(compName, null, apply),
                     source: 'lever',
                     url: apply,
                     applyUrl: apply,

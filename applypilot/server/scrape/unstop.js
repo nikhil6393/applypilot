@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `unstop_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -61,6 +62,8 @@ export async function unstop(req) {
                     if (stipend)
                         tags.push(`💰 ${stipend}`);
                     tags.push('⚡ Active Hiring');
+                    const rawLogo = item.organisation?.logo?.url || item.organisation?.logo_url || item.banner_mobile?.image_url;
+                    const finalLogo = resolveCompanyLogo(company, rawLogo, applyUrl);
                     out.push({
                         id,
                         title,
@@ -68,6 +71,7 @@ export async function unstop(req) {
                         source: 'unstop',
                         url: applyUrl,
                         applyUrl,
+                        companyLogo: finalLogo,
                         location: cardLoc,
                         remote,
                         description: `${title} by ${company} on Unstop. Campus and early-career hiring opportunity.`,

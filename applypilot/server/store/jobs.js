@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { getDb } from './db.js';
 import { normalizeCanonicalUrl } from '@applypilot/scoring';
+import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 const VALID_JOB_SOURCES = [
     'linkedin',
     'naukari',
@@ -40,9 +41,10 @@ export function upsertJob(job) {
     const hash = jobHash(job);
     const existing = db.prepare('SELECT id FROM jobs WHERE hash = ? OR id = ?').get(hash, job.id);
     const targetId = existing?.id || job.id;
+    const finalLogo = job.companyLogo || resolveCompanyLogo(job.company, null, job.url || job.applyUrl);
     const stmt = db.prepare(`
-    INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, raw)
-    VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @raw)
+    INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, company_logo, raw)
+    VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @companyLogo, @raw)
     ON CONFLICT(id) DO UPDATE SET
       title=excluded.title,
       company=excluded.company,
@@ -58,6 +60,7 @@ export function upsertJob(job) {
       skills=excluded.skills,
       salary_min=COALESCE(excluded.salary_min, jobs.salary_min),
       salary_max=COALESCE(excluded.salary_max, jobs.salary_max),
+      company_logo=COALESCE(excluded.company_logo, jobs.company_logo),
       hash=excluded.hash,
       raw=COALESCE(excluded.raw, jobs.raw)
   `);
@@ -79,6 +82,7 @@ export function upsertJob(job) {
         salaryMax: job.salaryMax ?? null,
         salaryCurrency: job.salaryCurrency ?? null,
         skills: JSON.stringify(job.skills || []),
+        companyLogo: finalLogo ?? null,
         hash,
         raw: job.raw ? JSON.stringify(job.raw) : null,
     });
@@ -90,8 +94,8 @@ export function upsertJobsBatch(jobs) {
     const db = getDb();
     const checkStmt = db.prepare('SELECT id FROM jobs WHERE hash = ? OR id = ?');
     const insertStmt = db.prepare(`
-    INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, raw)
-    VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @raw)
+    INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, company_logo, raw)
+    VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @companyLogo, @raw)
     ON CONFLICT(id) DO UPDATE SET
       title=excluded.title,
       company=excluded.company,
@@ -107,6 +111,7 @@ export function upsertJobsBatch(jobs) {
       skills=excluded.skills,
       salary_min=COALESCE(excluded.salary_min, jobs.salary_min),
       salary_max=COALESCE(excluded.salary_max, jobs.salary_max),
+      company_logo=COALESCE(excluded.company_logo, jobs.company_logo),
       hash=excluded.hash,
       raw=COALESCE(excluded.raw, jobs.raw)
   `);
@@ -118,6 +123,7 @@ export function upsertJobsBatch(jobs) {
                 const hash = jobHash(job);
                 const existing = checkStmt.get(hash, job.id);
                 const targetId = existing?.id || job.id;
+                const finalLogo = job.companyLogo || resolveCompanyLogo(job.company, null, job.url || job.applyUrl);
                 const res = insertStmt.run({
                     id: targetId,
                     title: job.title,
@@ -136,6 +142,7 @@ export function upsertJobsBatch(jobs) {
                     salaryMax: job.salaryMax ?? null,
                     salaryCurrency: job.salaryCurrency ?? null,
                     skills: JSON.stringify(job.skills || []),
+                    companyLogo: finalLogo ?? null,
                     hash,
                     raw: job.raw ? JSON.stringify(job.raw) : null,
                 });
@@ -230,6 +237,7 @@ function rowToJob(r) {
         salaryMax: r.salary_max ?? undefined,
         salaryCurrency: r.salary_currency ?? undefined,
         skills,
+        companyLogo: r.company_logo || (raw && raw.companyLogo) || resolveCompanyLogo(r.company, null, r.url || r.apply_url),
         raw,
     };
 }

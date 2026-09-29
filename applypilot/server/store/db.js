@@ -304,6 +304,7 @@ function migrate(db) {
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN target_role TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN skills_json TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0');
+    safeAlter('ALTER TABLE jobs ADD COLUMN company_logo TEXT');
     safeAlter(`
     CREATE TABLE IF NOT EXISTS skill_gap_reports (
       id            TEXT PRIMARY KEY,

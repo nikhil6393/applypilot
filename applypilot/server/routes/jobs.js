@@ -19,6 +19,7 @@ import { internshala } from '../scrape/internshala.js';
 import { unstop } from '../scrape/unstop.js';
 import { simplifyJobs } from '../scrape/simplify-jobs.js';
 import { validateAndFilterJobs, validateJobPosting, filterJobsByCriteria, verifyJobUrlLive, detectDuplicateJobs, cleanCanonicalUrl } from '../scrape/validator.js';
+import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 import { defaultRegistry } from '@applypilot/scraping';
 import { listRecentMonitorRuns } from '../store/monitoring.js';
 import { monitorSseManager } from '../sse/monitor-sse.js';
@@ -420,6 +421,9 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
                 continue;
             seenDedup.add(dedupKey);
             const actualSource = job.source || source;
+            if (!job.companyLogo) {
+                job.companyLogo = resolveCompanyLogo(job.company, null, job.url || job.applyUrl);
+            }
             totalDiscovered++;
             sourcesCount[actualSource] = (sourcesCount[actualSource] || 0) + 1;
             sendEvent('job', { job, source: actualSource, index: i, total: jobs.length });

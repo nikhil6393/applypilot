@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { ArrowRight, ShieldCheck, Send, ChevronDown, Terminal, Flame, Star, RefreshCw, Cpu, Layers, Zap, X, CheckCircle2, Rocket, } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { CompanyIcon } from "./CompanyIcon";
 const PIPELINE_JOBS = [
   { id: "stripe-infra", company: "Stripe", companyColor: "#6772E5", role: "Staff Frontend Infrastructure Engineer", location: "Remote / SF", salary: "\$215k-\$275k", matchScore: 97, tags: ["React 19", "TypeScript", "WebGL"], matchedKeywords: ["React", "TypeScript", "Design Systems", "Core Web Vitals"], missingKeywords: ["Fintech Compliance"], rawBullet: "Worked on frontend performance and component library components for payment checkout pages.", tailoredBullet: "Architected high-throughput React & TypeScript design system primitives, cutting checkout p99 render latency by 42% across 2.4M daily transactions." },
   { id: "google-cloud", company: "Google", companyColor: "#4285F4", role: "Senior Software Engineer, Cloud AI", location: "Mountain View / Hybrid", salary: "\$190k-\$250k", matchScore: 94, tags: ["Go", "Kubernetes", "Distributed Systems"], matchedKeywords: ["Go", "Microservices", "Docker", "Distributed Systems"], missingKeywords: ["GCP Vertex AI"], rawBullet: "Built backend microservices in Go and deployed them to Kubernetes clusters for data ingestion.", tailoredBullet: "Engineered fault-tolerant distributed data ingestion pipelines in Go processing 85k req/sec, maintaining 99.99% service availability on Kubernetes." },
@@ -279,7 +280,7 @@ export const LandingPage = ({ onLaunchApp }) => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="w-6 h-6 rounded-lg text-[9px] font-black text-white flex items-center justify-center flex-shrink-0" style={{ background: job.companyColor }}>{job.company[0]}</span>
+                        <CompanyIcon company={job.company} size={24} className="rounded-lg shadow-2xs" />
                         <span className="font-bold text-[13px] text-gray-900">{job.company}</span>
                         <span className="text-[11px] text-gray-400">{job.location}</span>
                       </div>

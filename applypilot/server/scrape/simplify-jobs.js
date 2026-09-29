@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `simplify_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -97,6 +98,7 @@ export async function simplifyJobs(req) {
                     source: 'simplify_jobs',
                     url: item.url,
                     applyUrl: item.url,
+                    companyLogo: resolveCompanyLogo(item.company_name, item.company_logo || item.logo, item.url),
                     location: primaryLoc,
                     remote,
                     description: `${item.title} at ${item.company_name} (${primaryLoc}). Verified direct application link to company career portal.`,

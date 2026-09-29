@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(url) {
     return `remotive_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -77,6 +78,7 @@ export async function remotive(req) {
             source: 'remotive',
             url: j.url,
             applyUrl: j.url,
+            companyLogo: resolveCompanyLogo(j.company_name, j.company_logo || j.company_logo_url, j.url),
             location: j.candidate_required_location || 'Remote',
             remote: true,
             description: cleanDesc,

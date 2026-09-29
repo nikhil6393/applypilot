@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 function stableId(urlOrId) {
     return `yc_${createHash('sha1').update(urlOrId).digest('hex').slice(0, 16)}`;
 }
@@ -172,6 +173,7 @@ export async function yc(req) {
                     source: 'yc',
                     url: targetUrl,
                     applyUrl: targetUrl,
+                    companyLogo: resolveCompanyLogo(company, null, targetUrl),
                     location,
                     remote,
                     description,

@@ -18,10 +18,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: [
-      'tests/**/*.test.ts',
-      'server/tests/**/*.test.ts',
-      'packages/**/*.test.ts',
-      'src/**/*.test.ts',
+      'tests/**/*.test.{js,ts}',
+      'server/tests/**/*.test.{js,ts}',
+      'packages/**/*.test.{js,ts}',
+      'src/**/*.test.{js,ts,jsx,tsx}',
     ],
     // SQLite tests share one file — parallelism causes lock contention
     pool: 'forks',

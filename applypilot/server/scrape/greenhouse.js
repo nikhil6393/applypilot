@@ -3,6 +3,7 @@ import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { GREENHOUSE_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
+import { resolveCompanyLogo } from './logo-resolver.js';
 const GREENHOUSE_BOARDS = GREENHOUSE_COMPANIES;
 function stableId(url) {
     return `greenhouse_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
@@ -143,10 +144,12 @@ export async function greenhouse(req) {
                     tags.push('🕒 Fresh (<24h)');
                 else
                     tags.push('📅 Active Hiring');
+                const compName = company.replace(/(^.)|-(.)/g, (_, a, b) => (a || '').toUpperCase() + (b || ''));
                 boardJobs.push({
                     id: stableId(j.absolute_url),
                     title: j.title,
-                    company: company.replace(/(^.)|-(.)/g, (_, a, b) => (a || '').toUpperCase() + (b || '')),
+                    company: compName,
+                    companyLogo: resolveCompanyLogo(compName, null, j.absolute_url),
                     source: 'greenhouse',
                     url: j.absolute_url,
                     applyUrl: j.absolute_url,

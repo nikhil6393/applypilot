@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
-import { invalidateProviderChain } from '../ai/index.js';
 let app;
 beforeAll(() => {
     process.env.NODE_ENV = 'test';
@@ -10,9 +9,7 @@ beforeAll(() => {
     // Ensure local deterministic mode without cloud network timeouts
     delete process.env.NVIDIA_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    invalidateProviderChain();
-    app = createApp();
+    delete process.env.GEMINI_API_KEY;    app = createApp();
 });
 describe('Characterization Tests — Existing API Endpoints Freeze (Phase 1 Baseline)', () => {
     describe('Health & Configuration', () => {

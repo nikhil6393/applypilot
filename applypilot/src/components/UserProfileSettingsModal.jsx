@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, User, Sliders, Zap, Bell, Shield, Check, Plus, Save, LogOut, Download, Sparkles, Globe, Mail, Phone, MapPin, Github, Linkedin, Key, Copy, Lock, CheckCircle2 } from 'lucide-react';
+import { X, User, Sliders, Zap, Bell, Shield, Check, Plus, Save, LogOut, Download, Sparkles, Globe, Mail, Phone, MapPin, Github, Linkedin, Key, Copy, Lock, CheckCircle2, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppStore } from '../store/appStore';
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
@@ -11,6 +12,7 @@ const AVATAR_PRESETS = [
 ];
 export const UserProfileSettingsModal = () => {
   const { user, isSettingsModalOpen, setIsSettingsModalOpen, updateProfile, logout } = useAuth();
+  const { setClientScreen } = useAppStore();
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState(user);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -33,7 +35,25 @@ export const UserProfileSettingsModal = () => {
   const handleSave = async () => {
     if (!formData)
       return;
-    await updateProfile(formData);
+    const updated = { ...formData };
+    if (updated.savedResume) {
+      updated.savedResume = {
+        ...updated.savedResume,
+        name: updated.name || updated.savedResume.name,
+        summary: updated.bio || updated.headline || updated.savedResume.summary,
+        title: updated.roleTitle || updated.savedResume.title,
+        contact: {
+          ...updated.savedResume.contact,
+          email: updated.email || updated.savedResume.contact?.email,
+          phone: updated.phone || updated.savedResume.contact?.phone,
+          location: updated.location || updated.savedResume.contact?.location,
+          linkedin: updated.linkedin || updated.savedResume.contact?.linkedin,
+          github: updated.github || updated.savedResume.contact?.github,
+          portfolio: updated.portfolio || updated.savedResume.contact?.portfolio,
+        },
+      };
+    }
+    await updateProfile(updated);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3000);
   };
@@ -233,47 +253,164 @@ export const UserProfileSettingsModal = () => {
             </div>
           </div>)}
 
-          {/* Tab 1.5: Master Resume Upload */}
-          {activeTab === 'resume' && (<div className="space-y-5 animate-in fade-in duration-150">
-            <div>
-              <h3 className="text-sm font-bold text-white">Master Source Resume</h3>
-              <p className="text-xs text-slate-400">Upload your base PDF or DOCX resume. Our AI Engine uses this to calculate exact Fit Scores and tailor your bullet points for new jobs.</p>
-            </div>
-            
-            <div className="p-6 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center space-y-3 bg-slate-950/40 hover:bg-slate-900 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-blue-950/50 flex items-center justify-center text-blue-400 mb-2">
-                    <Download className="w-6 h-6" />
+          {/* Tab 1.5: Master Resume & Career History */}
+          {activeTab === 'resume' && (
+            <div className="space-y-5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-400" />
+                    <span>Master Career Resume</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Your base resume is used across the system to calculate precise Fit Scores and tailor applications.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    setClientScreen('resume');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Open in Resume Studio</span>
+                </button>
+              </div>
+
+              {/* Active Resume Credentials Summary Card */}
+              {formData?.savedResume ? (
+                <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Active Profile Master</span>
+                      <h4 className="text-base font-bold text-white mt-0.5">{formData.savedResume.name || formData.name}</h4>
+                      <p className="text-xs text-slate-400">{formData.savedResume.title || formData.roleTitle || 'Software Engineer'}</p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Calibrated</span>
+                    </span>
+                  </div>
+
+                  {/* Summary snippet */}
+                  {formData.savedResume.summary && (
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                      {formData.savedResume.summary}
+                    </p>
+                  )}
+
+                  {/* Verified Skills */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1.5">Top Verified Skills</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(formData.savedResume.allSkills || formData.savedResume.skills || []).slice(0, 15).map((sk) => (
+                        <span key={sk} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-blue-300 border border-slate-700">
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Work Experience Timeline */}
+                  {(formData.savedResume.experience || []).length > 0 && (
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-400 block mb-1.5">Experience Timeline</label>
+                      <div className="space-y-2">
+                        {formData.savedResume.experience.slice(0, 3).map((exp, idx) => (
+                          <div key={idx} className="p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/60 text-xs flex justify-between items-center">
+                            <div>
+                              <b className="text-white">{exp.role || exp.title}</b>
+                              <span className="text-slate-400"> — {exp.company}</span>
+                            </div>
+                            <span className="text-[11px] text-slate-500">{exp.dates}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 text-center text-xs text-slate-400">
+                  No master resume saved yet. Upload below or initialize in Resume Studio.
+                </div>
+              )}
+
+              {/* Upload New Master Resume Dropzone */}
+              <div className="p-6 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center space-y-3 bg-slate-950/40 hover:bg-slate-900 transition-colors">
+                <div className="w-12 h-12 rounded-full bg-blue-950/50 flex items-center justify-center text-blue-400 mb-1">
+                  <Download className="w-6 h-6" />
                 </div>
                 <h4 className="text-sm font-bold text-white">Upload New Master Resume</h4>
-                <p className="text-xs text-slate-400 text-center max-w-xs">Supports PDF, DOCX, and TXT up to 5MB. Will overwrite your currently saved master profile.</p>
-                <label className="mt-4 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer">
-                    Select File
-                    <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const fd = new FormData();
-                        fd.append('resume', file);
-                        const btn = document.getElementById('settings-save-top-btn');
-                        if (btn) btn.textContent = 'Uploading...';
-                        try {
-                            const res = await fetch('/api/profile/upload', {
-                                method: 'POST',
-                                headers: {
-                                    'Authorization': 'Bearer ' + localStorage.getItem('applypilot_token')
-                                },
-                                body: fd
-                            });
-                            if (res.ok) alert('Resume successfully uploaded & parsed!');
-                            else alert('Failed to upload resume.');
-                        } catch (err) {
-                            alert('Upload error: ' + err.message);
-                        } finally {
-                            if (btn) btn.textContent = 'Save Changes';
+                <p className="text-xs text-slate-400 text-center max-w-sm">
+                  Supports PDF, DOCX, and TXT up to 10MB. Our AI engine extracts candidate details and synchronizes your telemetry.
+                </p>
+                <label className="mt-3 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+                  <span>Select Resume File</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.txt"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const token = localStorage.getItem('applypilot_token');
+                      try {
+                        const fileName = file.name || 'resume.pdf';
+                        const mimeType = file.type || '';
+                        let payload = {};
+
+                        if (fileName.endsWith('.txt') || mimeType === 'text/plain') {
+                          const text = await file.text();
+                          payload = { text, fileName, mimeType };
+                        } else {
+                          const base64 = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const result = reader.result;
+                              const clean = typeof result === 'string' ? result.replace(/^data:[^;]+;base64,/, '') : '';
+                              resolve(clean);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                          });
+                          payload = { fileData: base64, fileName, mimeType };
                         }
-                    }} />
+
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                        const res = await fetch('/api/resume/parse', {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify(payload),
+                        });
+                        const data = await res.json();
+                        if (data.success && data.resume) {
+                          setFormData({
+                            ...formData,
+                            savedResume: data.resume,
+                            roleTitle: data.resume.title || formData.roleTitle,
+                            name: data.resume.name !== 'Candidate' ? data.resume.name : formData.name,
+                          });
+                          await updateProfile({
+                            savedResume: data.resume,
+                            roleTitle: data.resume.title || formData.roleTitle,
+                            name: data.resume.name !== 'Candidate' ? data.resume.name : formData.name,
+                          });
+                          setSavedNotice(true);
+                          setTimeout(() => setSavedNotice(false), 3000);
+                        }
+                      } catch (err) {
+                        console.error('Master resume upload error:', err);
+                      }
+                    }}
+                  />
                 </label>
+              </div>
             </div>
-          </div>)}
+          )}
 
           {/* Tab 2: Job Preferences */}
           {activeTab === 'preferences' && (<div className="space-y-5 animate-in fade-in duration-150">

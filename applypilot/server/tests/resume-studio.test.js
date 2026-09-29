@@ -1,15 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
-import { invalidateProviderChain } from '../ai/index.js';
 let app;
 beforeAll(() => {
     process.env.NODE_ENV = 'test';
     delete process.env.NVIDIA_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    invalidateProviderChain();
-    app = createApp();
+    delete process.env.GEMINI_API_KEY;    app = createApp();
 });
 const sampleResume = {
     fullName: 'Alice Developer',

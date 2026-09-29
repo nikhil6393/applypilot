@@ -1,22 +1,18 @@
 import { Router } from 'express';
-import { config, hasNvidia, hasOpenRouter } from '../config.js';
-import { checkLocalAIHealth } from '../ai/index.js';
+import { config } from '../config.js';
+
 export const configRouter = Router();
+
 configRouter.get('/', (_req, res) => {
     res.json({
-        hasNvidiaKey: hasNvidia,
-        hasOpenRouterKey: hasOpenRouter,
-        localAiAvailable: true,
+        hasAi: false,
         fitThreshold: config.fitThreshold,
         scrapeTimeoutMs: config.scrapeTimeoutMs,
+        scoringEngine: 'deterministic-v2',
     });
 });
-configRouter.get('/ai/health', async (_req, res) => {
-    try {
-        const health = await checkLocalAIHealth();
-        res.json(health);
-    }
-    catch (err) {
-        res.status(500).json({ error: err.message || 'AI health check failed' });
-    }
+
+// /api/config/ai/health — always returns offline since no AI is configured
+configRouter.get('/ai/health', (_req, res) => {
+    res.json({ provider: 'none', available: false, engine: 'deterministic' });
 });

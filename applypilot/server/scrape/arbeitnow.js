@@ -14,7 +14,7 @@ export async function arbeitnow(req) {
     const requireIntern = req.internshipsOnly !== false && (req.internshipsOnly || /intern|co-?op|student/i.test(queryLower));
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1200);
+        const timeout = setTimeout(() => controller.abort(), 10000);
         const res = await fetch('https://www.arbeitnow.com/api/job-board-api', {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',

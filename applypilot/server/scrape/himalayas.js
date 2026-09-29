@@ -22,7 +22,7 @@ export async function himalayas(req) {
                         ? 10080
                         : Infinity;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1200);
+    const timer = setTimeout(() => controller.abort(), 10000);
     const queryParam = req.query ? `&q=${encodeURIComponent(req.query)}` : '';
     const url = `https://himalayas.app/jobs/api?limit=${max * 2}${queryParam}`;
     try {

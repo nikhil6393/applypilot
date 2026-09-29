@@ -7,8 +7,6 @@ import { buildLatexResume } from '../export/latex-resume.js';
 import { tailorResumeForJob } from '../profile/tailor-engine.js';
 import { getSessionUser } from '../security/auth.js';
 import multer from 'multer';
-import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -47,6 +45,8 @@ profileRouter.get('/', (req, res) => {
     res.json({ profile: parsed, success: true, data: parsed });
 });
 
+import { setResume } from '../store/resume.js';
+
 // Phase 1: Resume Upload Endpoint (Any Format)
 profileRouter.post('/upload', upload.single('resume'), async (req, res) => {
     try {
@@ -54,62 +54,89 @@ profileRouter.post('/upload', upload.single('resume'), async (req, res) => {
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
         
-        let rawText = '';
-        const mimeType = req.file.mimetype;
+        const mimeType = req.file.mimetype || '';
         const buffer = req.file.buffer;
+        const fileName = (req.file.originalname || '').toLowerCase();
+        let parsed;
 
-        if (mimeType === 'application/pdf') {
-            const pdfData = await pdfParse(buffer);
-            rawText = pdfData.text;
+        if (mimeType.includes('pdf') || fileName.endsWith('.pdf')) {
+            parsed = await parseResumePdf(buffer);
         } else if (
-            mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-            mimeType === 'application/msword'
+            mimeType.includes('word') || 
+            mimeType.includes('officedocument') || 
+            fileName.endsWith('.docx') || 
+            fileName.endsWith('.doc')
         ) {
-            const docxData = await mammoth.extractRawText({ buffer });
-            rawText = docxData.value;
-        } else if (mimeType === 'text/plain') {
-            rawText = buffer.toString('utf-8');
+            parsed = await parseResumeDocx(buffer);
         } else {
-            return res.status(400).json({ success: false, error: 'Unsupported file type. Please upload PDF, DOCX, or TXT.' });
+            parsed = await parseResumeText(buffer.toString('utf-8'));
         }
 
-        // Extremely basic initial extraction logic to seed profile_json 
-        // (A real LLM call should be done here or handled asynchronously)
-        const profileJson = {
-            name: 'User extracted from resume',
-            experience: [],
-            skills: [],
-            targetRole: 'Software Engineer',
-            hasResume: true
-        };
-
+        const rawText = parsed.rawText || '';
         const db = getDb();
-        const profileId = getProfileId(req) !== 'default' ? getProfileId(req) : uuidv4();
+        const profileId = getProfileId(req);
         const now = new Date().toISOString();
 
-        const existing = db.prepare('SELECT id FROM candidate_profiles WHERE id = ?').get(profileId);
-        
+        // Sync with candidate_profiles table
+        const existing = db.prepare('SELECT id, profile_json FROM candidate_profiles WHERE id = ?').get(profileId);
         if (existing) {
-            db.prepare('UPDATE candidate_profiles SET raw_text = ?, profile_json = ?, updated_at = ? WHERE id = ?')
-              .run(rawText, JSON.stringify(profileJson), now, profileId);
+            let pJson = {};
+            try { pJson = JSON.parse(existing.profile_json); } catch {}
+            const merged = { ...pJson, ...parsed, hasResume: true, targetRole: parsed.title || pJson.targetRole || 'Software Engineer' };
+            db.prepare('UPDATE candidate_profiles SET raw_text = ?, profile_json = ?, target_role = ?, updated_at = ? WHERE id = ?')
+              .run(rawText, JSON.stringify(merged), parsed.title || 'Software Engineer', now, profileId);
         } else {
-            db.prepare('INSERT INTO candidate_profiles (id, created_at, updated_at, raw_text, profile_json) VALUES (?, ?, ?, ?, ?)')
-              .run(profileId, now, now, rawText, JSON.stringify(profileJson));
+            db.prepare('INSERT INTO candidate_profiles (id, created_at, updated_at, raw_text, profile_json, target_role) VALUES (?, ?, ?, ?, ?, ?)')
+              .run(profileId, now, now, rawText, JSON.stringify({ ...parsed, hasResume: true }), parsed.title || 'Software Engineer');
         }
+
+        // Also sync into session user if authenticated
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            const sessionUser = getSessionUser(token);
+            if (sessionUser?.id) {
+                const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(sessionUser.id);
+                if (row) {
+                    const uProfile = JSON.parse(row.profile_json);
+                    uProfile.savedResume = parsed;
+                    if (parsed.name && parsed.name !== 'Candidate') uProfile.name = parsed.name;
+                    if (parsed.title) uProfile.roleTitle = parsed.title;
+                    if (parsed.contact?.phone) uProfile.phone = parsed.contact.phone;
+                    if (parsed.contact?.location) uProfile.location = parsed.contact.location;
+                    if (parsed.contact?.linkedin) uProfile.linkedin = parsed.contact.linkedin;
+                    if (parsed.contact?.github) uProfile.github = parsed.contact.github;
+                    if (parsed.contact?.portfolio) uProfile.portfolio = parsed.contact.portfolio;
+                    db.prepare('UPDATE users SET profile_json = ? WHERE id = ?').run(JSON.stringify(uProfile), sessionUser.id);
+                }
+            }
+        }
+
+        // Set master in resumeStore for immediate Resume Studio sync
+        setResume(parsed);
 
         // Save it to resume_versions as the master version
         const versionId = uuidv4();
         const versionCount = db.prepare('SELECT COUNT(*) as count FROM resume_versions WHERE profile_id = ?').get(profileId).count;
         
-        db.prepare(\`
-            INSERT INTO resume_versions (id, profile_id, version_number, html_resume, latex_source, is_master)
-            VALUES (?, ?, ?, ?, ?, ?)
-        \`).run(versionId, profileId, versionCount + 1, \`<div>\${rawText.slice(0, 500)}...</div>\`, '', 1);
+        try {
+            db.prepare(`
+                INSERT INTO resume_versions (id, profile_id, version_number, html_resume, latex_source, is_master)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(versionId, profileId, versionCount + 1, `<div>${rawText.slice(0, 500)}...</div>`, '', 1);
+        } catch {}
 
-        res.json({ success: true, message: 'Resume uploaded and parsed successfully!', profileId });
+        res.json({
+            success: true,
+            message: 'Resume uploaded and parsed successfully!',
+            profile: parsed,
+            resume: parsed,
+            data: parsed,
+            profileId
+        });
     } catch (err) {
         console.error('Error in /api/profile/upload:', err);
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: err.message || 'Failed to upload resume' });
     }
 });
 profileRouter.get('/completeness', (req, res) => {
@@ -385,9 +412,33 @@ profileRouter.post('/parse-resume', async (req, res) => {
       INSERT INTO analytics_events (id, profile_id, event_type, event_data_json, created_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(eventId, profileId, 'resume_parsed', JSON.stringify({ versionId, score: atsReport.score }), now);
+        // Set master in resumeStore for immediate Resume Studio sync
+        setResume(parsed);
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            const sessionUser = getSessionUser(token);
+            if (sessionUser?.id) {
+                const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(sessionUser.id);
+                if (row) {
+                    const uProfile = JSON.parse(row.profile_json);
+                    uProfile.savedResume = parsed;
+                    if (parsed.name && parsed.name !== 'Candidate') uProfile.name = parsed.name;
+                    if (parsed.title) uProfile.roleTitle = parsed.title;
+                    if (parsed.contact?.phone) uProfile.phone = parsed.contact.phone;
+                    if (parsed.contact?.location) uProfile.location = parsed.contact.location;
+                    if (parsed.contact?.linkedin) uProfile.linkedin = parsed.contact.linkedin;
+                    if (parsed.contact?.github) uProfile.github = parsed.contact.github;
+                    if (parsed.contact?.portfolio) uProfile.portfolio = parsed.contact.portfolio;
+                    db.prepare('UPDATE users SET profile_json = ? WHERE id = ?').run(JSON.stringify(uProfile), sessionUser.id);
+                }
+            }
+        }
         res.json({
             success: true,
-            data: { ...parsed, profileId, versionId, atsScore: atsReport.score },
+            data: { ...parsed, profileId, versionId, atsScore: atsReport.score || atsReport.overallScore || 0 },
+            resume: parsed,
+            profile: parsed,
         });
     }
     catch (err) {

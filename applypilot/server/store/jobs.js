@@ -38,19 +38,31 @@ export function jobHash(j) {
 export function upsertJob(job) {
     const db = getDb();
     const hash = jobHash(job);
-    const existed = db.prepare('SELECT 1 AS x FROM jobs WHERE hash = ?').get(hash);
+    const existing = db.prepare('SELECT id FROM jobs WHERE hash = ? OR id = ?').get(hash, job.id);
+    const targetId = existing?.id || job.id;
     const stmt = db.prepare(`
     INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, raw)
     VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @raw)
-    ON CONFLICT(hash) DO UPDATE SET
+    ON CONFLICT(id) DO UPDATE SET
       title=excluded.title,
+      company=excluded.company,
+      url=excluded.url,
+      apply_url=excluded.apply_url,
+      location=excluded.location,
+      remote=excluded.remote,
       description=excluded.description,
+      description_html=COALESCE(excluded.description_html, jobs.description_html),
+      posted_at=COALESCE(excluded.posted_at, jobs.posted_at),
+      fetched_at=excluded.fetched_at,
+      employment_type=COALESCE(excluded.employment_type, jobs.employment_type),
       skills=excluded.skills,
       salary_min=COALESCE(excluded.salary_min, jobs.salary_min),
-      salary_max=COALESCE(excluded.salary_max, jobs.salary_max)
+      salary_max=COALESCE(excluded.salary_max, jobs.salary_max),
+      hash=excluded.hash,
+      raw=COALESCE(excluded.raw, jobs.raw)
   `);
     const res = stmt.run({
-        id: job.id,
+        id: targetId,
         title: job.title,
         company: job.company,
         source: job.source,
@@ -70,22 +82,33 @@ export function upsertJob(job) {
         hash,
         raw: job.raw ? JSON.stringify(job.raw) : null,
     });
-    return { inserted: !existed && res.changes >= 1 };
+    return { inserted: !existing && res.changes >= 1 };
 }
 
 export function upsertJobsBatch(jobs) {
     if (!Array.isArray(jobs) || jobs.length === 0) return { insertedCount: 0, total: 0 };
     const db = getDb();
-    const checkStmt = db.prepare('SELECT 1 AS x FROM jobs WHERE hash = ?');
+    const checkStmt = db.prepare('SELECT id FROM jobs WHERE hash = ? OR id = ?');
     const insertStmt = db.prepare(`
     INSERT INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, hash, raw)
     VALUES (@id, @title, @company, @source, @url, @applyUrl, @location, @remote, @description, @descriptionHtml, @postedAt, @fetchedAt, @employmentType, @salaryMin, @salaryMax, @salaryCurrency, @skills, @hash, @raw)
-    ON CONFLICT(hash) DO UPDATE SET
+    ON CONFLICT(id) DO UPDATE SET
       title=excluded.title,
+      company=excluded.company,
+      url=excluded.url,
+      apply_url=excluded.apply_url,
+      location=excluded.location,
+      remote=excluded.remote,
       description=excluded.description,
+      description_html=COALESCE(excluded.description_html, jobs.description_html),
+      posted_at=COALESCE(excluded.posted_at, jobs.posted_at),
+      fetched_at=excluded.fetched_at,
+      employment_type=COALESCE(excluded.employment_type, jobs.employment_type),
       skills=excluded.skills,
       salary_min=COALESCE(excluded.salary_min, jobs.salary_min),
-      salary_max=COALESCE(excluded.salary_max, jobs.salary_max)
+      salary_max=COALESCE(excluded.salary_max, jobs.salary_max),
+      hash=excluded.hash,
+      raw=COALESCE(excluded.raw, jobs.raw)
   `);
 
     let insertedCount = 0;
@@ -93,9 +116,10 @@ export function upsertJobsBatch(jobs) {
         for (const job of items) {
             try {
                 const hash = jobHash(job);
-                const existed = checkStmt.get(hash);
+                const existing = checkStmt.get(hash, job.id);
+                const targetId = existing?.id || job.id;
                 const res = insertStmt.run({
-                    id: job.id,
+                    id: targetId,
                     title: job.title,
                     company: job.company,
                     source: job.source,
@@ -115,11 +139,11 @@ export function upsertJobsBatch(jobs) {
                     hash,
                     raw: job.raw ? JSON.stringify(job.raw) : null,
                 });
-                if (!existed && res.changes >= 1) {
+                if (!existing && res.changes >= 1) {
                     insertedCount++;
                 }
             } catch (err) {
-                console.warn('[jobs] item upsert error in batch:', err.message);
+                // Ignore individual failure
             }
         }
     });
@@ -214,7 +238,11 @@ export function pruneExpiredJobs(daysOld = 60) {
     try {
         const db = getDb();
         const cutoff = new Date(Date.now() - daysOld * 24 * 3600 * 1000).toISOString();
-        const res = db.prepare('DELETE FROM jobs WHERE posted_at < ? AND id NOT IN (SELECT job_id FROM application_records)').run(cutoff);
+        const res = db.prepare(`
+            DELETE FROM jobs 
+            WHERE posted_at < ? 
+              AND id NOT IN (SELECT job_id FROM applications UNION SELECT job_id FROM tracker)
+        `).run(cutoff);
         return { prunedCount: res.changes };
     } catch (err) {
         console.warn('[jobs] Pruning error:', err.message);

@@ -75,7 +75,7 @@ export async function weworkremotely(req) {
     try {
         const responses = await Promise.allSettled(feedUrls.map(async (url) => {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 1200);
+            const timeout = setTimeout(() => controller.abort(), 10000);
             const res = await fetch(url, {
                 headers: {
                     'User-Agent': 'ApplyPilot/2.0 (Job Aggregator)',

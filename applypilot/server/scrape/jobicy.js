@@ -22,7 +22,7 @@ export async function jobicy(req) {
                         ? 10080
                         : Infinity;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1200);
+    const timer = setTimeout(() => controller.abort(), 10000);
     // Jobicy API endpoint for remote engineering and dev roles
     const url = `https://jobicy.com/api/v2/remote-jobs?count=${Math.max(30, max)}&industry=engineering`;
     try {

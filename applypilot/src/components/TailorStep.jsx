@@ -114,23 +114,20 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
         }
         const matchedKeywords = jobKeywords.matched.length > 0 ? jobKeywords.matched : ['React', 'TypeScript'];
         const missingKeywords = jobKeywords.missing.slice(0, 3);
-        // Transform each bullet point with STAR / XYZ structure
-        const transformed = allOriginalBullets.slice(0, 4).map((original, idx) => {
-            const verb = POWER_VERBS[idx % POWER_VERBS.length];
-            const keyTech = matchedKeywords[idx % matchedKeywords.length] || 'TypeScript';
-            const targetTech = missingKeywords[idx % missingKeywords.length] || matchedKeywords[(idx + 1) % matchedKeywords.length] || 'Node.js';
-            // If bullet already has good metrics, preserve and elevate with target tech
-            if (idx === 0) {
-                return `${verb} high-throughput full-stack features leveraging ${keyTech} and ${targetTech}, improving end-to-end task execution speed by 38% for 45k+ active workflows.`;
+        // Rank candidate's authentic bullets by relevance to matched job keywords
+        const scoredBullets = allOriginalBullets.map((b) => {
+            const lower = b.toLowerCase();
+            let score = 0;
+            for (const sk of matchedKeywords) {
+                if (lower.includes(sk.toLowerCase())) score += 2;
             }
-            if (idx === 1) {
-                return `${verb} resilient backend REST API endpoints and data models with ${keyTech}, cutting p99 database query latency by 45ms across production clusters.`;
+            if (/\d+%|\d+x|\$\d+|\d+\s?(ms|seconds?|hours?|users?|requests?)/i.test(b)) {
+                score += 1;
             }
-            if (idx === 2) {
-                return `${verb} component design token architecture and automated integration test pipelines, reducing regression triage overhead by 28%.`;
-            }
-            return `${verb} cross-platform web modules adhering to strict TypeScript typing and responsive standards, achieving 99.8% uptime reliability.`;
+            return { bullet: b, score };
         });
+        scoredBullets.sort((a, b) => b.score - a.score);
+        const transformed = scoredBullets.slice(0, 4).map((s) => s.bullet);
         const summary = `${resume.name} is a high-caliber Software Engineer with proven hands-on capability in ${matchedKeywords.slice(0, 3).join(', ')} and ${job.title} competencies, targeted to accelerate engineering delivery at ${job.company}.`;
         // ATS Match Score: 92-96% after tailoring
         const atsScore = Math.min(96, Math.max(88, 85 + matchedKeywords.length * 2));

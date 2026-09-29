@@ -3,7 +3,6 @@ import request from 'supertest';
 import { closeDb, getDb } from '../store/db.js';
 import { createApp } from '../app.js';
 import { tailor } from '../scoring/tailor.js';
-import { invalidateProviderChain } from '../ai/index.js';
 import { config } from '../config.js';
 const resume = {
     fullName: 'Test User',
@@ -62,9 +61,7 @@ beforeAll(async () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.NVIDIA_NIM_API_KEY;
     config.openRouterApiKey = '';
-    config.nvidiaApiKey = '';
-    invalidateProviderChain();
-    process.env.DB_PATH = './data/test-tailor-routes.db';
+    config.nvidiaApiKey = '';    process.env.DB_PATH = './data/test-tailor-routes.db';
     app = createApp();
     // Wipe tables in the live DB so this test is isolated from other test files and live smoke data.
     getDb().exec('DELETE FROM tracker; DELETE FROM jobs; DELETE FROM resume;');
@@ -91,9 +88,7 @@ describe('tailor', () => {
         delete process.env.GEMINI_API_KEY;
         delete process.env.NVIDIA_NIM_API_KEY;
         config.openRouterApiKey = '';
-        config.nvidiaApiKey = '';
-        invalidateProviderChain();
-    });
+        config.nvidiaApiKey = '';    });
     it('returns a completed doc with at least one bullet', async () => {
         const doc = await tailor(resume, job);
         expect(doc.jobId).toBe('tailor1');

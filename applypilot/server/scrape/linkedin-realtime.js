@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { load } from 'cheerio';
-import { bestEffortComplete } from '../ai/index.js';
+
 import { validateAndFilterJobs } from './validator.js';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';

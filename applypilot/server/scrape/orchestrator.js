@@ -66,6 +66,8 @@ class ScrapeOrchestrator extends EventEmitter {
     lastRunAt = null;
     totalRuns = 0;
     totalDiscovered = 0;
+    circuitBreakers = new Map(); // source -> { failures: number, coolUntil: number }
+
     start(intervalMs) {
         if (intervalMs && intervalMs > 10000) {
             this.currentIntervalMs = intervalMs;
@@ -105,6 +107,7 @@ class ScrapeOrchestrator extends EventEmitter {
             totalDiscovered: this.totalDiscovered,
             activeSources: DEFAULT_SOURCES,
             cacheStats: scrapeCache.getStats(),
+            circuitBreakers: Object.fromEntries(this.circuitBreakers.entries()),
         };
     }
     async scrapeOnce(req) {
@@ -134,6 +137,15 @@ class ScrapeOrchestrator extends EventEmitter {
             if (!fn)
                 return;
             const stat = { found: 0, new: 0 };
+
+            // Check Circuit Breaker
+            const cb = this.circuitBreakers.get(source);
+            if (cb && cb.coolUntil > Date.now()) {
+                stat.error = `Circuit open (cooling down until ${new Date(cb.coolUntil).toLocaleTimeString()})`;
+                perSource[source] = stat;
+                return;
+            }
+
             const cacheKey = scrapeCache.generateKey(source, req);
             try {
                 // Fast path: Check in-memory TTL cache first
@@ -143,16 +155,19 @@ class ScrapeOrchestrator extends EventEmitter {
                     jobs = cached;
                 }
                 else {
-                    const timeoutMs = Math.max(45000, config.scrapeTimeoutMs || 30000);
-                    jobs = await Promise.race([
-                        fn(req),
-                        new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)),
-                    ]);
-                    if (Array.isArray(jobs) && jobs.length > 0) {
-                        scrapeCache.set(cacheKey, jobs);
+                    const timeoutMs = Math.max(25000, config.scrapeTimeoutMs || 25000);
+                    const abortCtrl = new AbortController();
+                    const timeoutTimer = setTimeout(() => abortCtrl.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs);
+                    try {
+                        jobs = await fn({ ...req, signal: abortCtrl.signal });
+                        if (Array.isArray(jobs) && jobs.length > 0) {
+                            scrapeCache.set(cacheKey, jobs);
+                        }
+                    } finally {
+                        clearTimeout(timeoutTimer);
                     }
                 }
-                const matchingJobs = filterJobsForRequest(jobs, req);
+                const matchingJobs = filterJobsForRequest(jobs || [], req);
                 stat.found = matchingJobs.length;
                 if (matchingJobs.length > 0) {
                     for (const j of matchingJobs) {
@@ -170,9 +185,17 @@ class ScrapeOrchestrator extends EventEmitter {
                         }
                     }
                 }
+                // Successful run: Reset any previous failure counter
+                this.circuitBreakers.delete(source);
             }
             catch (err) {
                 stat.error = err.message;
+                const current = this.circuitBreakers.get(source) || { failures: 0, coolUntil: 0 };
+                current.failures += 1;
+                if (current.failures >= 3) {
+                    current.coolUntil = Date.now() + 10 * 60 * 1000; // 10 minutes cooling down
+                }
+                this.circuitBreakers.set(source, current);
             }
             finally {
                 perSource[source] = stat;

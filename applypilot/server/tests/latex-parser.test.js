@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { latexToPlainText, parseResumeText } from '../ai/resume-parser.js';
-import { invalidateProviderChain } from '../ai/index.js';
 const latex = String.raw `\documentclass{article}
 \begin{document}
 {\fontsize{15}{18}\bfseries Nikhil Singh}\\[3pt]
@@ -19,9 +18,7 @@ describe('LaTeX resume parsing', () => {
         delete process.env.OPENROUTER_API_KEY;
         delete process.env.NVIDIA_API_KEY;
         delete process.env.GEMINI_API_KEY;
-        delete process.env.NVIDIA_NIM_API_KEY;
-        invalidateProviderChain();
-    });
+        delete process.env.NVIDIA_NIM_API_KEY;    });
     it('extracts visible LaTeX content without retaining template commands', async () => {
         const text = latexToPlainText(latex);
         expect(text).toContain('Nikhil Singh');

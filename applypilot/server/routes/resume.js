@@ -4,14 +4,117 @@ import { parseResumeText, parseResumePdf, parseResumeDocx } from '../ai/resume-p
 import { evaluateResumeAts } from '../scoring/ats-scorer.js';
 import { defaultAtsScorerV2, sanitizeLatex } from '@applypilot/parsing';
 import { tokenize, inverseDocumentFrequency, vectorize, cosineSimilarity } from '../scoring/tfidf.js';
-import { bestEffortComplete } from '../ai/index.js';
 import { computeSkillGapReport } from '../scoring/skill-gap.js';
 export const resumeRouter = Router();
-resumeRouter.get('/', (_req, res) => {
+
+// Static list of strong action verbs for deterministic bullet suggestions
+const STRONG_VERBS = [
+    'Engineered', 'Built', 'Designed', 'Implemented', 'Developed',
+    'Deployed', 'Automated', 'Optimized', 'Architected', 'Delivered',
+    'Reduced', 'Increased', 'Improved', 'Launched', 'Migrated',
+    'Refactored', 'Integrated', 'Scaled', 'Shipped', 'Led',
+];
+const WEAK_OPENERS = /^(responsible for|worked on|helped|assisted|duties included|participated in)/i;
+function deterministicBulletSuggestion(bullet, keyword) {
+    let improved = bullet;
+    if (WEAK_OPENERS.test(bullet)) {
+        const verb = STRONG_VERBS[bullet.length % STRONG_VERBS.length]; // deterministic pick
+        improved = `${verb} ${bullet.replace(WEAK_OPENERS, '').trim()}`;
+    }
+    if (keyword && !improved.toLowerCase().includes(keyword.toLowerCase())) {
+        improved = improved.replace(/\.$/, '') + ` using ${keyword}.`;
+    }
+    return improved.trim();
+}
+import { getDb } from '../store/db.js';
+import { getSessionUser } from '../security/auth.js';
+
+function syncResumeToProfile(resume, authHeader) {
+    if (!resume) return;
+    try {
+        const db = getDb();
+        const now = new Date().toISOString();
+        let userId = 'default';
+        if (authHeader) {
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            const sessionUser = getSessionUser(token);
+            if (sessionUser?.id) {
+                userId = sessionUser.id;
+                // Update user profile_json
+                const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(userId);
+                if (row) {
+                    const uProfile = JSON.parse(row.profile_json);
+                    uProfile.savedResume = resume;
+                    if (resume.name && resume.name !== 'Candidate') uProfile.name = resume.name;
+                    if (resume.title) uProfile.roleTitle = resume.title;
+                    if (resume.contact?.phone) uProfile.phone = resume.contact.phone;
+                    if (resume.contact?.location) uProfile.location = resume.contact.location;
+                    if (resume.contact?.linkedin) uProfile.linkedin = resume.contact.linkedin;
+                    if (resume.contact?.github) uProfile.github = resume.contact.github;
+                    if (resume.contact?.portfolio) uProfile.portfolio = resume.contact.portfolio;
+                    db.prepare('UPDATE users SET profile_json = ? WHERE id = ?').run(JSON.stringify(uProfile), userId);
+                }
+            }
+        }
+        // Sync candidate_profiles table
+        const candidateRow = db.prepare('SELECT id, profile_json FROM candidate_profiles WHERE id = ?').get(userId);
+        if (candidateRow) {
+            let pJson = {};
+            try { pJson = JSON.parse(candidateRow.profile_json); } catch {}
+            const merged = { ...pJson, ...resume, hasResume: true, targetRole: resume.title || pJson.targetRole || 'Software Engineer' };
+            db.prepare('UPDATE candidate_profiles SET profile_json = ?, raw_text = ?, updated_at = ? WHERE id = ?')
+              .run(JSON.stringify(merged), resume.rawText || '', now, userId);
+        } else {
+            db.prepare('INSERT INTO candidate_profiles (id, profile_json, raw_text, target_role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+              .run(userId, JSON.stringify({ ...resume, hasResume: true }), resume.rawText || '', resume.title || 'Software Engineer', now, now);
+        }
+    } catch (e) {
+        console.warn('[resume-sync] Warning syncing resume to profile:', e.message);
+    }
+}
+
+resumeRouter.get('/', (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            const sessionUser = getSessionUser(token);
+            if (sessionUser?.id) {
+                const db = getDb();
+                const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(sessionUser.id);
+                if (row) {
+                    const uProfile = JSON.parse(row.profile_json);
+                    if (uProfile?.savedResume) {
+                        return res.json({ resume: uProfile.savedResume, success: true, data: uProfile.savedResume });
+                    }
+                }
+            }
+        }
+    } catch {}
     const r = getResume();
     if (!r)
         return res.json({ resume: null, success: true, data: null });
     res.json({ resume: r, success: true, data: r });
+});
+
+resumeRouter.post('/', (req, res) => {
+    const r = req.body?.resume || req.body;
+    if (!r || typeof r !== 'object') {
+        return res.status(400).json({ success: false, error: 'Valid resume object required' });
+    }
+    setResume(r);
+    syncResumeToProfile(r, req.headers.authorization);
+    res.json({ success: true, resume: r, data: r });
+});
+
+resumeRouter.put('/', (req, res) => {
+    const r = req.body?.resume || req.body;
+    if (!r || typeof r !== 'object') {
+        return res.status(400).json({ success: false, error: 'Valid resume object required' });
+    }
+    setResume(r);
+    syncResumeToProfile(r, req.headers.authorization);
+    res.json({ success: true, resume: r, data: r });
 });
 resumeRouter.get('/ats', (_req, res) => {
     const r = getResume();
@@ -145,53 +248,22 @@ resumeRouter.post('/targeted-match', async (req, res) => {
 // Truth-anchored AI magic write for resume bullets
 resumeRouter.post('/magic-write', async (req, res) => {
     try {
-        const { resume, bullet, section, keyword } = req.body;
+        const { resume, bullet, keyword } = req.body;
         if (!resume)
             return res.status(400).json({ error: 'resume required' });
-        const experienceSummary = (resume.experience || [])
-            .map((e) => {
-            const bullets = (e.bullets || []).slice(0, 3).join('\n- ');
-            return `${e.role || e.title} at ${e.company} (${e.dates}):\n- ${bullets}`;
-        })
-            .join('\n\n');
-        const skills = Array.isArray(resume.skills)
-            ? resume.skills.join(', ')
-            : Object.values(resume.skills || {}).flat().join(', ');
-        const systemPrompt = `You are a professional resume writer. You MUST only rephrase or emphasize content ALREADY PRESENT in the candidate's resume.
-NEVER invent employers, titles, dates, metrics, companies, or skills that are not explicitly listed.
-CANDIDATE'S RESUME:
-Skills: ${skills}
-Experience:\n${experienceSummary}`;
-        const userPrompt = keyword
-            ? `Write 2 achievement-focused resume bullet points for section "${section}" naturally incorporating keyword "${keyword}". Use candidate's real experience only.`
-            : `Rewrite this resume bullet to be stronger: "${bullet}". Start with a strong action verb, include a metric if present in original, keep under 30 words.`;
-        let aiText = '';
-        try {
-            const result = await bestEffortComplete(userPrompt, {
-                system: systemPrompt,
-                maxTokens: 250,
-                temperature: 0.3,
-                signal: req.signal,
-            });
-            aiText = result.text;
+        if (!bullet || typeof bullet !== 'string')
+            return res.status(400).json({ error: 'bullet string required' });
+        const improved = deterministicBulletSuggestion(bullet, keyword);
+        const suggestions = [{ text: improved, confidence: 'rule-based' }];
+        // If the original had no metric, prompt the user to add one (never fabricate)
+        const hints = [];
+        if (!/\d/.test(bullet)) {
+            hints.push('Add a metric to strengthen this bullet — e.g. "reduced load time by 40%", "served 10k users", "cut errors by 3x".');
         }
-        catch {
-            aiText = keyword
-                ? `Leveraged ${keyword} to ${bullet || 'deliver high-impact engineering solutions'}, contributing to team goals and measurable outcomes.`
-                : bullet?.replace(/^(worked on|responsible for|assisted|helped)/i, 'Engineered') || bullet;
-        }
-        const rawLines = aiText
-            .split(/\n+/)
-            .map((l) => l.replace(/^[\d\.\-\*\•]+\s*/, '').trim())
-            .filter((l) => l.length > 10);
-        const suggestions = rawLines.slice(0, 2).map((text) => ({ text, confidence: 'high' }));
-        if (suggestions.length === 0) {
-            suggestions.push({ text: aiText.trim().slice(0, 200), confidence: 'medium' });
-        }
-        res.json({ suggestions, source: 'magic-write-v1', guardrail: 'truth-anchored' });
+        res.json({ suggestions, source: 'deterministic-v2', hints });
     }
     catch (e) {
-        res.status(500).json({ error: e.message || 'Magic write failed' });
+        res.status(500).json({ error: e.message || 'Bullet improvement failed' });
     }
 });
 // Auto-fix diff generator (never auto-saves)
@@ -268,7 +340,19 @@ resumeRouter.post('/skill-gap', (req, res) => {
         res.status(500).json({ success: false, error: e.message || 'Skill gap analysis failed' });
     }
 });
-resumeRouter.post('/parse', async (req, res) => {
+
+import rateLimit from 'express-rate-limit';
+
+const parseRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many resume parse requests. Please wait a moment before trying again.' },
+    skip: () => process.env.NODE_ENV === 'test',
+});
+
+resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
     try {
         const body = req.body;
         let parsed;
@@ -317,6 +401,7 @@ resumeRouter.post('/parse', async (req, res) => {
             // Non-fatal if scoring fails
         }
         setResume(parsed);
+        syncResumeToProfile(parsed, req.headers.authorization);
         res.json({
             success: true,
             data: parsed,

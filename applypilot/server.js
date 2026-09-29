@@ -17,13 +17,10 @@ const pdfParse = (() => {
         return require('pdf-parse');
     }
 })();
-// AI: NVIDIA NIM → OpenRouter (free) → offline heuristic chain
-import { bestEffortComplete } from './server/ai/index.js';
 import { parseResumeText } from './server/ai/resume-parser.js';
 import { evaluateResumeAts } from './server/scoring/ats-scorer.js';
 import { bulkTailorQueue } from './server/queue/bulkTailorQueue.js';
 import { v4 as uuidv4 } from 'uuid';
-import { getProvider } from './server/ai/provider.js';
 import { batchCalculateDeterministicFitScores, } from './server/scoring/deterministic.js';
 // import { generateFitScore } from './server/profile/fit-scorer.js';
 import { getRecentAuditLogs } from './server/events/event-logger.js';
@@ -67,23 +64,20 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
 });
-// ─── AI utility: call bestEffortComplete and parse JSON safely ─────────────────
-async function aiJson(prompt, system, fallback) {
-    try {
-        const { text } = await bestEffortComplete(prompt, {
-            maxTokens: 4000,
-            temperature: 0.1,
-            system,
-        });
-        const jsonStr = text
-            .trim()
-            .replace(/^```json\s*/i, '')
-            .replace(/```\s*$/i, '');
-        return JSON.parse(jsonStr);
+// Deterministic strong-verb list for bullet improvement (no AI)
+const STRONG_VERBS_SV = [
+    'Engineered', 'Built', 'Designed', 'Implemented', 'Developed',
+    'Deployed', 'Automated', 'Optimized', 'Architected', 'Delivered',
+    'Reduced', 'Increased', 'Improved', 'Launched', 'Migrated',
+    'Refactored', 'Integrated', 'Scaled', 'Shipped', 'Led',
+];
+const WEAK_OPENER_RE = /^(responsible for|worked on|helped|assisted|duties included|participated in)/i;
+function improveBullet(bullet) {
+    if (WEAK_OPENER_RE.test(bullet)) {
+        const verb = STRONG_VERBS_SV[bullet.length % STRONG_VERBS_SV.length];
+        return `${verb} ${bullet.replace(WEAK_OPENER_RE, '').trim()}`;
     }
-    catch {
-        return fallback;
-    }
+    return bullet;
 }
 const jobCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -509,57 +503,6 @@ async function startServer() {
         res.json({ success: true, syncedResume });
     });
 
-    // 7. Real-Time Zero-Login LinkedIn Scraper Endpoint
-    app.post('/api/jobs/scrape-linkedin', async (req, res) => {
-        try {
-            const { query, location, internshipsOnly, timeWindow, limit } = req.body || {};
-            const rawLoc = String(location || '').trim();
-            const effectiveLoc = !rawLoc || /anywhere|global|worldwide/i.test(rawLoc) ? 'Worldwide' : rawLoc;
-            const jobs = await linkedinRealtime({
-                query: query || 'software engineer internship',
-                location: effectiveLoc,
-                internshipsOnly: internshipsOnly !== false,
-                timeWindow: timeWindow || '24h',
-                maxPerSource: limit ? parseInt(String(limit), 10) : 35,
-            });
-            res.json({
-                success: true,
-                count: jobs.length,
-                source: 'linkedin_realtime_guest',
-                fetchedAt: new Date().toISOString(),
-                jobs,
-            });
-        }
-        catch (err) {
-            console.error('LinkedIn realtime scraping error:', err);
-            res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-        }
-    });
-    app.get('/api/jobs/scrape-linkedin', async (req, res) => {
-        try {
-            const { query, location, internshipsOnly, timeWindow, limit } = req.query || {};
-            const rawLoc = String(location || '').trim();
-            const effectiveLoc = !rawLoc || /anywhere|global|worldwide/i.test(rawLoc) ? 'Worldwide' : rawLoc;
-            const jobs = await linkedinRealtime({
-                query: String(query || 'software engineer internship'),
-                location: effectiveLoc,
-                internshipsOnly: internshipsOnly !== 'false',
-                timeWindow: timeWindow || '24h',
-                maxPerSource: limit ? parseInt(String(limit), 10) : 35,
-            });
-            res.json({
-                success: true,
-                count: jobs.length,
-                source: 'linkedin_realtime_guest',
-                fetchedAt: new Date().toISOString(),
-                jobs,
-            });
-        }
-        catch (err) {
-            console.error('LinkedIn realtime scraping error:', err);
-            res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-        }
-    });
     // 7b. Zero-Login Match Internships
     app.post('/api/linkedin/find-internships', async (req, res) => {
         try {
@@ -584,95 +527,6 @@ async function startServer() {
             console.error('Error finding LinkedIn internships:', err);
             res.status(500).json({ success: false, error: err.message });
         }
-    });
-    // 7d. Real-Time Zero-Login Naukri Scraper Endpoint
-    app.post('/api/jobs/scrape-naukri', async (req, res) => {
-        try {
-            const { query, location, limit } = req.body || {};
-            const jobs = await naukriAdvanced({
-                query: query || 'software engineer internship',
-                location: location || 'India',
-                maxPerSource: limit ? parseInt(String(limit), 10) : 25,
-            });
-            res.json({
-                success: true,
-                count: jobs.length,
-                source: 'naukari_realtime',
-                fetchedAt: new Date().toISOString(),
-                jobs,
-            });
-        }
-        catch (err) {
-            console.error('Naukri scraping error:', err);
-            res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-        }
-    });
-    app.get('/api/jobs/scrape-naukri', async (req, res) => {
-        try {
-            const { query, location, limit } = req.query || {};
-            const jobs = await naukriAdvanced({
-                query: String(query || 'software engineer internship'),
-                location: String(location || 'India'),
-                maxPerSource: limit ? parseInt(String(limit), 10) : 25,
-            });
-            res.json({
-                success: true,
-                count: jobs.length,
-                source: 'naukari_realtime',
-                fetchedAt: new Date().toISOString(),
-                jobs,
-            });
-        }
-        catch (err) {
-            console.error('Naukri scraping error:', err);
-            res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-        }
-    });
-    // 7d. Realtime Background Monitor Endpoints
-    app.get('/api/monitor/status', (req, res) => {
-        res.json({ success: true, monitor: realtimeMonitor.getStatus() });
-    });
-    app.post('/api/monitor/trigger', async (req, res) => {
-        const { keywords, locations } = req.body || {};
-        if (keywords)
-            realtimeMonitor.setKeywords(keywords);
-        if (locations)
-            realtimeMonitor.setLocations(locations);
-        const result = await realtimeMonitor.triggerNow();
-        res.json({ success: true, result, monitor: realtimeMonitor.getStatus() });
-    });
-    app.get('/api/monitor/stream', (req, res) => {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        const sendEvent = (event, data) => {
-            res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-        };
-        // Send initial status and strictly fresh cached jobs (< 2 hours)
-        sendEvent('status', realtimeMonitor.getStatus());
-        const cached = realtimeMonitor.getCachedJobs().filter((j) => {
-            const ts = j.postedAt || j.scrapedAt;
-            if (!ts)
-                return false;
-            const ms = Date.now() - new Date(ts).getTime();
-            return ms > 0 && ms < 2 * 3600 * 1000;
-        });
-        if (cached.length > 0) {
-            sendEvent('cached_jobs', { count: cached.length, jobs: cached.slice(0, 25) });
-        }
-        // SSE heartbeat every 30s to prevent proxy/browser timeout
-        const heartbeat = setInterval(() => {
-            sendEvent('heartbeat', { time: new Date().toISOString() });
-        }, 30000);
-        const onNewJobs = (data) => {
-            sendEvent('new_jobs', data);
-        };
-        realtimeMonitor.on('new_jobs', onNewJobs);
-        req.on('close', () => {
-            clearInterval(heartbeat);
-            realtimeMonitor.off('new_jobs', onNewJobs);
-            res.end();
-        });
     });
     // 8. Generate LinkedIn Easy Apply / Quick Apply Packet
     app.post('/api/linkedin/apply-packet', async (req, res) => {
@@ -920,6 +774,16 @@ Extract strictly into JSON:
             res.status(500).json({ error: err.message || 'Failed to scrape job URL' });
         }
     });
+    function escapeHtml(str) {
+        if (!str || typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // Clean, hyperlinked, strictly ATS-compliant HTML resume builder
     function generateFullHtmlResume(resume, job, tailoredSummary, tailoredBulletsMap, atsScore, atsKeywords) {
         const email = resume.contact?.email || '';
@@ -966,7 +830,7 @@ Extract strictly into JSON:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${resume.name} - Resume (${job.company})</title>
+  <title>${escapeHtml(resume.name)} - Resume (${escapeHtml(job.company)})</title>
   <style>
     @page {
       margin: 0.5in;
@@ -1136,50 +1000,50 @@ Extract strictly into JSON:
   <div class="ats-preview-badge">
     <div style="display: flex; align-items: center; gap: 8px;">
       <span class="ats-score-pill">✓ ATS SCORE: ${atsScore}/100</span>
-      <span style="font-weight: 600;">Tailored for ${job.company} — ${job.title}</span>
+      <span style="font-weight: 600;">Tailored for ${escapeHtml(job.company)} — ${escapeHtml(job.title)}</span>
     </div>
     <div style="font-size: 11px; color: #15803d;">
-      ${atsKeywords && atsKeywords.length > 0 ? `Matched Keywords: ${atsKeywords.slice(0, 5).join(', ')}` : '100% ATS Compliant Single-Column Format'}
+      ${atsKeywords && atsKeywords.length > 0 ? `Matched Keywords: ${atsKeywords.slice(0, 5).map(escapeHtml).join(', ')}` : '100% ATS Compliant Single-Column Format'}
     </div>
   </div>
   `
             : ''}
 
   <div class="header">
-    <h1>${resume.name}</h1>
+    <h1>${escapeHtml(resume.name)}</h1>
     <div class="contact-line">
-      ${email ? `<span class="contact-item"><a href="mailto:${email}">${email}</a></span>` : ''}
-      ${phone ? `<span class="contact-item">• <a href="tel:${phone.replace(/[^0-9+]/g, '')}">${phone}</a></span>` : ''}
-      ${location ? `<span class="contact-item">• ${location}</span>` : ''}
-      ${cleanLinkedinUrl ? `<span class="contact-item">• <a href="${cleanLinkedinUrl}" target="_blank" rel="noopener noreferrer">${cleanLinkedinDisplay}</a></span>` : ''}
-      ${cleanGithubUrl ? `<span class="contact-item">• <a href="${cleanGithubUrl}" target="_blank" rel="noopener noreferrer">${cleanGithubDisplay}</a></span>` : ''}
-      ${cleanPortfolioUrl ? `<span class="contact-item">• <a href="${cleanPortfolioUrl}" target="_blank" rel="noopener noreferrer">Portfolio</a></span>` : ''}
+      ${email ? `<span class="contact-item"><a href="mailto:${encodeURIComponent(email)}">${escapeHtml(email)}</a></span>` : ''}
+      ${phone ? `<span class="contact-item">• <a href="tel:${phone.replace(/[^0-9+]/g, '')}">${escapeHtml(phone)}</a></span>` : ''}
+      ${location ? `<span class="contact-item">• ${escapeHtml(location)}</span>` : ''}
+      ${cleanLinkedinUrl ? `<span class="contact-item">• <a href="${escapeHtml(cleanLinkedinUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cleanLinkedinDisplay)}</a></span>` : ''}
+      ${cleanGithubUrl ? `<span class="contact-item">• <a href="${escapeHtml(cleanGithubUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cleanGithubDisplay)}</a></span>` : ''}
+      ${cleanPortfolioUrl ? `<span class="contact-item">• <a href="${escapeHtml(cleanPortfolioUrl)}" target="_blank" rel="noopener noreferrer">Portfolio</a></span>` : ''}
     </div>
   </div>
 
   <div class="section-title">Professional Summary</div>
-  <div class="summary-text">${tailoredSummary || resume.summary || ''}</div>
+  <div class="summary-text">${escapeHtml(tailoredSummary || resume.summary || '')}</div>
 
   <div class="section-title">Education</div>
   ${(resume.education || [])
             .map((edu) => `
     <div class="entry-header">
-      <span class="entry-company">${edu.school}</span>
-      <span class="entry-dates">${edu.graduationDate || ''}</span>
+      <span class="entry-company">${escapeHtml(edu.school)}</span>
+      <span class="entry-dates">${escapeHtml(edu.graduationDate || '')}</span>
     </div>
     <div class="entry-sub">
-      <span>${edu.degree}${edu.field ? ` in ${edu.field}` : ''} ${edu.gpa ? `| CGPA: ${edu.gpa}` : ''}</span>
-      <span class="entry-location">${edu.honors || ''}</span>
+      <span>${escapeHtml(edu.degree)}${edu.field ? ` in ${escapeHtml(edu.field)}` : ''} ${edu.gpa ? `| CGPA: ${escapeHtml(String(edu.gpa))}` : ''}</span>
+      <span class="entry-location">${escapeHtml(edu.honors || '')}</span>
     </div>
   `)
             .join('')}
 
   <div class="section-title">Technical Skills</div>
   <div class="skills-block">
-    <div><strong>Languages:</strong> ${prioritizedLanguages.join(', ') || 'TypeScript, JavaScript, Python, C++, Java, SQL'}</div>
-    <div><strong>Frameworks & Libraries:</strong> ${prioritizedFrameworks.join(', ') || 'React, Next.js, Node.js, Express, Tailwind CSS'}</div>
-    <div><strong>Developer Tools & Databases:</strong> ${prioritizedTools.join(', ') || 'Git, GitHub, PostgreSQL, MongoDB, Docker, Postman, Linux'}</div>
-    <div><strong>Core Competencies:</strong> ${prioritizedDomain.join(', ') || 'Data Structures & Algorithms (DSA), REST APIs, Distributed Systems, Full-Stack Architecture'}</div>
+    <div><strong>Languages:</strong> ${prioritizedLanguages.map(escapeHtml).join(', ') || 'TypeScript, JavaScript, Python, C++, Java, SQL'}</div>
+    <div><strong>Frameworks & Libraries:</strong> ${prioritizedFrameworks.map(escapeHtml).join(', ') || 'React, Next.js, Node.js, Express, Tailwind CSS'}</div>
+    <div><strong>Developer Tools & Databases:</strong> ${prioritizedTools.map(escapeHtml).join(', ') || 'Git, GitHub, PostgreSQL, MongoDB, Docker, Postman, Linux'}</div>
+    <div><strong>Core Competencies:</strong> ${prioritizedDomain.map(escapeHtml).join(', ') || 'Data Structures & Algorithms (DSA), REST APIs, Distributed Systems, Full-Stack Architecture'}</div>
   </div>
 
   <div class="section-title">Experience & Leadership</div>
@@ -1188,14 +1052,14 @@ Extract strictly into JSON:
             const bullets = tailoredBulletsMap?.[exp.id] || exp.bullets || [];
             return `
       <div class="entry-header">
-        <span class="entry-role">${exp.role} <span style="font-weight: normal; color: #475569;">|</span> <span class="entry-company">${exp.company}</span></span>
-        <span class="entry-dates">${exp.dates || ''}</span>
+        <span class="entry-role">${escapeHtml(exp.role)} <span style="font-weight: normal; color: #475569;">|</span> <span class="entry-company">${escapeHtml(exp.company)}</span></span>
+        <span class="entry-dates">${escapeHtml(exp.dates || '')}</span>
       </div>
       <div class="entry-sub">
-        <span class="entry-location">${exp.location || ''}</span>
+        <span class="entry-location">${escapeHtml(exp.location || '')}</span>
       </div>
       <ul>
-        ${bullets.map((b) => `<li>${b}</li>`).join('')}
+        ${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
       </ul>
     `;
         })
@@ -1205,12 +1069,12 @@ Extract strictly into JSON:
   ${(resume.projects || [])
             .map((proj) => `
     <div class="entry-header">
-      <span class="entry-company">${proj.name} ${proj.link ? `<a href="${proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; font-weight: normal; margin-left: 6px;">[Live Link / Repo ↗]</a>` : ''}</span>
-      <span class="entry-dates">${proj.tech?.join(', ') || ''}</span>
+      <span class="entry-company">${escapeHtml(proj.name)} ${proj.link ? `<a href="${escapeHtml(proj.link.startsWith('http') ? proj.link : `https://${proj.link}`)}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; font-weight: normal; margin-left: 6px;">[Live Link / Repo ↗]</a>` : ''}</span>
+      <span class="entry-dates">${(proj.tech || []).map(escapeHtml).join(', ')}</span>
     </div>
-    <div class="summary-text" style="margin-bottom: 2px;">${proj.description || ''}</div>
+    <div class="summary-text" style="margin-bottom: 2px;">${escapeHtml(proj.description || '')}</div>
     <ul>
-      ${(proj.bullets || []).map((b) => `<li>${b}</li>`).join('')}
+      ${(proj.bullets || []).map((b) => `<li>${escapeHtml(b)}</li>`).join('')}
     </ul>
   `)
             .join('')}
@@ -1221,7 +1085,7 @@ Extract strictly into JSON:
   <ul>
     ${resume.certifications
                 .map((cert) => `
-      <li><strong>${cert.name}</strong> — ${cert.issuer} ${cert.date ? `(${cert.date})` : ''}</li>
+      <li><strong>${escapeHtml(cert.name)}</strong> — ${escapeHtml(cert.issuer)} ${cert.date ? `(${escapeHtml(cert.date)})` : ''}</li>
     `)
                 .join('')}
   </ul>
@@ -1682,34 +1546,13 @@ Projects:\n${projectsSummary}`;
             const userPrompt = keyword
                 ? `Write 2 achievement-focused resume bullet points for the section "${section}" that naturally incorporate the keyword "${keyword}". Use the candidate's real experience only. Format: start with a strong action verb, include a metric if one exists in their resume, keep under 30 words each.`
                 : `Rewrite this resume bullet to be stronger: "${bullet}"\nSection: ${section}\nMake it start with a strong action verb and include a metric if one exists in the resume. Keep under 30 words. Return only the improved bullet text.`;
-            let aiText = '';
-            try {
-                const result = await bestEffortComplete(userPrompt, {
-                    system: systemPrompt,
-                    maxTokens: 300,
-                    temperature: 0.3,
-                });
-                aiText = result.text;
+            const improved = improveBullet(bullet || '');
+            const suggestions = [{ text: improved, confidence: 'rule-based' }];
+            const hints = [];
+            if (bullet && !/\d/.test(bullet)) {
+                hints.push('Add a metric to strengthen this bullet — e.g. "reduced load time by 40%", "served 10k users", "cut errors by 3x".');
             }
-            catch {
-                // Heuristic fallback
-                aiText = keyword
-                    ? `Leveraged ${keyword} to ${bullet || 'deliver high-impact engineering solutions'}, contributing to team goals and measurable outcomes.`
-                    : bullet?.replace(/^(worked on|responsible for|assisted|helped)/i, 'Engineered') ||
-                        bullet;
-            }
-            // Parse suggestions — look for numbered list or newlines
-            const rawLines = aiText
-                .split(/\n+/)
-                .map((l) => l.replace(/^[\d\.\-\*\•]+\s*/, '').trim())
-                .filter((l) => l.length > 10);
-            const suggestions = rawLines
-                .slice(0, 2)
-                .map((text) => ({ text, confidence: 'high' }));
-            if (suggestions.length === 0) {
-                suggestions.push({ text: aiText.trim().slice(0, 200), confidence: 'medium' });
-            }
-            res.json({ suggestions, source: 'magic-write-v1', guardrail: 'truth-anchored' });
+            res.json({ suggestions, source: 'deterministic-v2', hints });
         }
         catch (e) {
             console.error('[resume/magic-write]', e.message);
@@ -1735,24 +1578,8 @@ Projects:\n${projectsSummary}`;
 NEVER invent employers, titles, dates, metrics, or skills not listed.
 CANDIDATE SKILLS: ${skills}
 CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.company}`).join('; ')}`;
-            // Process each weak bullet
             for (const fb of weakBullets) {
-                const userPrompt = `Improve this resume bullet. Start with a strong action verb. Add a metric only if one exists in the original. Keep under 30 words.\nOriginal: "${fb.bullet}"\nReturn only the improved version.`;
-                let improved = fb.bullet;
-                try {
-                    const result = await bestEffortComplete(userPrompt, {
-                        system: systemPrompt,
-                        maxTokens: 100,
-                        temperature: 0.2,
-                    });
-                    improved = result.text.trim().replace(/^["']|["']$/g, '');
-                }
-                catch {
-                    // Simple heuristic: prepend power verb if missing
-                    if (!fb.hasActionVerb) {
-                        improved = `Engineered ${fb.bullet.charAt(0).toLowerCase() + fb.bullet.slice(1)}`;
-                    }
-                }
+                const improved = improveBullet(fb.bullet);
                 if (improved !== fb.bullet && improved.length > 10) {
                     diff.push({
                         id: `change-${diff.length}`,
@@ -1765,31 +1592,17 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
                     });
                 }
             }
-            // If summary is short, suggest improvement
+            // Summary hint (never auto-rewrite, just flag)
             if (resume.summary && resume.summary.split(' ').length < 20) {
-                try {
-                    const summaryPrompt = `Expand this resume summary to 40-60 words. Use only the candidate's real experience. Keep it first-person, professional.\nOriginal: "${resume.summary}"\nCandidate skills: ${skills}`;
-                    const result = await bestEffortComplete(summaryPrompt, {
-                        system: systemPrompt,
-                        maxTokens: 150,
-                        temperature: 0.3,
-                    });
-                    const improved = result.text;
-                    if (improved.trim() && improved.trim() !== resume.summary) {
-                        diff.push({
-                            id: `change-summary`,
-                            type: 'summary',
-                            section: 'Professional Summary',
-                            before: resume.summary,
-                            after: improved.trim(),
-                            rationale: 'Professional summary is too brief. Expanded with your real experience to improve recruiter engagement.',
-                            accepted: false,
-                        });
-                    }
-                }
-                catch {
-                    /* skip */
-                }
+                diff.push({
+                    id: 'change-summary',
+                    type: 'summary',
+                    section: 'Professional Summary',
+                    before: resume.summary,
+                    after: resume.summary,
+                    rationale: 'Your summary is under 20 words. Add 2-3 more sentences describing your impact and technical focus.',
+                    accepted: false,
+                });
             }
             res.json({
                 diff,
@@ -1872,37 +1685,39 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
     }
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`ApplyPilot server running on http://0.0.0.0:${PORT}`);
-        // Auto-open reliably in Google Chrome
-        const url = `http://localhost:${PORT}`;
-        const platform = process.platform;
-        if (platform === 'win32') {
-            const chromeCandidates = [
-                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-                path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
-            ];
-            const found = chromeCandidates.find((candidate) => {
-                try {
-                    return fs.existsSync(candidate);
+        // Auto-open browser only when explicitly requested (e.g. AUTO_OPEN=true)
+        if (process.env.AUTO_OPEN === 'true') {
+            const url = `http://localhost:${PORT}`;
+            const platform = process.platform;
+            if (platform === 'win32') {
+                const chromeCandidates = [
+                    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                    path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
+                ];
+                const found = chromeCandidates.find((candidate) => {
+                    try {
+                        return fs.existsSync(candidate);
+                    }
+                    catch {
+                        return false;
+                    }
+                });
+                if (found) {
+                    console.log(`[ApplyPilot] Opening Google Chrome: "${found}" "${url}"`);
+                    exec(`start "" "${found}" "${url}"`);
                 }
-                catch {
-                    return false;
+                else {
+                    console.log(`[ApplyPilot] Trying default chrome command: start chrome "${url}"`);
+                    exec(`start "" chrome "${url}" || start "" "${url}"`);
                 }
-            });
-            if (found) {
-                console.log(`[ApplyPilot] Opening Google Chrome: "${found}" "${url}"`);
-                exec(`start "" "${found}" "${url}"`);
+            }
+            else if (platform === 'darwin') {
+                exec(`open -a "Google Chrome" "${url}"`);
             }
             else {
-                console.log(`[ApplyPilot] Trying default chrome command: start chrome "${url}"`);
-                exec(`start "" chrome "${url}" || start "" "${url}"`);
+                exec(`google-chrome "${url}" || chromium-browser "${url}" || xdg-open "${url}"`);
             }
-        }
-        else if (platform === 'darwin') {
-            exec(`open -a "Google Chrome" "${url}"`);
-        }
-        else {
-            exec(`google-chrome "${url}" || chromium-browser "${url}" || xdg-open "${url}"`);
         }
         try {
             scrapeOrchestrator.start(180000);

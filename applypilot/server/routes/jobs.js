@@ -19,7 +19,6 @@ import { internshala } from '../scrape/internshala.js';
 import { unstop } from '../scrape/unstop.js';
 import { simplifyJobs } from '../scrape/simplify-jobs.js';
 import { validateAndFilterJobs, validateJobPosting, filterJobsByCriteria, verifyJobUrlLive, detectDuplicateJobs, cleanCanonicalUrl } from '../scrape/validator.js';
-import { bestEffortComplete } from '../ai/index.js';
 import { defaultRegistry } from '@applypilot/scraping';
 import { listRecentMonitorRuns } from '../store/monitoring.js';
 import { monitorSseManager } from '../sse/monitor-sse.js';

@@ -163,7 +163,7 @@ export interface TailoredDocument {
   coverNote: string;
   /** Standalone LaTeX source using ApplyPilot's fixed resume typography template. */
   latex: string;
-  source: 'heuristic' | 'nvidia' | 'openrouter';
+  source: 'deterministic' | 'heuristic';
   status: 'completed' | 'failed';
   error?: string;
   generatedAt: string;
@@ -220,8 +220,8 @@ export interface ScrapeSummary {
 }
 
 export interface PublicConfig {
-  hasNvidiaKey: boolean;
-  hasOpenRouterKey: boolean;
+  /** Always false — no AI providers are configured. Scoring is deterministic. */
+  hasAi: false;
   fitThreshold: number;
 }
 

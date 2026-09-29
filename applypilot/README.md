@@ -1,86 +1,65 @@
-code# 🚀 ApplyPilot — Commercial AI Real-Time Job & Internship Automation Platform
+# 🚀 ApplyPilot — 100% Free & Deterministic Job Application Platform
 
-> **Production-Ready Commercial SaaS Platform** for real-time job scraping, universal resume parsing (including LaTeX `.tex`), instant ATS Quality & Health Scoring, deterministic fit scoring, and high-conversion application workflows across LinkedIn, Naukri, Greenhouse, Lever, Ashby, and Remote boards.
+> **Free, Private & Offline-First Commercial SaaS Platform** for real-time job scraping, universal resume parsing (including LaTeX `.tex`), Resume-Worded-grade ATS Quality & Telemetry Scoring, deterministic job tailoring, and high-conversion application workflows across LinkedIn, Naukri, Greenhouse, Lever, Ashby, and Remote boards.
+> 
+> **Zero LLM Hallucinations · Zero Paid API Keys · 100% Deterministic & Private.**
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Capabilities
 
-### 1. ⚡ Zero-Login Real-Time Multi-Platform Scrapers
+### 1. 📊 Resume Studio & 16-Rule ATS Scorer (0–100)
 
-- **LinkedIn Real-Time Guest Scraper**: Extracts live postings with sub-minute precision (`"just now"`, `"1m ago"`, `"15m ago"`, `"1h ago"`) and applicant counts without requiring any LinkedIn account credentials.
+ApplyPilot features a fully deterministic, offline ATS scorer inspired by Resume Worded:
+- **Instant Compatibility Grading**: Accurate, reproducible score (0–100) based on mathematical rules.
+- **4 Core ATS Telemetry Categories**:
+  1. **Impact (35% weight)**: Analyzes quantifiable metrics (%, $, scale, users), strong action verbs, and flags passive/weak openers (`Responsible for`, `Worked on`, `Helped`).
+  2. **Brevity (25% weight)**: Checks bullet lengths (8–30 words), bullets per role (3–6), and strips filler words (`in order to`, `various`, `successfully`).
+  3. **Style (20% weight)**: Detects buzzwords (`synergy`, `rockstar`, `innovative mindset`), removes first-person pronouns (`I`, `my`), enforces tense consistency (present for current roles, past for previous roles), and monitors repetitive vocabulary.
+  4. **Sections (20% weight)**: Verifies contact information (email, phone, location, LinkedIn/GitHub), essential sections (Experience, Education, Skills), and standard ATS headings.
+- **1-Click Deterministic Fixes**: Fix weak openers, strip filler words, remove buzzwords, and add missing sections in one click with zero network delay and zero hallucinated credentials.
+
+### 2. 🎯 Truth-Anchored Deterministic Tailoring Engine
+
+- **Skills Taxonomy & Alias Mapping**: Pre-compiled dictionary recognizing 40+ canonical technologies and hundreds of aliases (`k8s` → `Kubernetes`, `ts` → `TypeScript`, `postgres` → `PostgreSQL`).
+- **Keyword Gap Analytics**: Identifies matched skills and missing job requirements without calling any paid external APIs.
+- **Truthful Bullet Alignment**: Re-ranks the candidate's authentic experience bullets by relevance to the target job description. Never invents facts, metrics, or employers.
+- **Custom Cover Notes**: Generates concise, professional application notes tailored to the exact role and company using real resume data.
+
+### 3. ⚡ Zero-Login Real-Time Multi-Platform Scrapers
+
+- **LinkedIn Real-Time Guest Scraper**: Extracts live postings with sub-minute precision (`"just now"`, `"1m ago"`, `"15m ago"`, `"1h ago"`) without requiring any LinkedIn account credentials.
 - **Naukri Real-Time Engine**: Dedicated aggregator & live scraper for tech hubs across India and remote postings.
 - **Top ATS Direct APIs**: Parallel direct querying across Greenhouse, Lever, Ashby, RemoteOK, Remotive, and Himalayas.
 - **Precision URL & JD Scraper**: 1-click scraper for any custom LinkedIn, Naukri, or job board URL / raw JD text.
 
-### 2. 📡 Background Monitoring & SSE Streaming Engine
+### 4. 📡 Background Monitoring & SSE Streaming Engine
 
 - **Automated Background Worker**: Runs background polling every 60 seconds.
-- **Server-Sent Events (SSE)**: Streams live job alerts (`/api/monitor/stream`) and pushes new sub-minute postings directly to the user's feed in real-time.
+- **Server-Sent Events (SSE)**: Streams live job alerts (`/api/monitor/stream`) and pushes new postings directly to the user's feed in real-time.
 
-### 3. 📄 Universal Document Parser & Native LaTeX (`.tex`) Support
+### 5. 📄 Universal Document Parser & Native LaTeX (`.tex`) Support
 
-- **Universal Formats**: Ingests `.tex`, `.latex`, `.pdf`, `.docx`, `.doc`, `.txt`, `.md`, `.rtf`, `.png`, `.jpg`.
-- **Intelligent TeX Sanitizer**: Strips LaTeX commands (`\documentclass`, `\section`, `\textbf`, `\item`, `\begin{document}`, custom macros) while preserving hyperlinks (`\href{url}{text}`) and bullet hierarchy.
-- **Hybrid AI + Heuristic Fallback**: 100% reliable extraction with sub-second response times even offline.
+- **Universal Formats**: Ingests `.tex`, `.latex`, `.pdf`, `.docx`, `.doc`, `.txt`, `.md`, `.rtf`.
+- **Intelligent TeX Sanitizer**: Strips LaTeX commands while preserving hyperlinks and bullet hierarchy.
+- **Fast Local Parsing**: 100% offline, local parsing with sub-second response times.
 
-### 4. 📊 Real-Time ATS Resume Quality & Health Scorer (0–100)
+### 6. 📄 Document Exporter
 
-- **Instant Compatibility Grading**: Assigns color-coded grades (`A+ Top 5% ATS Ready`, `A Strong ATS Compatibility`, `B`, `C`, `D`).
-- **4 Comprehensive Grading Categories (Max 25 pts each)**:
-  1. **ATS Contact & Structure (25 pts)**: Name, email, phone, location, LinkedIn, GitHub, education, and experience.
-  2. **Action Verbs & Impact (25 pts)**: Detects high-impact engineering verbs (_Architected, Spearheaded, Optimized, Engineered, Scaled, Deployed_).
-  3. **Quantifiable ROI & Metrics (25 pts)**: Scans for numbers, percentages (`%`), latency scale (`ms`), throughput, and user scale metrics.
-  4. **Keywords & Tech Depth (25 pts)**: Analyzes hard skill coverage across languages, frameworks, databases, and developer tools.
-- **Bullet-Level ATS Inspector & 1-Click Auto-Enhancer**: Automatically transforms passive bullets into active, metric-driven achievements for 98+ score.
-
-### 5. ✏️ Interactive Resume Builder
-
-- **Full Visual Editor**: Live CRUD editor for Personal Details, Contact Links, Experience, Education, Projects, and Categorized Skills.
-- **Real-Time ATS Sync**: Instant recalculation of the ATS score on every keystroke.
-- **Dynamic Content Modifiers**: 1-click bullet point add/remove with power verb suggestions.
-
-### 6. 📄 Live Document Preview & Multi-Template Exporter
-
-- **4 Professional Recruiter-Vetted Templates**:
-  - 🌟 **Modern Tech**: Clean grid layout with skill badge pills.
-  - 🏛️ **Harvard Classic**: Elegant academic serif formatting favored for finance, consulting, and research.
-  - ⚡ **Silicon Valley**: High-density format preferred by top venture-backed startups.
-  - 📑 **LaTeX Source**: Raw `.tex` code output for Overleaf with 1-click clipboard copy.
-- **Export Options**: 1-Click **Download PDF / Print**, **Copy .tex Code**, and **Copy Markdown**.
-
-### 7. 🎯 Local Machine Learning Job Tailoring Engine (No Paid APIs)
-
-- **Inspired by `varunr89/resume-tailoring-skill`**:
-  - **Sublinear TF-IDF Vectorizer & Cosine Similarity**: Computes semantic match scores between the candidate profile and target job descriptions locally.
-  - **BM25 & 400+ Skill Dictionary**: 1-gram, 2-gram, and 3-gram skill extraction.
-  - **Truthfulness-Guaranteed Bullet Tailoring**: Rephrases existing candidate achievements using target JD keywords without generating hallucinated credentials.
-  - **Matched vs. Missing Keyword Analytics**: Visual interactive keyword chips with 1-click skill addition.
-
-### 8. 🔍 Discovery Engine with Strict Filter Exclusivity & Dynamic Live Counters
-
-- **Live Tab Counters**: Each filter tab computes and renders its live count dynamically (`All Jobs`, `Just Posted (<1h)`, `Past 24h`, `Few Applicants (<10)`, `Internships`).
-- **Header Synchronization**: Subheader strictly mirrors active tab category and count.
-- **Worldwide & Remote Presets**: `Anywhere / Global` and `Remote` presets query worldwide global listings and remote flags.
-
-### 6. 🧠 6-Step End-to-End Workflow
-
-1. **Resume**: Universal upload, LaTeX extraction, ATS quality scoring, and profile verification.
-2. **Discovery**: Live multi-board search, sub-minute filters, and background monitoring.
-3. **Scoring**: Deterministic 0–100 fit scoring based on skill overlap, recency, and experience.
-4. **Tailor**: AI-tailored resume bullets and customized cover notes.
-5. **Apply**: Fast apply packets, direct links, and pre-copied clipboard notes.
-6. **Tracker**: Application tracking dashboard with status updates and timestamps.
+- **Export Formats**:
+  - 🌟 **LaTeX Source (Jake's Resume)**: Clean single-column `.tex` code output favored by tech recruiters.
+  - 📄 **Plain Text / DOCX**: Universal ATS-friendly format without complex tables or columns.
+  - 🌐 **HTML Bundle**: Semantic web version.
 
 ---
 
 ## 🏗️ Architecture & Technology Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS, Lucide Icons, Vite.
+- **Frontend**: React 19, TypeScript, Tailwind CSS, Lucide Icons, Framer Motion, Vite.
 - **Backend**: Node.js, Express, TypeScript (via `tsx`), Server-Sent Events (SSE).
 - **Scraping & Parsing**: Cheerio, Mammoth (DOCX), PDF-Parse, Custom TeX AST Sanitizer.
-- **AI & Scoring**: NVIDIA NIM, OpenRouter, and local deterministic heuristic algorithms.
-- **Database / Cache**: In-memory 24h job cache + SQLite persistent store.
+- **Scoring & Tailoring**: Local deterministic rule-based algorithms (`src/lib/resumeScore`, `src/lib/tailor`), skills taxonomy.
+- **Database / Cache**: In-memory job cache + SQLite persistent store.
 
 ---
 
@@ -100,22 +79,13 @@ cd applypilot
 npm install
 ```
 
-2. (Optional) Configure environment variables:
-   Create a `.env` file in the `applypilot` directory:
-
-```env
-PORT=3000
-OPENROUTER_API_KEY=your_openrouter_api_key   # Optional
-NVIDIA_API_KEY=your_nvidia_api_key           # Optional
-```
-
-3. Start the application:
+2. Start the application:
 
 ```bash
 npm run dev
 ```
 
-4. Open your browser:
+3. Open your browser:
 
 ```
 http://localhost:3000
@@ -126,48 +96,25 @@ http://localhost:3000
 ## 📡 API Endpoints Reference
 
 ### Resume & ATS Scoring
-
-- `POST /api/resume/parse`: Universal parser (PDF, DOCX, LaTeX `.tex`, text, images) returning structured JSON + ATS Report.
-- `POST /api/resume/ats-score`: Evaluates ATS score (0–100), category breakdown, strengths, and improvement suggestions.
-
-### Real-Time Scraping & Monitoring
-
-- `POST /api/jobs/scrape-linkedin`: Scrapes live LinkedIn postings with zero credentials.
-- `POST /api/jobs/scrape-naukri`: Real-time scraper for Naukri positions.
-- `GET /api/jobs/stream-search`: Server-Sent Events (SSE) parallel multi-board streaming search.
-- `POST /api/jobs/scrape-url`: Precision parser for custom job URLs (LinkedIn, Naukri, Greenhouse, Lever, Ashby) or raw JD text.
-- `GET /api/monitor/status`: Returns background monitoring worker status.
-- `GET /api/monitor/stream`: Real-time SSE stream broadcasting newly discovered postings.
-- `POST /api/monitor/trigger`: Manually triggers an immediate background scrape cycle.
+- `POST /api/resume/parse`: Universal parser (PDF, DOCX, LaTeX `.tex`, text) returning structured JSON.
+- `GET /api/resume/ats`, `POST /api/resume/ats`: Evaluates ATS score (0–100), category breakdown, and improvement suggestions.
 
 ### Fit Scoring & Tailoring
-
 - `POST /api/jobs/fit-score`: Computes deterministic candidate-job fit score (0–100).
 - `POST /api/jobs/tailor`: Generates tailored resume bullets, cover note, and ATS optimization tips.
 
----
-
-## 🛡️ Security & Commercial Stability
-
-- **Zero-Login Architecture**: All scraping operates safely via guest endpoints without credential risk.
-- **Input Sanitization**: LaTeX macros, SQL characters, and oversized uploads (>20MB) are safely sanitized and bounded.
-- **Rate-Limiting & Anti-Ban**: Exponential backoff retries, user-agent rotation, and request caching.
-- **Truth-Anchored Fallback**: Every AI component has deterministic offline heuristic fallbacks to guarantee 100% uptime.
-
----
-
-## 🧪 Testing & Validation
-
-```bash
-# Type-check TypeScript across the entire project
-npx tsc --noEmit
-
-# Run unit and integration tests
-npm test
-```
+### Real-Time Scraping & Monitoring
+- `POST /api/jobs/scrape-linkedin`: Scrapes live LinkedIn postings with zero credentials.
+- `POST /api/jobs/scrape-naukri`: Real-time scraper for Naukri positions.
+- `GET /api/jobs/stream-search`: Server-Sent Events (SSE) parallel multi-board streaming search.
+- `POST /api/jobs/scrape-url`: Precision parser for custom job URLs or raw JD text.
+- `GET /api/monitor/status`: Returns background monitoring worker status.
+- `GET /api/monitor/stream`: Real-time SSE stream broadcasting newly discovered postings.
 
 ---
 
-## 📄 License
+## 🛡️ Privacy, Security & Determinism
 
-MIT License © ApplyPilot Team. All rights reserved.
+- **100% Free**: No subscriptions, no paid token costs, no hidden credit cards.
+- **No Third-Party AI APIs**: Your resume data is never sent to OpenAI, Anthropic, Google, or any external LLM provider.
+- **Truth Anchoring**: All suggestions and tailor actions preserve candidate truth without hallucinating metrics, companies, or credentials.

@@ -1,21 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { ResumeStep } from './components/ResumeStep';
-import { DiscoveryStep } from './components/DiscoveryStep';
 import { ScoringStep } from './components/ScoringStep';
-import { TailorStep } from './components/TailorStep';
 import { JobDetailSplitPane } from './components/JobDetailSplitPane';
 import { SavedJobsScreen } from './components/SavedJobsScreen';
 import { ProfileSettingsScreen } from './components/ProfileSettingsScreen';
 import { ScraperStatusPanel } from './components/ScraperStatusPanel';
 import { NotificationDrawer } from './components/NotificationDrawer';
-import { AdminLayout } from './components/admin/AdminLayout';
 import { SettingsModal } from './components/SettingsModal';
 import { LinkedInConnectModal } from './components/LinkedInConnectModal';
-import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
-import { UserProfileSettingsModal } from './components/UserProfileSettingsModal';
 import { LoadingTransition } from './components/LoadingTransition';
 import { KineticAuroraBackground } from './components/3d/KineticAuroraBackground';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -23,6 +16,22 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useAppStore } from './store/appStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NetworkStatusBanner } from './components/NetworkStatusBanner';
+
+// Lazy-loaded heavy components for instant initial page loading & optimal bundle splitting
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
+const ResumeStep = lazy(() => import('./components/ResumeStep').then(m => ({ default: m.ResumeStep })));
+const DiscoveryStep = lazy(() => import('./components/DiscoveryStep').then(m => ({ default: m.DiscoveryStep })));
+const TailorStep = lazy(() => import('./components/TailorStep').then(m => ({ default: m.TailorStep })));
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+const AdminLayout = lazy(() => import('./components/admin/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const UserProfileSettingsModal = lazy(() => import('./components/UserProfileSettingsModal').then(m => ({ default: m.UserProfileSettingsModal })));
+
+const ScreenSuspenseFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[360px] gap-3 py-16">
+    <div className="w-8 h-8 rounded-full border-3 border-indigo-200 border-t-indigo-600 animate-spin" />
+    <span className="text-xs font-semibold text-slate-500 tracking-wide">Loading module...</span>
+  </div>
+);
 
 const createEmptyResume = (currentUser) => ({
     name: currentUser?.name || '',
@@ -103,7 +112,19 @@ function MainApp() {
                     }
                 }
                 else {
-                    setResume(createEmptyResume(user));
+                    fetch('/api/resume')
+                        .then((res) => res.json())
+                        .then((data) => {
+                            if (data?.resume) {
+                                setResume(data.resume);
+                                localStorage.setItem('applypilot_resume', JSON.stringify(data.resume));
+                            } else {
+                                setResume(createEmptyResume(user));
+                            }
+                        })
+                        .catch(() => {
+                            setResume(createEmptyResume(user));
+                        });
                 }
             }
         }
@@ -219,7 +240,9 @@ function MainApp() {
     // Dual-app: If Admin mode active, render complete Admin Portal (Restricted to Admins)
     if (appMode === 'admin' && user?.role === 'admin') {
         return (<>
-        <AdminLayout />
+        <Suspense fallback={<ScreenSuspenseFallback />}>
+          <AdminLayout />
+        </Suspense>
         {/* Global Toast Notifications Container */}
         <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
           <AnimatePresence>
@@ -257,7 +280,8 @@ function MainApp() {
         {/* Main Workspace Canvas */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-8 relative">
           <ErrorBoundary onNavigateHome={() => setClientScreen('analytics')}>
-            <AnimatePresence mode="wait">
+            <Suspense fallback={<ScreenSuspenseFallback />}>
+              <AnimatePresence mode="wait">
               {/* Screen 1: Landing */}
               {clientScreen === 'landing' && (<motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <LandingPage onLaunchApp={() => setClientScreen('discovery')}/>
@@ -325,6 +349,7 @@ function MainApp() {
                   <ScraperStatusPanel />
                 </motion.div>)}
             </AnimatePresence>
+            </Suspense>
           </ErrorBoundary>
         </main>
 
@@ -339,7 +364,9 @@ function MainApp() {
 
         {/* Global Auth & User Profile Modals */}
         <AuthModal />
-        <UserProfileSettingsModal />
+        <Suspense fallback={null}>
+          <UserProfileSettingsModal />
+        </Suspense>
 
         {/* Settings Modal */}
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdateSettings={handleUpdateSettings}/>

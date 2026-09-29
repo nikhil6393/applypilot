@@ -12,7 +12,6 @@ import { himalayas } from '../scrape/himalayas.js';
 import { weworkremotely } from '../scrape/weworkremotely.js';
 import { linkedinRealtime } from '../scrape/linkedin-realtime.js';
 import { naukriAdvanced } from '../scrape/naukri-advanced.js';
-import { bestEffortComplete } from '../ai/index.js';
 import { evaluateResumeAts } from '../scoring/ats-scorer.js';
 import { logAuditEvent } from '../events/event-logger.js';
 import { getDb } from '../store/db.js';

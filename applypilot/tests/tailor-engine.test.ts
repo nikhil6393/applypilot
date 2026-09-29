@@ -3,11 +3,6 @@ import { tailorResumeForJob } from '../server/profile/tailor-engine.js';
 import type { ParsedResume, JobPosting } from '../src/types.js';
 
 describe('Resume Tailoring Engine & Truth Validator', () => {
-  beforeAll(() => {
-    delete process.env.OPENROUTER_API_KEY;
-    delete process.env.NVIDIA_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-  });
   const mockResume: ParsedResume = {
     name: 'Alex Rivera',
     summary: 'Full-stack software developer with experience in React, Node.js, and TypeScript.',

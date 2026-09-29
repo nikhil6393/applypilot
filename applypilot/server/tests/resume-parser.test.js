@@ -40,4 +40,20 @@ describe('resume-parser heuristics', () => {
         expect(skills).not.toContain('kubernetes');
         expect(skills).not.toContain('rust');
     });
+
+    it('extracts hyperlinks (LinkedIn, GitHub, markdown, tech domains, and portfolio)', () => {
+        const text = `
+          Alex Morgan
+          alex@example.com
+          [LinkedIn](https://linkedin.com/in/alexmorgan-dev)
+          github.com/alexmorgan
+          Portfolio: alexmorgan.dev
+          Extra: https://alexportfolio.vercel.app
+        `;
+        const c = extractContact(text);
+        expect(c.linkedin).toBe('https://linkedin.com/in/alexmorgan-dev');
+        expect(c.github).toBe('https://github.com/alexmorgan');
+        expect(c.links.some(l => l.includes('alexmorgan.dev'))).toBe(true);
+        expect(c.links.some(l => l.includes('alexportfolio.vercel.app'))).toBe(true);
+    });
 });

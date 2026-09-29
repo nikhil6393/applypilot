@@ -173,6 +173,97 @@ function applyFixToResume(resume, issue) {
   return next;
 }
 
+export function getBulletIssuesAndFix(bullet, expIdx, bIdx, issues = []) {
+  if (!bullet || typeof bullet !== 'string') return null;
+
+  // 1. Check explicit issue evidence
+  const matchingIssue = issues.find(
+    (iss) =>
+      iss.evidence?.experienceIndex === expIdx &&
+      iss.evidence?.bulletIndex === bIdx
+  );
+
+  let fixSuggestion = null;
+  let reason = matchingIssue?.title || '';
+
+  if (matchingIssue) {
+    const dummyResume = { experience: [{ bullets: [bullet] }] };
+    const fixed = applyFixToResume(dummyResume, {
+      ...matchingIssue,
+      evidence: { experienceIndex: 0, bulletIndex: 0 }
+    });
+    if (fixed?.experience?.[0]?.bullets?.[0] && fixed.experience[0].bullets[0] !== bullet) {
+      fixSuggestion = fixed.experience[0].bullets[0];
+    }
+  }
+
+  // 2. High-precision heuristic fallback if not found
+  if (!fixSuggestion) {
+    const weakMatch = bullet.match(/^(responsible for|worked on|helped|assisted|duties included|participated in|involved in|tasked with|was part of)\s*/i);
+    if (weakMatch) {
+      reason = 'Weak Action Verb';
+      let remainder = bullet.slice(weakMatch[0].length).trim();
+      let verb = 'Engineered';
+      if (/maintain/i.test(remainder)) verb = 'Maintained';
+      else if (/build|develop|creat/i.test(remainder)) verb = 'Engineered';
+      else if (/test|validat/i.test(remainder)) verb = 'Validated';
+      else if (/optimi|scal|speed/i.test(remainder)) verb = 'Optimized';
+      else if (/design|architect/i.test(remainder)) verb = 'Architected';
+      else if (/deploy|releas|ship/i.test(remainder)) verb = 'Deployed';
+      else if (/coordinat|manag|lead/i.test(remainder)) verb = 'Orchestrated';
+      else if (/support|collaborat/i.test(remainder)) verb = 'Co-engineered';
+      remainder = remainder.replace(/^(maintaining|building|developing|testing|optimizing|designing|deploying|managing)\s*/i, '');
+      fixSuggestion = `${verb} ${remainder.charAt(0).toLowerCase() + remainder.slice(1)}`;
+    } else if (/\b(in order to|various|duties included)\b/i.test(bullet)) {
+      reason = 'Filler Words Diminish Conciseness';
+      fixSuggestion = bullet
+        .replace(/\b(in order to)\b/gi, 'to')
+        .replace(/\b(duties included|responsible for)\b/gi, '')
+        .replace(/\b(various|successfully|literally|basically|really|actually|very)\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    } else if (/\b(I |my |myself)\b/i.test(bullet)) {
+      reason = 'First-Person Pronoun';
+      fixSuggestion = bullet
+        .replace(/\b(I was responsible for|I helped with|I was part of)\s+/gi, '')
+        .replace(/\b(I built|I developed|I engineered)\s+/gi, (m) => m.replace(/^I\s+/i, ''))
+        .replace(/\b(I |my )\b/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      fixSuggestion = fixSuggestion.charAt(0).toUpperCase() + fixSuggestion.slice(1);
+    }
+  }
+
+  if (fixSuggestion && fixSuggestion !== bullet) {
+    return {
+      issue: matchingIssue || { id: `auto-${expIdx}-${bIdx}`, title: reason },
+      reason: reason || 'Impact Verb & Brevity Improvement',
+      fixingLine: fixSuggestion,
+    };
+  }
+  return null;
+}
+
+export function getSummaryIssueAndFix(summary) {
+  if (!summary || typeof summary !== 'string') return null;
+  if (/\b(I am an?|I'm an?|I've been an?|I have|I am|I|my|myself)\b/i.test(summary)) {
+    const fixed = summary
+      .replace(/\b(I am an?|I'm an?|I've been an?)\s+/gi, '')
+      .replace(/\b(I am|I'm|I have|I)\s+/gi, '')
+      .replace(/\b(my)\s+/gi, 'the ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    const capitalized = fixed.charAt(0).toUpperCase() + fixed.slice(1);
+    if (capitalized !== summary) {
+      return {
+        reason: 'First-Person Pronouns Diminish Professional Tone',
+        fixingLine: capitalized,
+      };
+    }
+  }
+  return null;
+}
+
 const SAMPLE_RESUMES = {
   swe: {
     name: 'Nikhil Singh',
@@ -261,8 +352,10 @@ export const ResumeStep = ({
   const { addToast } = useAppStore();
   const { user, updateProfile } = useAuth();
 
-  // Active view: 'editor' (inline form) vs 'preview' (formatted paper)
-  const [viewMode, setViewMode] = useState('editor');
+  // Active view: 'document' (original analyzed paper) vs 'editor' (form fields)
+  const [viewMode, setViewMode] = useState('document');
+  // Center document mode: 'interactive' (with inline highlights & fixing lines) vs 'clean' (pure printable paper) vs 'form'
+  const [centerMode, setCenterMode] = useState('interactive');
   const [activeTemplate, setActiveTemplate] = useState('modern'); // 'modern', 'executive', 'tech'
   const [activeTab, setActiveTab] = useState('contact'); // 'contact', 'summary', 'experience', 'skills', 'projects', 'education'
 
@@ -485,12 +578,12 @@ export const ResumeStep = ({
         a.download = `${(resume?.name || 'Resume').replace(/\s+/g, '_')}_ATS_Jake.tex`;
         a.click();
       } else if (exportFormat === 'docx') {
-        const content = generatePlainDocx(resume);
-        const blob = new Blob([content], { type: 'text/plain' });
+        const content = generateWordDocument(resume);
+        const blob = new Blob(['\ufeff', content], { type: 'application/msword;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${(resume?.name || 'Resume').replace(/\s+/g, '_')}_ATS.txt`;
+        a.download = `${(resume?.name || 'Resume').replace(/\s+/g, '_')}_Calibrated.doc`;
         a.click();
       } else if (exportFormat === 'json') {
         const content = JSON.stringify(resume, null, 2);
@@ -520,12 +613,71 @@ export const ResumeStep = ({
     }
   };
 
-  // Native Print to PDF
-  const handlePrintPdf = () => {
-    setViewMode('preview');
+  // Direct Word (.doc) download maintaining exact formatting
+  const handleDownloadWord = () => {
+    const content = generateWordDocument(resume);
+    const blob = new Blob(['\ufeff', content], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(resume?.name || 'Resume').replace(/\s+/g, '_')}_Calibrated.doc`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    addToast({
+      title: 'Word Document Downloaded',
+      message: 'Downloaded formatted Word resume (.doc) preserving original typography and sections.',
+      type: 'success',
+    });
+  };
+
+  // Direct PDF download / print without changing uploaded format
+  const handleDownloadPdf = () => {
+    const prevMode = centerMode;
+    setCenterMode('clean');
     setTimeout(() => {
       window.print();
-    }, 300);
+      setTimeout(() => {
+        setCenterMode(prevMode);
+      }, 500);
+    }, 250);
+    addToast({
+      title: 'PDF Print Dialog Opened',
+      message: 'Select "Save as PDF" to save your clean ATS-compliant resume without altering format.',
+      type: 'info',
+    });
+  };
+
+  // Inline Bullet Fix Handler (Updates resume, raises ATS score in real time)
+  const handleApplyBulletFix = (expIdx, bIdx, fixingLine) => {
+    const next = JSON.parse(JSON.stringify(resume));
+    if (next.experience?.[expIdx]?.bullets?.[bIdx]) {
+      next.experience[expIdx].bullets[bIdx] = fixingLine;
+      onUpdateResume(next);
+      confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } });
+      addToast({
+        title: 'Bullet Fix Applied!',
+        message: 'Replaced weak opener with impact verb. Real-time ATS score increased.',
+        type: 'success',
+      });
+    }
+  };
+
+  // Inline Summary Fix Handler
+  const handleApplySummaryFix = (fixingLine) => {
+    const next = JSON.parse(JSON.stringify(resume));
+    next.summary = fixingLine;
+    onUpdateResume(next);
+    confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } });
+    addToast({
+      title: 'Summary Fix Applied!',
+      message: 'Refined summary to standard ATS third-person professional tone.',
+      type: 'success',
+    });
+  };
+
+  // Native Print to PDF
+  const handlePrintPdf = () => {
+    handleDownloadPdf();
   };
 
   // Helper updates
@@ -611,50 +763,46 @@ export const ResumeStep = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
-          {/* View toggle */}
-          <div className="bg-slate-100 p-0.5 rounded-xl flex items-center text-xs font-semibold">
-            <button
-              id="resume-view-editor-btn"
-              onClick={() => setViewMode('editor')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'editor' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Editor</span>
-            </button>
-            <button
-              id="resume-view-preview-btn"
-              onClick={() => setViewMode('preview')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === 'preview' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Canvas</span>
-            </button>
-          </div>
+          {/* Quick Download PDF & Word Buttons */}
+          <button
+            id="resume-top-pdf-btn"
+            onClick={handleDownloadPdf}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Download pristine ATS PDF"
+          >
+            <Printer className="w-3.5 h-3.5 text-slate-600" />
+            <span>Download PDF</span>
+          </button>
+
+          <button
+            id="resume-top-word-btn"
+            onClick={handleDownloadWord}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Download formatted Word document (.doc) preserving all format"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Download Word</span>
+          </button>
 
           {/* Save to Profile */}
           <button
             id="resume-save-sync-btn"
             onClick={handleSaveToProfile}
             disabled={isSaving}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
             title="Save changes and sync to candidate profile"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isSaving ? 'Syncing...' : 'Save & Sync'}</span>
           </button>
 
-          {/* Export button */}
+          {/* Export modal button */}
           <button
             id="resume-export-btn"
             onClick={() => setIsExportModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export</span>
+            <span>More Formats</span>
           </button>
 
           {/* Next Step / Discovery Feed */}
@@ -897,7 +1045,7 @@ export const ResumeStep = ({
 
         {/* ── MIDDLE COLUMN (6 cols): LIVE INTERACTIVE EDITOR / DOCUMENT CANVAS ── */}
         <div className="lg:col-span-6 space-y-4">
-          {viewMode === 'editor' ? (
+          {centerMode === 'form' ? (
             <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-5">
               {/* Section Segmented Navigation */}
               <div className="flex items-center gap-1 pb-3 border-b border-slate-100 overflow-x-auto">
@@ -1577,47 +1725,121 @@ export const ResumeStep = ({
               )}
             </div>
           ) : (
-            /* Document Canvas Preview Mode */
-            <div className="space-y-3">
-              {/* Template & Styling Toolbar */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-3 flex-wrap text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-700">Template:</span>
-                  {[
-                    { id: 'modern', label: 'Modern Tech' },
-                    { id: 'executive', label: 'Executive Serif' },
-                    { id: 'tech', label: 'Minimalist ATS' },
-                  ].map((tpl) => (
+            /* ── ORIGINAL ANALYZED RESUME PAPER CANVAS WITH INLINE FIXES ── */
+            <div className="space-y-4">
+              {/* Top Document Action Bar */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        <span>Original Analyzed Resume</span>
+                      </h2>
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: overall >= 80 ? '#ECFDF5' : overall >= 60 ? '#FFFBEB' : '#FEF2F2',
+                          color: scoreColor,
+                        }}
+                      >
+                        ATS {overall}/100 • {scoreStatus}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Live paper document preserving original layout with inline ATS fix recommendations
+                    </p>
+                  </div>
+
+                  {/* Mode Switcher */}
+                  <div className="bg-slate-100 p-0.5 rounded-xl flex items-center text-xs font-semibold self-start sm:self-auto">
                     <button
-                      key={tpl.id}
-                      onClick={() => setActiveTemplate(tpl.id)}
-                      className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                        activeTemplate === tpl.id
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      id="resume-center-interactive-btn"
+                      onClick={() => setCenterMode('interactive')}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        centerMode === 'interactive' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                       }`}
+                      title="Show inline issue highlights and 1-click fixing lines"
                     >
-                      {tpl.label}
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Fix Highlights</span>
                     </button>
-                  ))}
+                    <button
+                      id="resume-center-clean-btn"
+                      onClick={() => setCenterMode('clean')}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        centerMode === 'clean' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="View clean printable resume without highlight boxes"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Clean View</span>
+                    </button>
+                    <button
+                      id="resume-center-form-btn"
+                      onClick={() => setCenterMode('form')}
+                      className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        centerMode === 'form' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Switch to direct form input fields"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Form Inputs</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePrintPdf}
-                    className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-black text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="Print directly or save as PDF"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print / Save PDF</span>
-                  </button>
+                {/* Template selector & Direct Download Buttons */}
+                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-500">Typography:</span>
+                    {[
+                      { id: 'modern', label: 'Modern Sans' },
+                      { id: 'executive', label: 'Executive Serif' },
+                      { id: 'tech', label: 'Minimalist Monospace' },
+                    ].map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        onClick={() => setActiveTemplate(tpl.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                          activeTemplate === tpl.id
+                            ? 'bg-slate-900 text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {tpl.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      id="resume-download-pdf-btn"
+                      onClick={handleDownloadPdf}
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Download clean ATS PDF without changing formatting"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-indigo-300" />
+                      <span>Download PDF</span>
+                    </button>
+
+                    <button
+                      id="resume-download-word-btn"
+                      onClick={handleDownloadWord}
+                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Download formatted Word document (.doc) preserving all typography and sections"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white" />
+                      <span>Download Word</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Printable Canvas Document */}
               <div
                 id="resume-printable-document"
-                className={`bg-white border border-slate-300 rounded-2xl p-8 sm:p-10 shadow-lg text-slate-900 leading-relaxed text-xs max-w-3xl mx-auto ${
+                className={`bg-white border border-slate-300 rounded-2xl p-7 sm:p-10 shadow-lg text-slate-900 leading-relaxed text-xs max-w-3xl mx-auto transition-all ${
                   activeTemplate === 'executive'
                     ? 'font-serif'
                     : activeTemplate === 'tech'
@@ -1627,39 +1849,101 @@ export const ResumeStep = ({
               >
                 {/* Header */}
                 <div className={`text-center pb-4 mb-4 ${activeTemplate === 'modern' ? 'border-b-2 border-indigo-600' : 'border-b border-slate-300'}`}>
-                  <h2 className={`text-2xl sm:text-3xl font-black tracking-tight text-slate-900 ${activeTemplate === 'modern' ? 'text-indigo-950' : ''}`}>
+                  <h1 className={`text-2xl sm:text-3xl font-black tracking-tight text-slate-900 uppercase ${activeTemplate === 'modern' ? 'text-indigo-950' : ''}`}>
                     {resume?.name || 'Your Full Name'}
-                  </h2>
+                  </h1>
                   {(resume?.title || resume?.roleTitle) && (
                     <p className="text-xs sm:text-sm font-bold text-indigo-600 uppercase tracking-widest mt-1">
                       {resume.title || resume.roleTitle}
                     </p>
                   )}
                   <div className="text-[11px] text-slate-600 mt-2 flex items-center justify-center gap-2 flex-wrap font-sans">
-                    {resume?.contact?.email && <span>{resume.contact.email}</span>}
-                    {resume?.contact?.phone && <span>• {resume.contact.phone}</span>}
-                    {resume?.contact?.location && <span>• {resume.contact.location}</span>}
+                    {(resume?.contact?.email || resume?.email) && (
+                      <a href={`mailto:${resume?.contact?.email || resume?.email}`} className="hover:text-indigo-600 flex items-center gap-1">
+                        <Mail className="w-3 h-3 text-slate-400" />
+                        <span>{resume?.contact?.email || resume?.email}</span>
+                      </a>
+                    )}
+                    {(resume?.contact?.phone || resume?.phone) && (
+                      <span className="flex items-center gap-1">
+                        <span>•</span>
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        <span>{resume?.contact?.phone || resume?.phone}</span>
+                      </span>
+                    )}
+                    {(resume?.contact?.location || resume?.location) && (
+                      <span className="flex items-center gap-1">
+                        <span>•</span>
+                        <MapPin className="w-3 h-3 text-slate-400" />
+                        <span>{resume?.contact?.location || resume?.location}</span>
+                      </span>
+                    )}
                     {resume?.contact?.linkedin && (
-                      <span>• <a href={resume.contact.linkedin} target="_blank" rel="noreferrer" className="text-indigo-600 underline">LinkedIn</a></span>
+                      <span className="flex items-center gap-1">
+                        <span>•</span>
+                        <a href={resume.contact.linkedin} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 underline font-semibold flex items-center gap-0.5">
+                          <Linkedin className="w-3 h-3" />
+                          <span>LinkedIn</span>
+                        </a>
+                      </span>
                     )}
                     {resume?.contact?.github && (
-                      <span>• <a href={resume.contact.github} target="_blank" rel="noreferrer" className="text-indigo-600 underline">GitHub</a></span>
+                      <span className="flex items-center gap-1">
+                        <span>•</span>
+                        <a href={resume.contact.github} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 underline font-semibold flex items-center gap-0.5">
+                          <Github className="w-3 h-3" />
+                          <span>GitHub</span>
+                        </a>
+                      </span>
                     )}
                     {resume?.contact?.portfolio && (
-                      <span>• <a href={resume.contact.portfolio} target="_blank" rel="noreferrer" className="text-indigo-600 underline">Portfolio</a></span>
+                      <span className="flex items-center gap-1">
+                        <span>•</span>
+                        <a href={resume.contact.portfolio} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 underline font-semibold flex items-center gap-0.5">
+                          <Globe className="w-3 h-3" />
+                          <span>Portfolio</span>
+                        </a>
+                      </span>
                     )}
                   </div>
                 </div>
 
                 {/* Professional Summary */}
-                {resume?.summary && (
-                  <div className="mb-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-0.5 mb-1.5">
-                      Professional Summary
-                    </h4>
-                    <p className="text-[11.5px] text-slate-700 leading-relaxed font-sans">{resume.summary}</p>
-                  </div>
-                )}
+                {resume?.summary && (() => {
+                  const summaryFix = centerMode === 'interactive' ? getSummaryIssueAndFix(resume.summary) : null;
+                  return (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-200 pb-0.5 mb-1.5">
+                        Professional Summary
+                      </h4>
+                      {summaryFix ? (
+                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                          <p className="text-[11.5px] text-slate-800 leading-relaxed font-sans">{resume.summary}</p>
+                          <div className="pt-2 border-t border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="text-[11px] text-amber-900">
+                              <span className="font-bold flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>{summaryFix.reason}</span>
+                              </span>
+                              <span className="text-[10px] text-slate-600 block mt-0.5">
+                                <b>Suggested:</b> "{summaryFix.fixingLine.slice(0, 110)}..."
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleApplySummaryFix(summaryFix.fixingLine)}
+                              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg cursor-pointer transition-colors shadow-2xs whitespace-nowrap flex items-center gap-1 self-start sm:self-auto"
+                            >
+                              <Zap className="w-3 h-3" />
+                              <span>Apply Fix</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11.5px] text-slate-700 leading-relaxed font-sans">{resume.summary}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Experience */}
                 <div className="mb-4">
@@ -1667,16 +1951,50 @@ export const ResumeStep = ({
                     Professional Experience
                   </h4>
                   {(resume?.experience || []).map((exp, i) => (
-                    <div key={i} className="mb-3.5">
+                    <div key={i} className="mb-4">
                       <div className="flex justify-between items-baseline font-bold text-xs text-slate-900">
                         <span>{exp.role || exp.title} <span className="font-normal text-slate-500">— {exp.company}</span></span>
                         <span className="text-[10.5px] text-slate-500 font-medium">{exp.dates}</span>
                       </div>
-                      {exp.location && <div className="text-[10px] text-slate-400">{exp.location}</div>}
-                      <ul className="list-disc list-outside pl-4 space-y-1 mt-1 text-[11px] text-slate-700 leading-normal">
-                        {(exp.bullets || []).map((b, bi) => (
-                          <li key={bi}>{b}</li>
-                        ))}
+                      {exp.location && <div className="text-[10px] text-slate-400 mb-1">{exp.location}</div>}
+
+                      <ul className="space-y-1.5 mt-1 text-[11px] text-slate-700 leading-normal">
+                        {(exp.bullets || []).map((b, bi) => {
+                          const fixInfo = centerMode === 'interactive' ? getBulletIssuesAndFix(b, i, bi, issues) : null;
+                          if (fixInfo) {
+                            return (
+                              <li key={bi} className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-slate-900 list-none space-y-1.5 transition-all">
+                                <div className="flex items-start gap-1.5 text-xs">
+                                  <span className="text-amber-600 font-bold mt-0.5">•</span>
+                                  <span className="text-slate-800 leading-relaxed">{b}</span>
+                                </div>
+                                <div className="pt-1.5 border-t border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="text-[10.5px]">
+                                    <span className="font-bold text-amber-800 flex items-center gap-1">
+                                      <Sparkles className="w-3 h-3 text-amber-600" />
+                                      <span>{fixInfo.reason}</span>
+                                    </span>
+                                    <span className="text-slate-700 block mt-0.5">
+                                      <b>Suggested:</b> "{fixInfo.fixingLine}"
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleApplyBulletFix(i, bi, fixInfo.fixingLine)}
+                                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10.5px] font-bold rounded-lg cursor-pointer transition-colors shadow-2xs whitespace-nowrap flex items-center gap-1 self-start sm:self-auto"
+                                  >
+                                    <Zap className="w-3 h-3" />
+                                    <span>Apply Fix</span>
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          }
+                          return (
+                            <li key={bi} className="list-disc list-outside ml-4 pl-0.5 hover:text-slate-900 transition-colors">
+                              {b}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   ))}
@@ -1689,7 +2007,7 @@ export const ResumeStep = ({
                       Key Technical Projects
                     </h4>
                     {resume.projects.map((proj, pi) => (
-                      <div key={pi} className="mb-2.5">
+                      <div key={pi} className="mb-3">
                         <div className="flex justify-between items-baseline text-xs font-bold">
                           <span>
                             {proj.name}
@@ -1700,8 +2018,9 @@ export const ResumeStep = ({
                             )}
                           </span>
                           {proj.link && (
-                            <a href={proj.link} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 underline">
-                              View Project
+                            <a href={proj.link} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 hover:text-indigo-800 underline font-semibold flex items-center gap-0.5">
+                              <Globe className="w-2.5 h-2.5" />
+                              <span>{proj.link.replace(/^https?:\/\/(?:www\.)?github\.com\//, 'gh/').slice(0, 30)}</span>
                             </a>
                           )}
                         </div>
@@ -1743,7 +2062,7 @@ export const ResumeStep = ({
                       <span>
                         <b className="text-slate-900">{ed.school || ed.institution}</b> — {ed.degree} {ed.field ? `in ${ed.field}` : ''} {ed.gpa ? `(GPA: ${ed.gpa})` : ''}
                       </span>
-                      <span className="text-slate-500">{ed.graduationDate}</span>
+                      <span className="text-slate-500 font-medium">{ed.graduationDate}</span>
                     </div>
                   ))}
                 </div>
@@ -1960,7 +2279,150 @@ export const ResumeStep = ({
   );
 };
 
-// ── Deterministic Generators (Jake's LaTeX, Plain Text, Semantic HTML) ──
+// ── Deterministic Generators (Word .doc, Jake's LaTeX, Plain Text, Semantic HTML) ──
+
+export function generateWordDocument(resume) {
+  if (!resume) return '';
+  const skillsStr = Array.isArray(resume.skills)
+    ? resume.skills.join(', ')
+    : Object.entries(resume.skills || {})
+        .filter(([, list]) => Array.isArray(list) && list.length > 0)
+        .map(([k, v]) => `<b>${k.charAt(0).toUpperCase() + k.slice(1)}:</b> ${v.join(', ')}`)
+        .join('<br>');
+
+  const linksArr = [
+    resume.contact?.email ? `<a href="mailto:${resume.contact.email}">${resume.contact.email}</a>` : '',
+    resume.contact?.phone || '',
+    resume.contact?.location || '',
+    resume.contact?.linkedin ? `<a href="${resume.contact.linkedin}">LinkedIn</a>` : '',
+    resume.contact?.github ? `<a href="${resume.contact.github}">GitHub</a>` : '',
+    resume.contact?.portfolio ? `<a href="${resume.contact.portfolio}">Portfolio</a>` : '',
+  ].filter(Boolean);
+
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>${resume.name || 'Resume'}</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+@page {
+    size: 8.5in 11.0in;
+    margin: 0.75in 0.75in 0.75in 0.75in;
+    mso-header-margin: 0.5in;
+    mso-footer-margin: 0.5in;
+}
+body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.25;
+    color: #111111;
+}
+h1 {
+    font-size: 22pt;
+    text-align: center;
+    margin: 0 0 2pt 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+    color: #0F172A;
+}
+.headline {
+    font-size: 11pt;
+    text-align: center;
+    font-weight: bold;
+    color: #4338CA;
+    margin: 0 0 4pt 0;
+}
+.contact-line {
+    text-align: center;
+    font-size: 9.5pt;
+    color: #475569;
+    margin: 0 0 14pt 0;
+}
+h2 {
+    font-size: 11.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.75pt;
+    border-bottom: 1.5pt solid #0F172A;
+    padding-bottom: 2pt;
+    margin: 12pt 0 6pt 0;
+    color: #0F172A;
+}
+ul {
+    margin: 2pt 0 6pt 18pt;
+    padding: 0;
+}
+li {
+    margin-bottom: 2.5pt;
+    text-align: justify;
+}
+a {
+    color: #4338CA;
+    text-decoration: underline;
+}
+</style>
+</head>
+<body>
+<h1>${resume.name || 'Candidate Name'}</h1>
+${(resume.title || resume.roleTitle) ? `<div class="headline">${resume.title || resume.roleTitle}</div>` : ''}
+<div class="contact-line">${linksArr.join(' &nbsp;|&nbsp; ')}</div>
+
+${resume.summary ? `<h2>Professional Summary</h2><p style="margin: 0 0 8pt 0; text-align: justify;">${resume.summary}</p>` : ''}
+
+${(resume.experience || []).length > 0 ? `
+<h2>Professional Experience</h2>
+${(resume.experience || []).map(exp => `
+<table style="width: 100%; border-collapse: collapse; margin-top: 6pt;">
+<tr>
+  <td style="font-weight: bold; font-size: 10.5pt; color: #0F172A;">${exp.role || exp.title || 'Engineer'} <span style="font-weight: normal; font-style: italic; color: #475569;">— ${exp.company || ''}</span></td>
+  <td style="text-align: right; font-size: 9.5pt; color: #64748B;">${exp.dates || ''}</td>
+</tr>
+</table>
+${exp.location ? `<div style="font-size: 9pt; color: #64748B; margin-bottom: 2pt;">${exp.location}</div>` : ''}
+<ul>
+${(exp.bullets || []).map(b => `<li>${b}</li>`).join('')}
+</ul>
+`).join('')}
+` : ''}
+
+${(resume.projects || []).length > 0 ? `
+<h2>Technical Projects</h2>
+${(resume.projects || []).map(p => `
+<table style="width: 100%; border-collapse: collapse; margin-top: 4pt;">
+<tr>
+  <td style="font-weight: bold; font-size: 10pt; color: #0F172A;">${p.name || 'Project'} ${p.tech?.length ? `<span style="font-weight: normal; font-size: 9pt; color: #475569;">(${p.tech.join(', ')})</span>` : ''}</td>
+  <td style="text-align: right; font-size: 9pt;">${p.link ? `<a href="${p.link}">${p.link}</a>` : ''}</td>
+</tr>
+</table>
+<ul>
+${(p.bullets || [p.description]).filter(Boolean).map(b => `<li>${b}</li>`).join('')}
+</ul>
+`).join('')}
+` : ''}
+
+${skillsStr ? `<h2>Technical Skills</h2><p style="margin: 2pt 0 8pt 0;">${skillsStr}</p>` : ''}
+
+${(resume.education || []).length > 0 ? `
+<h2>Education</h2>
+${(resume.education || []).map(ed => `
+<table style="width: 100%; border-collapse: collapse; margin-top: 4pt;">
+<tr>
+  <td style="font-weight: bold; font-size: 10pt; color: #0F172A;">${ed.school || ed.institution || ''} <span style="font-weight: normal; color: #334155;">— ${ed.degree || ''} ${ed.field ? `in ${ed.field}` : ''} ${ed.gpa ? `(GPA: ${ed.gpa})` : ''}</span></td>
+  <td style="text-align: right; font-size: 9.5pt; color: #64748B;">${ed.graduationDate || ''}</td>
+</tr>
+</table>
+`).join('')}
+` : ''}
+</body>
+</html>`;
+}
 
 function generateJakeLatex(resume) {
   if (!resume) return '% Empty resume';

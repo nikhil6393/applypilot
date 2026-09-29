@@ -45,6 +45,95 @@ export function latexToPlainText(source) {
         .trim();
 }
 
+/** Comprehensive Hyperlink Extractor (URLs, profiles, tech domains, markdown, and LaTeX) */
+export function extractHyperlinks(text = '', extraLinks = []) {
+    const links = new Set();
+    if (Array.isArray(extraLinks)) {
+        extraLinks.forEach(l => {
+            if (typeof l === 'string' && l.trim()) links.add(l.trim());
+        });
+    }
+    if (!text || typeof text !== 'string') return Array.from(links);
+
+    // 1. Explicit http/https URLs
+    const explicit = text.match(/\bhttps?:\/\/[^\s,()<>"]+/gi) || [];
+    explicit.forEach(u => links.add(u.replace(/[.,;)]+$/, '')));
+
+    // 2. www URLs
+    const www = text.match(/\bwww\.[^\s,()<>"]+/gi) || [];
+    www.forEach(u => links.add(`https://${u.replace(/[.,;)]+$/, '')}`));
+
+    // 3. Markdown links: [Label](URL)
+    const mdRe = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+    let mdMatch;
+    while ((mdMatch = mdRe.exec(text)) !== null) {
+        links.add(mdMatch[2].trim());
+    }
+
+    // 4. Social & Developer URLs (linkedin, github, gitlab, twitter, x.com)
+    const socialRe = /\b(?:linkedin\.com\/in|github\.com|gitlab\.com|twitter\.com|x\.com)\/[A-Za-z0-9_.-]+/gi;
+    const socials = text.match(socialRe) || [];
+    socials.forEach(s => links.add(`https://${s.replace(/[.,;)]+$/, '')}`));
+
+    // 5. Tech domains (.dev, .me, .io, .ai, .app, .tech, .page, .vercel.app, .github.io, .netlify.app)
+    const domainRe = /\b([a-zA-Z0-9-]+\.(?:dev|me|io|ai|app|tech|page|vercel\.app|github\.io|netlify\.app)(?:\/[^\s,()<>"]*)?)/gi;
+    let domMatch;
+    while ((domMatch = domainRe.exec(text)) !== null) {
+        const d = domMatch[1].replace(/[.,;)]+$/, '');
+        const idx = domMatch.index;
+        if (idx > 0 && text[idx - 1] === '@') continue; // Skip email domains
+        links.add(`https://${d}`);
+    }
+
+    return Array.from(links);
+}
+
+/** Extract embedded hyperlinks directly from PDF annotations and streams */
+export function extractPdfLinks(buf) {
+    if (!buf || buf.length === 0) return [];
+    const links = new Set();
+    try {
+        const raw = buf.toString('latin1');
+        const uriMatches = raw.match(/\/URI\s*\(([^)]+)\)/gi) || [];
+        for (const m of uriMatches) {
+            const uri = m.replace(/^\/URI\s*\(/i, '').replace(/\)$/, '').trim();
+            if (/^https?:\/\//i.test(uri)) links.add(uri);
+        }
+        const hexMatches = raw.match(/\/URI\s*<([0-9a-fA-F]+)>/gi) || [];
+        for (const m of hexMatches) {
+            const hex = m.replace(/^\/URI\s*</i, '').replace(/>$/, '').trim();
+            try {
+                const decoded = Buffer.from(hex, 'hex').toString('utf-8');
+                if (/^https?:\/\//i.test(decoded)) links.add(decoded.trim());
+            } catch {}
+        }
+    } catch {}
+    return Array.from(links);
+}
+
+/** Extract embedded hyperlinks from DOCX relationships and HTML */
+export async function extractDocxLinks(buf) {
+    if (!buf || buf.length === 0) return [];
+    const links = new Set();
+    try {
+        const { value: html } = await mammoth.convertToHtml({ buffer: buf });
+        const hrefMatches = html.match(/href="([^"]+)"/gi) || [];
+        for (const h of hrefMatches) {
+            const href = h.replace(/^href="/i, '').replace(/"$/, '').trim();
+            if (/^https?:\/\//i.test(href)) links.add(href);
+        }
+    } catch {}
+    try {
+        const raw = buf.toString('utf-8');
+        const targetMatches = raw.match(/Target="(https?:\/\/[^"]+)"/gi) || [];
+        for (const t of targetMatches) {
+            const target = t.replace(/^Target="/i, '').replace(/"$/, '').trim();
+            links.add(target);
+        }
+    } catch {}
+    return Array.from(links);
+}
+
 /** Robust PDF text extraction compatible with pdf-parse v1, v2 and class-based API */
 export async function extractPdfText(buf) {
     if (!buf || buf.length === 0) return '';
@@ -187,7 +276,7 @@ export function extractSkills(text) {
     return [...found].sort();
 }
 
-export function extractContact(text) {
+export function extractContact(text, extraLinks = []) {
     const email = (text.match(EMAIL_RE)?.[0] || '').trim();
     let phone = '';
     const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
@@ -199,24 +288,38 @@ export function extractContact(text) {
         }
     }
 
+    const allExtractedLinks = extractHyperlinks(text, extraLinks);
+
     let linkedin = text.match(LINKEDIN_RE)?.[0] || '';
     if (linkedin && !linkedin.startsWith('http')) {
         linkedin = `https://${linkedin}`;
+    }
+    if (!linkedin) {
+        const found = allExtractedLinks.find(l => /linkedin\.com\/in\//i.test(l));
+        if (found) linkedin = found;
     }
 
     let github = text.match(GITHUB_RE)?.[0] || '';
     if (github && !github.startsWith('http')) {
         github = `https://${github}`;
     }
+    if (!github) {
+        const found = allExtractedLinks.find(l => /github\.com\//i.test(l));
+        if (found) github = found;
+    }
 
-    const rawUrls = text.match(URL_RE) || [];
-    const links = Array.from(new Set(rawUrls.map((u) => {
-        let clean = u.replace(/[.,;)]+$/, '');
-        if (!clean.startsWith('http') && clean.startsWith('www.')) {
-            clean = `https://${clean}`;
-        }
-        return clean;
-    }))).filter((u) => !u.includes('mailto:') && !u.includes('linkedin.com') && !u.includes('github.com'));
+    const filteredOtherLinks = allExtractedLinks.filter(
+        (u) => !u.includes('mailto:') && !/linkedin\.com\/in\//i.test(u) && !/github\.com\//i.test(u)
+    );
+
+    const portfolio = filteredOtherLinks[0] || '';
+    const combinedUnique = Array.from(new Set([
+        linkedin,
+        github,
+        portfolio,
+        ...allExtractedLinks,
+        ...extraLinks
+    ].filter(Boolean)));
 
     let location = '';
     const labelMatch = text.match(/(?:Location|Address|City|Based in)[\s:]+([^\n|,•]+)/i);
@@ -249,10 +352,10 @@ export function extractContact(text) {
         email,
         phone,
         location,
-        links,
+        links: combinedUnique,
         linkedin,
         github,
-        portfolio: links[0] || '',
+        portfolio,
     };
 }
 
@@ -287,7 +390,7 @@ export function extractSummary(text) {
     return '';
 }
 
-export function extractProjects(text) {
+export function extractProjects(text, extraLinks = []) {
     const match = text.match(/(?:^|\n)(?:===\s*)?(?:PROJECTS|PERSONAL PROJECTS|ACADEMIC PROJECTS|KEY PROJECTS)(?:\s*===)?\s*\n+([\s\S]*?)(?=\n(?:===|[A-Z\s]{4,}:|\n[A-Z\s]{4,}\b|$))/i);
     if (!match || !match[1]) return [];
     
@@ -303,7 +406,13 @@ export function extractProjects(text) {
         const nameTech = header.split(/\s+(?:\||–|-|--)\s+/);
         const name = nameTech[0] || header;
         const tech = nameTech.slice(1).join(' ').split(/[,|]/).map((t) => t.trim()).filter(Boolean);
-        const linkMatch = block.match(URL_RE)?.[0] || '';
+        const blockLinks = extractHyperlinks(block);
+        let linkMatch = blockLinks[0] || '';
+        if (!linkMatch && Array.isArray(extraLinks)) {
+            const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const matchingExtra = extraLinks.find(l => l.toLowerCase().replace(/[^a-z0-9]/g, '').includes(slug));
+            if (matchingExtra) linkMatch = matchingExtra;
+        }
 
         projects.push({
             name,
@@ -400,13 +509,13 @@ export function extractExperience(text) {
 }
 
 /** Fallback Deterministic Builder */
-function buildDeterministic(text) {
-    const contact = extractContact(text);
+function buildDeterministic(text, extraLinks = []) {
+    const contact = extractContact(text, extraLinks);
     const name = extractName(text);
     const skillsList = extractSkills(text);
     const experience = extractExperience(text);
     const education = extractEducation(text);
-    const projects = extractProjects(text);
+    const projects = extractProjects(text, extraLinks);
     const summary = extractSummary(text);
 
     // Build structured categorized skills using normalized display names
@@ -424,6 +533,19 @@ function buildDeterministic(text) {
     const skillsArray = [...new Set([...skillsList, ...displaySkills])];
     Object.assign(skillsArray, categorized);
 
+    const allResolvedLinks = Array.from(new Set([
+        contact.linkedin,
+        contact.github,
+        contact.portfolio,
+        ...contact.links,
+        ...extraLinks,
+    ].filter(Boolean)));
+
+    const hyperlinks = allResolvedLinks.map(url => ({
+        url,
+        label: url.replace(/^https?:\/\/(?:www\.)?/, '').replace(/\/$/, '')
+    }));
+
     return {
         name,
         fullName: name,
@@ -432,7 +554,8 @@ function buildDeterministic(text) {
         email: contact.email || '',
         phone: contact.phone || '',
         location: contact.location || '',
-        links: [contact.linkedin, contact.github, ...contact.links].filter(Boolean),
+        links: allResolvedLinks,
+        hyperlinks,
         contact,
         summary: summary || '',
         skills: skillsArray,
@@ -635,34 +758,52 @@ ${sampleText}`;
 }
 
 /** Unified Master Parser */
-export async function parseResumeText(text) {
+export async function parseResumeText(text, options = {}) {
+    const extraLinks = options?.extraLinks || [];
     const cleaned = latexToPlainText(text)
         .replace(/\r/g, '')
         .replace(/\u00a0/g, ' ')
         .trim();
 
     if (!cleaned) {
-        return buildDeterministic('');
+        return buildDeterministic('', extraLinks);
     }
 
     // Try AI-powered deep extraction first if key exists
     try {
         const aiResult = await extractWithAi(cleaned);
         if (aiResult && aiResult.name && (aiResult.experience?.length > 0 || aiResult.skills?.length > 0)) {
+            if (extraLinks.length > 0) {
+                aiResult.links = Array.from(new Set([...(aiResult.links || []), ...extraLinks]));
+                aiResult.contact = aiResult.contact || {};
+                aiResult.contact.links = aiResult.links;
+                if (!aiResult.contact.linkedin) {
+                    aiResult.contact.linkedin = extraLinks.find(l => /linkedin\.com\/in\//i.test(l)) || '';
+                }
+                if (!aiResult.contact.github) {
+                    aiResult.contact.github = extraLinks.find(l => /github\.com\//i.test(l)) || '';
+                }
+                aiResult.hyperlinks = aiResult.links.map(url => ({
+                    url,
+                    label: url.replace(/^https?:\/\/(?:www\.)?/, '').replace(/\/$/, '')
+                }));
+            }
             return aiResult;
         }
     } catch {}
 
     // Fall back to robust deterministic parser
-    return buildDeterministic(cleaned);
+    return buildDeterministic(cleaned, extraLinks);
 }
 
 export async function parseResumePdf(buf) {
     const text = await extractPdfText(buf);
-    return parseResumeText(text || '');
+    const extraLinks = extractPdfLinks(buf);
+    return parseResumeText(text || '', { extraLinks });
 }
 
 export async function parseResumeDocx(buf) {
     const text = await extractDocxText(buf);
-    return parseResumeText(text || '');
+    const extraLinks = await extractDocxLinks(buf);
+    return parseResumeText(text || '', { extraLinks });
 }

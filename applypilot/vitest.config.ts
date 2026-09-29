@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-
 import { resolve } from 'path';
 
 export default defineConfig({
@@ -18,7 +17,17 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.ts', 'server/tests/**/*.test.ts', 'packages/**/*.test.ts', 'src/**/*.test.ts'],
+    include: [
+      'tests/**/*.test.ts',
+      'server/tests/**/*.test.ts',
+      'packages/**/*.test.ts',
+      'src/**/*.test.ts',
+    ],
+    // SQLite tests share one file — parallelism causes lock contention
+    pool: 'forks',
+    fileParallelism: false,
+    maxWorkers: 1,
+    testTimeout: 20000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

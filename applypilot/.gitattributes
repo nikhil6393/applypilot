@@ -1,0 +1,22 @@
+# Tell GitHub Linguist to ignore these paths for language stats
+# This keeps the repo showing JavaScript (not TypeScript) since
+# the app code is JS/JSX, while supporting packages use TS internally.
+
+# Ignore agent skills (tooling, not project code)
+.agents/** linguist-vendored
+
+# Ignore internal packages (monorepo support layer, not app code)
+packages/** linguist-vendored
+
+# Ignore test files from language stats
+tests/** linguist-vendored
+server/tests/** linguist-vendored
+
+# Ignore config/infra files from language stats
+vitest.config.ts linguist-vendored
+shared/types.ts linguist-vendored
+shared/domains.ts linguist-vendored
+
+# Ignore src/lib TS modules (they are compiled, not app logic)
+src/lib/resumeScore/** linguist-vendored
+src/lib/tailor/** linguist-vendored

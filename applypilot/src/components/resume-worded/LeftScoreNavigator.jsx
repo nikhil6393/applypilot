@@ -66,7 +66,7 @@ export default function LeftScoreNavigator({
       <div className="p-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-slate-900/40 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-            Resume Worded Score
+            Overall ATS Score
           </span>
           <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
             {issues.length} Fixes Found
@@ -165,7 +165,7 @@ export default function LeftScoreNavigator({
               No Issues Found!
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
-              This category meets Resume Worded standards.
+              This category meets industry ATS standards.
             </p>
           </div>
         ) : (

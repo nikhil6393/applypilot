@@ -187,7 +187,7 @@ export default function ResumeWordedStudio({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(resume.contact?.name || 'Resume').replace(/\s+/g, '_')}_ResumeWorded.doc`;
+    link.download = `${(resume.contact?.name || 'Resume').replace(/\s+/g, '_')}_ATS_Calibrated.doc`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -205,18 +205,18 @@ export default function ResumeWordedStudio({
       <header className="h-14 px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0 z-20">
         {/* Left: Branding & Candidate File */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center font-black text-sm shadow-sm">
-              RW
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-xs">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
               <span className="text-xs font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                Resume Worded Studio
+                ApplyPilot Resume Studio
                 <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold px-1.5 py-0.2 rounded">
                   PRO
                 </span>
               </span>
-              <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
+              <p className="text-[10px] text-slate-400 truncate max-w-[220px]">
                 {resume.contact?.name || 'Candidate'}_Resume.pdf
               </p>
             </div>
@@ -287,8 +287,8 @@ export default function ResumeWordedStudio({
 
       {/* 3-Column Master Workspace */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Column (280px / 320px): Navigator & Score */}
-        <div className="w-72 lg:w-80 shrink-0 h-full">
+        {/* Left Column (256px / 288px): Navigator & Score */}
+        <div className="w-64 xl:w-72 shrink-0 h-full">
           <LeftScoreNavigator
             scoreData={scoreData}
             selectedIssue={selectedIssue}
@@ -311,8 +311,8 @@ export default function ResumeWordedStudio({
           />
         </div>
 
-        {/* Right Column (340px / 380px): Issue Details & AI Auto-Fix */}
-        <div className="w-80 lg:w-96 shrink-0 h-full">
+        {/* Right Column (288px / 320px): Issue Details & AI Auto-Fix */}
+        <div className="w-72 xl:w-80 shrink-0 h-full">
           <RightFixInspector
             selectedIssue={selectedIssue}
             onApplyFix={handleApplyFix}

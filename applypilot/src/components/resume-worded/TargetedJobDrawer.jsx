@@ -102,7 +102,7 @@ export default function TargetedJobDrawer({
                 Targeted Resume Matcher
               </h3>
               <p className="text-[11px] text-slate-500">
-                Resume Worded style job description analysis
+                Target job keyword & expression gap analysis
               </p>
             </div>
           </div>

@@ -135,20 +135,23 @@ export default function CenterDocumentViewer({
       </div>
 
       {/* Main Document Canvas Viewport */}
-      <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center custom-scrollbar">
-        <div
-          ref={documentRef}
-          id="resume-printable-document"
-          style={{
-            ...getFontFamilyStyle(),
-            transform: `scale(${zoom / 100})`,
-            transformOrigin: 'top center',
-            transition: 'transform 0.15s ease',
-            width: '8.5in',
-            minHeight: '11in'
-          }}
-          className="bg-white text-slate-900 shadow-2xl rounded-sm p-10 sm:p-12 border border-slate-200/80 my-2 select-text shrink-0 print:p-0 print:border-none print:shadow-none print:transform-none"
-        >
+      <div className="flex-1 overflow-auto p-4 sm:p-6 custom-scrollbar bg-slate-100/90 dark:bg-slate-950/90">
+        <div className="w-full flex justify-center">
+          <div
+            ref={documentRef}
+            id="resume-printable-document"
+            style={{
+              ...getFontFamilyStyle(),
+              transform: zoom !== 100 ? `scale(${zoom / 100})` : undefined,
+              transformOrigin: 'top center',
+              transition: 'transform 0.15s ease',
+              width: '100%',
+              maxWidth: '780px',
+              minHeight: '10.5in',
+              boxSizing: 'border-box'
+            }}
+            className="bg-white text-slate-900 shadow-xl rounded-sm p-8 sm:p-10 border border-slate-200/90 my-2 select-text shrink-0 print:p-0 print:border-none print:shadow-none print:transform-none print:max-w-none"
+          >
           {/* Header / Contact Area */}
           <div className="border-b border-slate-300 pb-5 mb-5 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 uppercase">
@@ -268,7 +271,7 @@ export default function CenterDocumentViewer({
                       </div>
                     </div>
 
-                    <ul className="list-disc list-outside pl-4 space-y-1.5 text-xs leading-relaxed text-slate-700">
+                    <ul className="list-disc list-outside pl-5 space-y-2 text-xs leading-relaxed text-slate-700">
                       {(exp.bullets || []).map((bullet, bIdx) => {
                         const key = `${expIdx}-${bIdx}`;
                         const bIssues = bulletIssuesMap[key] || [];
@@ -402,5 +405,6 @@ export default function CenterDocumentViewer({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

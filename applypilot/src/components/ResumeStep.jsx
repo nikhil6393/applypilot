@@ -775,20 +775,20 @@ export const ResumeStep = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Manual field editor. Edit specific fields directly or return to the Resume Worded 3-column workspace.
+            Manual field editor. Edit specific fields directly or return to the interactive Resume Studio.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
-          {/* Back to Resume Worded Studio */}
+          {/* Back to Resume Studio */}
           <button
             id="resume-back-to-worded-btn"
             onClick={() => setStudioLayout('worded')}
             className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-300 bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-            title="Switch back to Resume Worded interactive 3-column studio"
+            title="Switch back to interactive 3-column studio"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Resume Worded Studio</span>
+            <span>Resume Studio</span>
           </button>
 
           {/* Quick Download PDF & Word Buttons */}

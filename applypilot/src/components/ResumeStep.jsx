@@ -11,6 +11,7 @@ import confetti from 'canvas-confetti';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../context/AuthContext';
 import { scoreResume } from '../lib/resumeScore/index';
+import ResumeWordedStudio from './resume-worded/ResumeWordedStudio';
 
 /** Deterministic 1-click fix handler — strictly never fabricates facts or numbers */
 function applyFixToResume(resume, issue) {
@@ -351,6 +352,9 @@ export const ResumeStep = ({
 }) => {
   const { addToast } = useAppStore();
   const { user, updateProfile } = useAuth();
+
+  // Studio layout: 'worded' (Resume Worded 3-column workspace) vs 'form' (detailed form fields)
+  const [studioLayout, setStudioLayout] = useState('worded');
 
   // Active view: 'document' (original analyzed paper) vs 'editor' (form fields)
   const [viewMode, setViewMode] = useState('document');
@@ -742,6 +746,19 @@ export const ResumeStep = ({
     onUpdateResume(next);
   };
 
+  // ── RESUME WORDED 3-COLUMN WORKSPACE (Default) ──
+  if (studioLayout === 'worded') {
+    return (
+      <div className="w-full">
+        <ResumeWordedStudio
+          resume={resume}
+          onUpdateResume={onUpdateResume}
+          onSwitchToForm={() => setStudioLayout('form')}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-4">
       {/* ── TOP HEADER / TOOLBAR ── */}
@@ -750,19 +767,30 @@ export const ResumeStep = ({
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
               <FileText className="w-5 h-5 text-indigo-600" />
-              <span>Resume Studio</span>
+              <span>Resume Studio (Form Inputs)</span>
             </h1>
             <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-emerald-600" />
-              <span>Real-Time ATS Calibration Engine</span>
+              <span>Form Fields View</span>
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Standard-compliant ATS parser and document studio. Evaluates 16 metrics across Impact (35%), Brevity (25%), Style (20%), and Sections (20%).
+            Manual field editor. Edit specific fields directly or return to the Resume Worded 3-column workspace.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+          {/* Back to Resume Worded Studio */}
+          <button
+            id="resume-back-to-worded-btn"
+            onClick={() => setStudioLayout('worded')}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-300 bg-indigo-600 hover:bg-indigo-700 text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            title="Switch back to Resume Worded interactive 3-column studio"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Resume Worded Studio</span>
+          </button>
+
           {/* Quick Download PDF & Word Buttons */}
           <button
             id="resume-top-pdf-btn"

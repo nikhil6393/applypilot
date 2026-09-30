@@ -1676,11 +1676,15 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
         app.use(vite.middlewares);
     }
     else {
-        const distPath = path.join(APP_ROOT, 'dist');
-        app.use(express.static(path.join(APP_ROOT, 'public')));
+        const distPath = fs.existsSync(path.join(APP_ROOT, 'index.html')) ? APP_ROOT : (fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) ? path.join(APP_ROOT, 'dist') : path.join(process.cwd(), 'dist'));
         app.use(express.static(distPath));
         app.get('*', (req, res) => {
-            res.sendFile(path.join(distPath, 'index.html'));
+            const indexFile = path.join(distPath, 'index.html');
+            if (fs.existsSync(indexFile)) {
+                res.sendFile(indexFile);
+            } else {
+                res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+            }
         });
     }
     app.listen(PORT, '0.0.0.0', () => {

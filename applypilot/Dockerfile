@@ -55,9 +55,11 @@ COPY packages/security/package.json ./packages/security/
 # Install production dependencies only
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy built bundles and public assets from builder
+# Copy built bundles and assets from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/data ./data
 
 # Setup persistent data directory
 RUN mkdir -p /app/data && chown -R node:node /app/data

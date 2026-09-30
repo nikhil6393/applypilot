@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const requireCJS = createRequire(import.meta.url);
+const requireCJS = typeof require !== 'undefined' ? require : (import.meta && import.meta.url ? createRequire(import.meta.url) : () => ({}));
 const PARSER_VERSION = 'v3.0.0-ai-enhanced';
 
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;

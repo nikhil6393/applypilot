@@ -4,17 +4,17 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-const APP_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
 import { exec } from 'child_process';
 // @ts-ignore
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+const nodeRequire = typeof require !== 'undefined' ? require : (import.meta && import.meta.url ? createRequire(import.meta.url) : () => ({}));
 const pdfParse = (() => {
     try {
-        return require('pdf-parse/lib/pdf-parse.js');
+        return nodeRequire('pdf-parse/lib/pdf-parse.js');
     }
     catch {
-        return require('pdf-parse');
+        return nodeRequire('pdf-parse');
     }
 })();
 import { parseResumeText } from './server/ai/resume-parser.js';

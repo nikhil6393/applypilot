@@ -1,0 +1,27 @@
+{
+  "engineering": [
+    "Architected","Built","Coded","Compiled","Configured","Constructed","Containerized",
+    "Debugged","Deployed","Designed","Developed","Engineered","Implemented","Integrated",
+    "Launched","Maintained","Migrated","Optimized","Programmed","Refactored","Shipped",
+    "Tested","Automated","Customized","Authored","Administered","Orchestrated","Virtualized"
+  ],
+  "impact": [
+    "Accelerated","Achieved","Boosted","Cut","Delivered","Doubled","Drove","Eliminated",
+    "Expanded","Generated","Grew","Improved","Increased","Maximized","Minimized","Raised",
+    "Reduced","Saved","Scaled","Streamlined","Surpassed","Transformed","Tripled"
+  ],
+  "leadership": [
+    "Championed","Coached","Collaborated","Coordinated","Created","Directed","Established",
+    "Facilitated","Founded","Guided","Headed","Led","Managed","Mentored","Organized",
+    "Oversaw","Planned","Prioritized","Spearheaded","Supervised","Trained"
+  ],
+  "analysis": [
+    "Analyzed","Assessed","Audited","Built","Calculated","Designed","Diagnosed","Evaluated",
+    "Forecasted","Identified","Investigated","Mapped","Measured","Modeled","Monitored",
+    "Researched","Resolved","Reviewed","Simulated","Tracked","Validated"
+  ],
+  "communication": [
+    "Advised","Communicated","Defined","Documented","Drafted","Executed","Partnered",
+    "Presented","Produced","Published","Reported","Standardized","Translated","Wrote"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "heroTitle": "Find Your Next Opportunity",
+  "heroSubtitle": "Verified tech roles aggregated across LinkedIn, Naukri, Greenhouse, Lever, Ashby, and top startup networks.",
+  "findJobsButtonText": "Find Jobs",
+  "liveIndexBadgeText": "Live Job Index",
+  "bannerAlert": "🔥 High hiring volume detected: 60+ fresh software & AI engineering positions indexed today!",
+  "bannerAlertEnabled": true,
+  "featureFlags": {
+    "enableLiveScraping": true,
+    "enableEasyApply": true,
+    "enableAutoRefresh": true,
+    "enableCustomScraper": true,
+    "maintenanceMode": false,
+    "strictBatchFilter": false
+  },
+  "aiProvider": "nvidia_nim",
+  "circuitBreakers": {
+    "linkedin": {
+      "forcedTrip": false,
+      "maxFailures": 10
+    },
+    "naukari": {
+      "forcedTrip": false,
+      "maxFailures": 10
+    },
+    "greenhouse": {
+      "forcedTrip": false,
+      "maxFailures": 8
+    },
+    "lever": {
+      "forcedTrip": false,
+      "maxFailures": 8
+    },
+    "ashby": {
+      "forcedTrip": false,
+      "maxFailures": 8
+    }
+  },
+  "smtpHost": "smtp.sendgrid.net",
+  "smtpPort": "587",
+  "bullConcurrency": 4
+}

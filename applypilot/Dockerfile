@@ -58,7 +58,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built bundles and public assets from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/packages ./packages
-COPY public ./public
 
 # Setup persistent data directory
 RUN mkdir -p /app/data && chown -R node:node /app/data

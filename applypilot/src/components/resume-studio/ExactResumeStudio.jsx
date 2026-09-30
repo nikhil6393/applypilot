@@ -6,6 +6,7 @@ import HomeOverviewView from './HomeOverviewView';
 import FixDetailView from './FixDetailView';
 import RightDocumentSheet from './RightDocumentSheet';
 import confetti from 'canvas-confetti';
+import { scoreResume } from '../../lib/resumeScore/index';
 
 /**
  * ExactResumeStudio.jsx
@@ -22,13 +23,29 @@ export default function ExactResumeStudio({
   onUpdateResume
 }) {
   const [studioState, setStudioState] = useState(resume ? 'studio' : 'upload'); // 'upload' | 'extracting' | 'studio'
-  const [uploadedFileName, setUploadedFileName] = useState('Nikhil_Singh_Resume.pdf');
+  const [uploadedFileName, setUploadedFileName] = useState('Resume.pdf');
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'fix'
-  const [activeFixId, setActiveFixId] = useState('repetition');
-  const [highlightWord, setHighlightWord] = useState('Built');
-  const [isHighlightActive, setIsHighlightActive] = useState(true);
-  const [score, setScore] = useState(74);
-  const [repetitionCount, setRepetitionCount] = useState(4);
+  const [activeFixId, setActiveFixId] = useState(null);
+  const [highlightWord, setHighlightWord] = useState(null);
+  const [isHighlightActive, setIsHighlightActive] = useState(false);
+
+  // Real-time score from the actual resume
+  const scoreReport = useMemo(() => scoreResume(resume || {}), [resume]);
+  const score = scoreReport.overall;
+  const issues = scoreReport.issues || [];
+  const categories = scoreReport.categories || {};
+
+  // Count repeated-verb issues for the badge
+  const repetitionCount = useMemo(
+    () => issues.filter(i => i.id?.startsWith('impact-repeated') || i.id?.startsWith('style-repeated')).length,
+    [issues]
+  );
+
+  // Derived highlight word from actual repeated-verb issues
+  const repeatedVerbIssue = useMemo(
+    () => issues.find(i => i.id?.startsWith('impact-repeated') || i.id?.startsWith('style-repeated')),
+    [issues]
+  );
 
   // File Upload Handler
   const handleFileUpload = (file) => {
@@ -58,9 +75,18 @@ export default function ExactResumeStudio({
   const handleSelectFix = (fixId) => {
     setActiveFixId(fixId);
     setActiveTab('fix');
-    if (fixId === 'repetition') {
-      setHighlightWord('Built');
+    // Highlight the repeated word for this fix if applicable
+    const issue = issues.find(i => i.id === fixId || i.category === fixId);
+    if (issue?.evidence?.word) {
+      setHighlightWord(issue.evidence.word);
       setIsHighlightActive(true);
+    } else if (fixId === 'repetition' || fixId?.startsWith('impact-repeated') || fixId?.startsWith('style-repeated')) {
+      const repIssue = repeatedVerbIssue;
+      setHighlightWord(repIssue?.evidence?.word || null);
+      setIsHighlightActive(true);
+    } else {
+      setHighlightWord(null);
+      setIsHighlightActive(false);
     }
   };
 
@@ -72,40 +98,36 @@ export default function ExactResumeStudio({
   // 1-Click Fix Handler (e.g. from FixDetailView "Mark as Fixed")
   const handleApplyFix = (fixId) => {
     if (!resume) return;
+    const next = JSON.parse(JSON.stringify(resume));
+    let changed = false;
 
-    if (fixId === 'repetition') {
-      const next = JSON.parse(JSON.stringify(resume));
-      let replacementIndex = 0;
-      const replacements = ['Engineered', 'Architected', 'Developed', 'Deployed'];
-
-      // Replace repeated "Built" in experience bullets
-      (next.experience || []).forEach((exp) => {
-        (exp.bullets || []).forEach((b, bi) => {
-          if (/^built\b/i.test(b)) {
-            const repl = replacements[replacementIndex % replacements.length];
-            replacementIndex++;
-            exp.bullets[bi] = b.replace(/^built\b/i, repl);
+    if (fixId === 'repetition' || fixId?.startsWith('impact-repeated') || fixId?.startsWith('style-repeated')) {
+      const replacements = ['Engineered', 'Architected', 'Developed', 'Deployed', 'Implemented', 'Optimized'];
+      let idx = 0;
+      const targetWord = repeatedVerbIssue?.evidence?.word || highlightWord;
+      if (targetWord) {
+        const re = new RegExp(`^${targetWord}\\b`, 'i');
+        (next.experience || []).forEach((exp) => {
+          (exp.bullets || []).forEach((b, bi) => {
+            if (re.test(b)) {
+              exp.bullets[bi] = b.replace(re, replacements[idx++ % replacements.length]);
+              changed = true;
+            }
+          });
+        });
+        (next.projects || []).forEach((proj) => {
+          if (Array.isArray(proj.bullets)) {
+            proj.bullets = proj.bullets.map((b) => {
+              if (re.test(b)) { changed = true; return b.replace(re, replacements[idx++ % replacements.length]); }
+              return b;
+            });
           }
         });
-      });
+      }
+    }
 
-      // Also replace in projects
-      (next.projects || []).forEach((proj) => {
-        if (Array.isArray(proj.bullets)) {
-          proj.bullets = proj.bullets.map((b) => {
-            if (/^built\b/i.test(b)) {
-              const repl = replacements[replacementIndex % replacements.length];
-              replacementIndex++;
-              return b.replace(/^built\b/i, repl);
-            }
-            return b;
-          });
-        }
-      });
-
+    if (changed) {
       onUpdateResume(next);
-      setScore((s) => Math.min(100, s + 5));
-      setRepetitionCount(0);
       setIsHighlightActive(false);
       confetti({ particleCount: 50, spread: 65, origin: { y: 0.6 } });
     }
@@ -143,17 +165,19 @@ export default function ExactResumeStudio({
   }
 
   // 3. Studio State: Exact 3-Column UI from Screenshots
-  const candidateName = resume?.name || resume?.fullName || resume?.contact?.name || 'Nikhil Singh';
+  const candidateName = resume?.name || resume?.fullName || resume?.contact?.name || 'Candidate';
 
   return (
     <div className="flex h-[calc(100vh-68px)] min-h-[700px] w-full bg-slate-100 dark:bg-slate-950 overflow-hidden select-none">
       {/* Column 1: Left Navigation Sidebar */}
       <LeftScoreSidebar
         score={score}
+        categories={categories}
+        issues={issues}
         activeTab={activeTab}
         onSelectTab={(tab) => {
           if (tab === 'home') setActiveTab('home');
-          else if (tab === 'more_issues') handleSelectFix('summary');
+          else handleSelectFix(tab);
         }}
         activeFix={activeFixId}
         onSelectFix={handleSelectFix}
@@ -167,12 +191,15 @@ export default function ExactResumeStudio({
           <HomeOverviewView
             candidateName={candidateName}
             score={score}
+            issues={issues}
+            categories={categories}
             onSelectFix={handleSelectFix}
             onHowItWorks={() => {}}
           />
         ) : (
           <FixDetailView
             fixId={activeFixId}
+            issue={issues.find(i => i.id === activeFixId)}
             onBackToHome={handleBackToHome}
             onApplyFix={handleApplyFix}
             onHighlightLines={handleHighlightLines}

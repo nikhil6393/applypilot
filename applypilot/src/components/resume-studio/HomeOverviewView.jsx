@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChevronLeft, ChevronRight, HelpCircle, Lightbulb, ArrowRight, Zap, X, AlertTriangle } from 'lucide-react';
 
 /**
@@ -11,41 +11,64 @@ import { ChevronLeft, ChevronRight, HelpCircle, Lightbulb, ArrowRight, Zap, X, A
  * - "Steps to increase your score" checklist with [FIX →] buttons
  */
 export default function HomeOverviewView({
-  candidateName = 'Nikhil',
-  score = 74,
+  candidateName = 'Candidate',
+  score = 0,
+  issues = [],
+  categories = {},
   onSelectFix,
   onHowItWorks
 }) {
-  const steps = [
-    {
-      id: 'repetition',
-      title: 'Repetition',
-      desc: 'Use different action words and phrases instead of overusing the same ones',
-      category: 'IMPACT',
-      categoryColor: 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300'
-    },
-    {
-      id: 'summary',
-      title: 'Summary section',
-      desc: 'Eliminate first-person pronouns and highlight measurable career scope',
-      category: 'SECTIONS',
-      categoryColor: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950 dark:text-blue-300'
-    },
-    {
-      id: 'action_verbs',
-      title: 'Action Verbs',
-      desc: 'Lead every bullet point with strong power verbs instead of passive duty descriptions',
-      category: 'IMPACT',
-      categoryColor: 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300'
-    },
-    {
-      id: 'metrics',
-      title: 'Quantifiable Results',
-      desc: 'Add numbers, percentages, or scale multipliers to at least 40% of achievements',
-      category: 'IMPACT',
-      categoryColor: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-    }
-  ];
+  // Category color mapping
+  const categoryColors = {
+    impact:   'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300',
+    sections: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+    brevity:  'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
+    style:    'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+  };
+
+  // Human-readable label from issue id (e.g. "impact-weak-opener-0-1" → "Weak Action Verb")
+  function issueLabel(issue) {
+    if (!issue?.id) return 'Issue';
+    const id = issue.id;
+    if (id.includes('no-metric')) return 'Add Quantified Metrics';
+    if (id.includes('weak-opener')) return 'Weak Action Verb';
+    if (id.includes('action-verb')) return 'Action Verb Needed';
+    if (id.includes('repeated') || id.includes('repetition')) return 'Word Repetition';
+    if (id.includes('bullet-length')) return 'Bullet Length';
+    if (id.includes('bullets-per-role')) return 'Bullet Count';
+    if (id.includes('filler')) return 'Filler Words';
+    if (id.includes('buzzword')) return 'Buzzwords';
+    if (id.includes('first-person')) return 'First-Person Pronouns';
+    if (id.includes('tense')) return 'Verb Tense';
+    if (id.includes('contact')) return 'Missing Contact Info';
+    if (id.includes('essential') || id.includes('sections')) return 'Missing Section';
+    if (id.includes('ats-heading')) return 'ATS Heading';
+    if (id.includes('summary')) return 'Summary Section';
+    // Fallback: convert id to title case
+    return id.replace(/^(impact|brevity|style|sections)-/, '')
+              .replace(/-\d+.*$/, '')
+              .replace(/-/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Real steps from actual failing/warning issues
+  const steps = useMemo(() => {
+    const actionableIssues = issues.filter(i => i.severity === 'fail' || i.severity === 'warn');
+    if (actionableIssues.length === 0) return [];
+    return actionableIssues.slice(0, 6).map(issue => ({
+      id: issue.id,
+      title: issueLabel(issue),
+      desc: issue.fix || '',
+      category: (issue.category || 'impact').toUpperCase(),
+      categoryColor: categoryColors[issue.category] || categoryColors.impact,
+      severity: issue.severity,
+    }));
+  }, [issues]);
+
+  const scoreColor = score >= 80 ? '#10B981' : score >= 60 ? '#F59E0B' : '#EF4444';
+  const scoreLabel = score >= 80 ? 'ATS Ready 🟢' : score >= 60 ? 'Competitive 🟡' : 'Needs Work 🔴';
+  const firstName = candidateName?.split(' ')[0] || 'there';
+
 
   return (
     <div className="flex-1 h-full overflow-y-auto custom-scrollbar p-6 sm:p-8 bg-slate-50/50 dark:bg-slate-950/50 select-none">
@@ -63,7 +86,7 @@ export default function HomeOverviewView({
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                Good morning, {candidateName.split(' ')[0]}.
+                Good morning, {firstName}.
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
                 Welcome to your resume review.
@@ -83,10 +106,15 @@ export default function HomeOverviewView({
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/90 shadow-sm p-6 sm:p-7 space-y-5">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              Your resume scored {score} out of 100.
+              Your resume scored <span style={{ color: scoreColor }}>{score}</span> out of 100.
+              <span className="ml-2 text-sm font-semibold text-slate-500">{scoreLabel}</span>
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
-              You're on the right track, but there's room for improvement on your resume! While your resume does well in some areas, it falls short in others which are important to hiring managers and resume screeners. But don't worry - we'll show you how to make easy improvements to your resume, which will increase your score by 20+ points.
+              {score >= 80
+                ? "Great work! Your resume is ATS-ready. Fine-tune the remaining issues below to maximize your interview rate."
+                : score >= 60
+                ? "You're on the right track, but there's room for improvement. We'll show you how to make easy improvements to your resume which will increase your score."
+                : "Your resume needs significant improvement. Follow the steps below to raise your score by 20+ points and get more interviews."}
             </p>
           </div>
 
@@ -135,53 +163,63 @@ export default function HomeOverviewView({
         </div>
 
         {/* Section 2: Steps to Increase Your Score */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Steps to increase your score
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Here are some recruiter checks that are bringing your score down. Click into each to learn where you went wrong and how to improve your score.
-            </p>
-          </div>
+        {steps.length > 0 ? (
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Steps to increase your score
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Here are the recruiter checks bringing your score down. Click each to learn where you went wrong and how to improve.
+              </p>
+            </div>
 
-          {/* Step Rows */}
-          <div className="space-y-2">
-            {steps.map((step) => (
-              <div
-                key={step.id}
-                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between gap-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all shadow-2xs group"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
-                    ✕
+            {/* Step Rows */}
+            <div className="space-y-2">
+              {steps.map((step) => (
+                <div
+                  key={step.id}
+                  className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between gap-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all shadow-2xs group"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs ${
+                      step.severity === 'fail' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                    }`}>
+                      {step.severity === 'fail' ? '✕' : '!'}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 transition-colors">
+                        {step.title}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                        {step.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 transition-colors">
-                      {step.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                      {step.desc}
-                    </p>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border tracking-wider hidden sm:inline ${step.categoryColor}`}>
+                      {step.category}
+                    </span>
+                    <button
+                      onClick={() => onSelectFix(step.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all"
+                    >
+                      <span>FIX</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border tracking-wider hidden sm:inline ${step.categoryColor}`}>
-                    {step.category}
-                  </span>
-                  <button
-                    onClick={() => onSelectFix(step.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all"
-                  >
-                    <span>FIX</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 text-center">
+            <div className="text-3xl mb-2">🎉</div>
+            <h3 className="text-base font-bold text-emerald-800 dark:text-emerald-300">Excellent Resume!</h3>
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">No major issues found. Your resume is well-optimized for ATS systems.</p>
+          </div>
+        )}
       </div>
     </div>
   );

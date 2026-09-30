@@ -44,15 +44,63 @@ const RotatingWord = () => {
     <motion.span key={idx} className="gradient-text inline-block" initial={{ opacity: 0, y: 12, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -12, filter: "blur(6px)" }} transition={{ duration: 0.35, ease: "easeOut" }}>{ROTATING_WORDS[idx]}</motion.span>
   </AnimatePresence>);
 };
-// Floating company chip
-const FloatingChip = ({ company, role, score, color, className }) => (<div className={className} style={{ background: "rgba(255,255,255,0.90)", backdropFilter: "blur(16px)", borderRadius: "16px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", minWidth: "220px", boxShadow: "0 8px 32px rgba(13,13,18,0.12), 0 2px 8px rgba(13,13,18,0.06)", border: "1px solid rgba(255,255,255,0.95)" }}>
-  <div style={{ width: 32, height: 32, borderRadius: 8, background: color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{company[0]}</div>
-  <div style={{ flex: 1, minWidth: 0 }}>
-    <div style={{ fontSize: 12, fontWeight: 700, color: "#0D0D12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company}</div>
-    <div style={{ fontSize: 10, color: "#6B7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role}</div>
-  </div>
-  <div style={{ fontSize: 12, fontWeight: 900, color: score >= 95 ? "#059669" : "#2563EB" }}>{score}%</div>
-</div>);
+// Floating company chip - now with real logo
+const FloatingChip = ({ company, role, score, color, className, domain }) => {
+  const [imgError, setImgError] = React.useState(false);
+  const logoUrl = domain ? `https://logo.clearbit.com/${domain}` : null;
+  return (
+    <div className={className} style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderRadius: "16px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", minWidth: "220px", boxShadow: "0 8px 32px rgba(13,13,18,0.14), 0 2px 8px rgba(13,13,18,0.08)", border: "1px solid rgba(255,255,255,0.95)" }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: color + '18', border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {logoUrl && !imgError ? (
+          <img src={logoUrl} alt={company} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 900, color }}>{company[0]}</span>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#0D0D12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company}</div>
+        <div style={{ fontSize: 10, color: "#6B7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: score >= 95 ? "#059669" : "#2563EB" }}>{score}%</div>
+        <div style={{ fontSize: 9, fontWeight: 600, color: score >= 95 ? "#059669" : "#2563EB", background: score >= 95 ? "#ECFDF5" : "#EFF6FF", padding: "1px 5px", borderRadius: 4 }}>ATS Match</div>
+      </div>
+    </div>
+  );
+};
+// Company logo chip for marquee
+const CompanyLogoChip = ({ name, domain, color }) => {
+  const [imgErr, setImgErr] = React.useState(false);
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
+        borderRadius: 999, background: 'rgba(255,255,255,0.92)',
+        border: '1px solid rgba(0,0,0,0.07)',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 2px 12px rgba(13,13,18,0.08), 0 1px 3px rgba(13,13,18,0.06)',
+        whiteSpace: 'nowrap', cursor: 'default',
+        transition: 'box-shadow 0.2s, transform 0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(13,13,18,0.16)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(13,13,18,0.08), 0 1px 3px rgba(13,13,18,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+    >
+      <div style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', background: color + '12', border: `1px solid ${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {!imgErr ? (
+          <img
+            src={`https://logo.clearbit.com/${domain}`}
+            alt={name}
+            onError={() => setImgErr(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }}
+          />
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 900, color }}>{name[0]}</span>
+        )}
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#0D0D12', letterSpacing: '-0.01em' }}>{name}</span>
+    </div>
+  );
+};
 // Scroll-aware section heading
 const SectionHeading = ({ tag, tagColor, title, subtitle, center = true }) => {
   const ref = useRef(null);
@@ -225,31 +273,78 @@ export const LandingPage = ({ onLaunchApp }) => {
 
         <div className="mt-16 relative h-40 hidden lg:block">
           <motion.div className="absolute left-[5%] top-4 float-card" initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.6 }}>
-            <FloatingChip company="Stripe" role="Staff Frontend Engineer" score={97} color="#6772E5" />
+            <FloatingChip company="Stripe" role="Staff Frontend Engineer" score={97} color="#6772E5" domain="stripe.com" />
           </motion.div>
           <motion.div className="absolute left-[50%] top-0 -translate-x-1/2 float-card-2" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.05, duration: 0.6 }}>
-            <FloatingChip company="Google" role="Senior SWE, Cloud AI" score={94} color="#4285F4" />
+            <FloatingChip company="Google" role="Senior SWE, Cloud AI" score={94} color="#4285F4" domain="google.com" />
           </motion.div>
           <motion.div className="absolute right-[5%] top-8 float-card-3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.2, duration: 0.6 }}>
-            <FloatingChip company="Vercel" role="Platform Systems Eng" score={92} color="#0D0D12" />
+            <FloatingChip company="Vercel" role="Platform Systems Eng" score={92} color="#0D0D12" domain="vercel.com" />
           </motion.div>
         </div>
       </div>
     </section>
 
-    {/* ATS MARQUEE */}
-    <section className="py-16 border-y border-gray-200 overflow-hidden" style={{ background: "#EFF6FF" }}>
-      <p className="text-center text-xs font-bold uppercase tracking-widest text-blue-400 mb-8">Direct ATS Protocol Compatibility</p>
-      <div className="relative overflow-hidden">
-        <div className="marquee-track">
-          {[...Array(2)].flatMap((_, repeat) => [["Greenhouse", "Direct API", "🌿"], ["Lever", "Webhooks", "⚡"], ["Workday", "Grammar Parser", "🔵"], ["Ashby", "GraphQL", "🔷"], ["LinkedIn", "Easy Apply", "💼"], ["Taleo", "AST Filter", "🟣"], ["Naukri", "Live Scraper", "🎯"]].map(([name, sub, icon], idx) => (<div key={repeat + "-" + idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", borderRadius: 99, background: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.9)", backdropFilter: "blur(8px)", boxShadow: "0 2px 8px rgba(13,13,18,0.06)", whiteSpace: "nowrap" }}>
-            <span>{icon}</span>
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#0D0D12" }}>{name}</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9CA3AF" }}>({sub})</span>
-          </div>)))}
+    {/* COMPANY LOGOS MARQUEE — Premium dual-row scrolling */}
+    <section className="py-14 border-y border-gray-200/80 overflow-hidden" style={{ background: "linear-gradient(180deg, #F8FAFF 0%, #EFF6FF 100%)" }}>
+      <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-400 mb-8">
+        Candidates landing roles at dream companies
+      </p>
+      {/* Row 1 — scrolls left */}
+      <div className="relative overflow-hidden mb-3">
+        <div
+          className="flex gap-3 w-max"
+          style={{ animation: 'marquee-left 40s linear infinite' }}
+        >
+          {[...Array(2)].flatMap((_, r) =>
+            [
+              { name: 'Google', domain: 'google.com', color: '#4285F4' },
+              { name: 'Stripe', domain: 'stripe.com', color: '#6772E5' },
+              { name: 'Microsoft', domain: 'microsoft.com', color: '#00A4EF' },
+              { name: 'Vercel', domain: 'vercel.com', color: '#000' },
+              { name: 'Airbnb', domain: 'airbnb.com', color: '#FF5A5F' },
+              { name: 'OpenAI', domain: 'openai.com', color: '#10A37F' },
+              { name: 'Figma', domain: 'figma.com', color: '#F24E1E' },
+              { name: 'Notion', domain: 'notion.so', color: '#000' },
+              { name: 'Slack', domain: 'slack.com', color: '#4A154B' },
+              { name: 'Datadog', domain: 'datadoghq.com', color: '#632CA6' },
+              { name: 'Shopify', domain: 'shopify.com', color: '#96BF48' },
+              { name: 'Atlassian', domain: 'atlassian.com', color: '#0052CC' },
+            ].map((c, i) => (
+              <CompanyLogoChip key={`r1-${r}-${i}`} {...c} />
+            ))
+          )}
         </div>
-        <div className="absolute inset-y-0 left-0 w-24 pointer-events-none" style={{ background: "linear-gradient(90deg, #EFF6FF, transparent)" }} />
-        <div className="absolute inset-y-0 right-0 w-24 pointer-events-none" style={{ background: "linear-gradient(-90deg, #EFF6FF, transparent)" }} />
+        <div className="absolute inset-y-0 left-0 w-20 pointer-events-none" style={{ background: 'linear-gradient(90deg, #EFF6FF, transparent)' }} />
+        <div className="absolute inset-y-0 right-0 w-20 pointer-events-none" style={{ background: 'linear-gradient(-90deg, #EFF6FF, transparent)' }} />
+      </div>
+      {/* Row 2 — scrolls right */}
+      <div className="relative overflow-hidden">
+        <div
+          className="flex gap-3 w-max"
+          style={{ animation: 'marquee-right 45s linear infinite' }}
+        >
+          {[...Array(2)].flatMap((_, r) =>
+            [
+              { name: 'Razorpay', domain: 'razorpay.com', color: '#072654' },
+              { name: 'Swiggy', domain: 'swiggy.com', color: '#FC8019' },
+              { name: 'Zepto', domain: 'zeptonow.com', color: '#8B5CF6' },
+              { name: 'Coinbase', domain: 'coinbase.com', color: '#0052FF' },
+              { name: 'Snowflake', domain: 'snowflake.com', color: '#29B5E8' },
+              { name: 'Linear', domain: 'linear.app', color: '#5B6FF8' },
+              { name: 'Perplexity', domain: 'perplexity.ai', color: '#20B8CD' },
+              { name: 'Rippling', domain: 'rippling.com', color: '#FFCD00' },
+              { name: 'Ramp', domain: 'ramp.com', color: '#16A34A' },
+              { name: 'Freshworks', domain: 'freshworks.com', color: '#0A7AFF' },
+              { name: 'Zoho', domain: 'zoho.com', color: '#E42527' },
+              { name: 'Anthropic', domain: 'anthropic.com', color: '#D4A574' },
+            ].map((c, i) => (
+              <CompanyLogoChip key={`r2-${r}-${i}`} {...c} />
+            ))
+          )}
+        </div>
+        <div className="absolute inset-y-0 left-0 w-20 pointer-events-none" style={{ background: 'linear-gradient(90deg, #EFF6FF, transparent)' }} />
+        <div className="absolute inset-y-0 right-0 w-20 pointer-events-none" style={{ background: 'linear-gradient(-90deg, #EFF6FF, transparent)' }} />
       </div>
     </section>
 

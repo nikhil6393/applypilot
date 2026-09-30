@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Home, Sparkles, FileText, Lock, CheckCircle2, AlertTriangle,
   Zap, UploadCloud, ChevronRight, Target, RefreshCw
@@ -11,27 +11,73 @@ import {
  * Completed checks, and Tools.
  */
 export default function LeftScoreSidebar({
-  score = 74,
+  score = 0,
+  categories = {},
+  issues = [],
   activeTab = 'home',
   onSelectTab,
   activeFix = null,
   onSelectFix,
-  repetitionCount = 5,
+  repetitionCount = 0,
   onUploadNew
 }) {
-  const topFixes = [
-    { id: 'repetition', label: 'Repetition', badge: repetitionCount, locked: false, badgeColor: 'bg-amber-500 text-white' },
-    { id: 'summary', label: 'Summary', badge: null, locked: true },
-    { id: 'consistency', label: 'Consistency', badge: null, locked: true },
-    { id: 'drive', label: 'Drive', badge: null, locked: true },
-    { id: 'growth', label: 'Growth signals', badge: null, locked: true }
-  ];
+  // Human-readable label from issue id
+  function issueLabel(issue) {
+    if (!issue?.id) return 'Issue';
+    const id = issue.id;
+    if (id.includes('no-metric')) return 'Add Metrics';
+    if (id.includes('weak-opener')) return 'Weak Action Verb';
+    if (id.includes('action-verb')) return 'Action Verb';
+    if (id.includes('repeated') || id.includes('repetition')) return 'Repetition';
+    if (id.includes('bullet-length')) return 'Bullet Length';
+    if (id.includes('bullets-per-role')) return 'Bullet Count';
+    if (id.includes('filler')) return 'Filler Words';
+    if (id.includes('buzzword')) return 'Buzzwords';
+    if (id.includes('first-person')) return 'First-Person';
+    if (id.includes('tense')) return 'Verb Tense';
+    if (id.includes('contact')) return 'Contact Info';
+    if (id.includes('essential') || id.includes('sections')) return 'Missing Section';
+    if (id.includes('ats-heading')) return 'ATS Headings';
+    if (id.includes('summary')) return 'Summary';
+    return id.replace(/^(impact|brevity|style|sections)-/, '')
+              .replace(/-\d+.*$/, '')
+              .replace(/-/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase());
+  }
 
-  const completedChecks = [
-    { id: 'buzzwords', label: 'Buzzwords', score: 10 },
-    { id: 'dates', label: 'Dates', score: 10 },
-    { id: 'unnecessary', label: 'Unnecessary sections', score: 10 }
-  ];
+  // Top fixes = real failing/warning issues, sorted by severity then points
+  const topFixes = useMemo(() => {
+    const failing = issues
+      .filter(i => i.severity === 'fail' || i.severity === 'warn')
+      .slice(0, 5);
+
+    // If no issues, show placeholder empty state
+    if (failing.length === 0) return [];
+
+    return failing.map((issue, idx) => ({
+      id: issue.id,
+      label: issueLabel(issue),
+      badge: issue.severity === 'fail' ? '!' : null,
+      locked: idx >= 3,
+      badgeColor: issue.severity === 'fail' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-white',
+    }));
+  }, [issues]);
+
+  // Completed = real passing issues
+  const completedChecks = useMemo(() => {
+    return issues
+      .filter(i => i.severity === 'pass')
+      .slice(0, 5)
+      .map(issue => ({
+        id: issue.id,
+        label: issueLabel(issue),
+        score: issue.points || 10,
+      }));
+  }, [issues]);
+
+  const moreIssuesCount = Math.max(0, issues.filter(i => i.severity !== 'pass').length - 3);
+  const moreChecksCount = Math.max(0, issues.filter(i => i.severity === 'pass').length - 5);
+
 
   // SVG Circular Gauge calculation
   const size = 110;
@@ -132,12 +178,14 @@ export default function LeftScoreSidebar({
             })}
           </div>
 
-          <button
-            onClick={() => onSelectTab('more_issues')}
-            className="w-full text-left text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 pt-2 block"
-          >
-            9 MORE ISSUES ➕
-          </button>
+          {moreIssuesCount > 0 && (
+            <button
+              onClick={() => onSelectTab('more_issues')}
+              className="w-full text-left text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 pt-2 block"
+            >
+              {moreIssuesCount} MORE ISSUES ➕
+            </button>
+          )}
         </div>
 
         {/* COMPLETED Section */}
@@ -159,12 +207,14 @@ export default function LeftScoreSidebar({
             ))}
           </div>
 
-          <button
-            onClick={() => onSelectTab('more_checks')}
-            className="w-full text-left text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 pt-2 block"
-          >
-            5 MORE CHECKS ➕
-          </button>
+          {moreChecksCount > 0 && (
+            <button
+              onClick={() => onSelectTab('more_checks')}
+              className="w-full text-left text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 pt-2 block"
+            >
+              {moreChecksCount} MORE CHECKS ➕
+            </button>
+          )}
         </div>
 
         {/* TOOLS Section */}

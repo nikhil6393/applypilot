@@ -1,6 +1,8 @@
 import * as schema from './schema/index.js';
 
 export * from './schema/index.js';
+export * from './client.js';
+export * from './migrate-sqlite-to-pg.js';
 
 export type DatabaseType = 'sqlite' | 'postgres';
 

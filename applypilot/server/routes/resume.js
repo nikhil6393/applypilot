@@ -5,6 +5,7 @@ import { evaluateResumeAts } from '../scoring/ats-scorer.js';
 import { defaultAtsScorerV2, sanitizeLatex } from '@applypilot/parsing';
 import { tokenize, inverseDocumentFrequency, vectorize, cosineSimilarity } from '../scoring/tfidf.js';
 import { computeSkillGapReport } from '../scoring/skill-gap.js';
+import { uploadResumeToCloudinary } from '../storage/cloudinary.js';
 export const resumeRouter = Router();
 
 // Static list of strong action verbs for deterministic bullet suggestions
@@ -356,6 +357,9 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
     try {
         const body = req.body;
         let parsed;
+        let fileBuffer = null;
+        let fileName = body.fileName || 'resume';
+        let mimeType = body.mimeType || '';
         const cleanB64 = (raw) => (raw || '').replace(/^data:[^;]+;base64,/, '');
         if (typeof body.text === 'string' && body.text.trim().length > 0) {
             parsed = await parseResumeText(body.text);
@@ -363,26 +367,31 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
         else if (body.pdfBase64 ||
             (body.fileData && body.mimeType?.includes('pdf')) ||
             body.fileName?.toLowerCase().endsWith('.pdf')) {
-            const buf = Buffer.from(cleanB64(body.pdfBase64 || body.fileData), 'base64');
-            parsed = await parseResumePdf(buf);
+            fileBuffer = Buffer.from(cleanB64(body.pdfBase64 || body.fileData), 'base64');
+            if (!fileName.toLowerCase().endsWith('.pdf')) fileName = fileName.replace(/\.[^.]+$/, '') + '.pdf';
+            parsed = await parseResumePdf(fileBuffer);
         }
         else if (body.docxBase64 ||
             (body.fileData &&
                 (body.mimeType?.includes('word') || body.fileName?.toLowerCase().endsWith('.docx')))) {
-            const buf = Buffer.from(cleanB64(body.docxBase64 || body.fileData), 'base64');
-            parsed = await parseResumeDocx(buf);
+            fileBuffer = Buffer.from(cleanB64(body.docxBase64 || body.fileData), 'base64');
+            if (!fileName.toLowerCase().endsWith('.docx')) fileName = fileName.replace(/\.[^.]+$/, '') + '.docx';
+            parsed = await parseResumeDocx(fileBuffer);
         }
         else if (body.fileData) {
-            const buf = Buffer.from(cleanB64(body.fileData), 'base64');
+            fileBuffer = Buffer.from(cleanB64(body.fileData), 'base64');
             try {
-                parsed = await parseResumePdf(buf);
+                parsed = await parseResumePdf(fileBuffer);
+                if (!fileName.toLowerCase().endsWith('.pdf')) fileName = fileName.replace(/\.[^.]+$/, '') + '.pdf';
             }
             catch {
                 try {
-                    parsed = await parseResumeDocx(buf);
+                    parsed = await parseResumeDocx(fileBuffer);
+                    if (!fileName.toLowerCase().endsWith('.docx')) fileName = fileName.replace(/\.[^.]+$/, '') + '.docx';
                 }
                 catch {
-                    parsed = await parseResumeText(buf.toString('utf-8'));
+                    parsed = await parseResumeText(fileBuffer.toString('utf-8'));
+                    fileBuffer = null; // plain text — nothing to store on Cloudinary
                 }
             }
         }
@@ -391,6 +400,30 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
                 success: false,
                 error: 'Provide one of: text (.tex supported), pdfBase64, docxBase64, or fileData',
             });
+        }
+        // ── Cloudinary upload (non-blocking, best-effort) ──────────────────────────
+        let cloudinaryUrl = null;
+        let cloudinaryPublicId = null;
+        if (fileBuffer && process.env.CLOUDINARY_API_SECRET &&
+            process.env.CLOUDINARY_API_SECRET !== 'YOUR_API_SECRET_HERE') {
+            try {
+                const authHeader = req.headers.authorization;
+                let userId = 'anonymous';
+                if (authHeader) {
+                    const { getSessionUser } = await import('../security/auth.js');
+                    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+                    userId = getSessionUser(token)?.id || 'anonymous';
+                }
+                const result = await uploadResumeToCloudinary(fileBuffer, fileName, mimeType, userId);
+                cloudinaryUrl = result.url;
+                cloudinaryPublicId = result.publicId;
+                parsed.cloudinaryUrl = cloudinaryUrl;
+                parsed.cloudinaryPublicId = cloudinaryPublicId;
+                parsed.fileName = fileName;
+                console.log(`[Cloudinary] Resume uploaded: ${cloudinaryUrl}`);
+            } catch (uploadErr) {
+                console.warn('[Cloudinary] Upload failed (non-fatal):', uploadErr?.message);
+            }
         }
         // Evaluate immediate ATS report for UI score meters
         let atsReport = null;
@@ -407,6 +440,8 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
             data: parsed,
             resume: parsed,
             atsReport,
+            cloudinaryUrl,
+            cloudinaryPublicId,
         });
     }
     catch (err) {
@@ -414,5 +449,33 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
             success: false,
             error: err.message || 'Failed to parse resume',
         });
+    }
+});
+
+// ── Cloudinary: Upload resume file directly (multipart or base64) ──────────
+// POST /api/resume/upload
+// Uploads a resume to Cloudinary and returns the secure URL without parsing.
+resumeRouter.post('/upload', parseRateLimiter, async (req, res) => {
+    try {
+        const { fileData, fileName, mimeType } = req.body;
+        if (!fileData) {
+            return res.status(400).json({ success: false, error: 'fileData (base64) is required' });
+        }
+        if (!process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET === 'YOUR_API_SECRET_HERE') {
+            return res.status(503).json({ success: false, error: 'Cloudinary is not configured (API secret missing).' });
+        }
+        const cleanB64 = (raw) => (raw || '').replace(/^data:[^;]+;base64,/, '');
+        const buf = Buffer.from(cleanB64(fileData), 'base64');
+        const authHeader = req.headers.authorization;
+        let userId = 'anonymous';
+        if (authHeader) {
+            const { getSessionUser } = await import('../security/auth.js');
+            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+            userId = getSessionUser(token)?.id || 'anonymous';
+        }
+        const result = await uploadResumeToCloudinary(buf, fileName || 'resume.pdf', mimeType || '', userId);
+        res.json({ success: true, url: result.url, publicId: result.publicId });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message || 'Cloudinary upload failed' });
     }
 });

@@ -1,0 +1,207 @@
+{
+  "javascript": {
+    "canonical": "JavaScript",
+    "aliases": ["js", "es6", "es2020", "ecmascript"],
+    "category": "language"
+  },
+  "typescript": {
+    "canonical": "TypeScript",
+    "aliases": ["ts", "type-script"],
+    "category": "language"
+  },
+  "python": {
+    "canonical": "Python",
+    "aliases": ["py", "python3"],
+    "category": "language"
+  },
+  "golang": {
+    "canonical": "Go",
+    "aliases": ["golang", "go-lang"],
+    "category": "language"
+  },
+  "java": {
+    "canonical": "Java",
+    "aliases": ["java8", "java11", "java17", "java21"],
+    "category": "language"
+  },
+  "cpp": {
+    "canonical": "C++",
+    "aliases": ["cplusplus", "cpp"],
+    "category": "language"
+  },
+  "csharp": {
+    "canonical": "C#",
+    "aliases": ["c-sharp", "csharp", ".net", "dotnet"],
+    "category": "language"
+  },
+  "rust": {
+    "canonical": "Rust",
+    "aliases": ["rust-lang"],
+    "category": "language"
+  },
+  "sql": {
+    "canonical": "SQL",
+    "aliases": ["relational database", "rdbms", "ansi sql"],
+    "category": "language"
+  },
+  "html_css": {
+    "canonical": "HTML/CSS",
+    "aliases": ["html", "html5", "css", "css3"],
+    "category": "language"
+  },
+  "react": {
+    "canonical": "React",
+    "aliases": ["reactjs", "react.js", "react 18", "react 19"],
+    "category": "framework"
+  },
+  "nextjs": {
+    "canonical": "Next.js",
+    "aliases": ["nextjs", "next.js", "next"],
+    "category": "framework"
+  },
+  "vue": {
+    "canonical": "Vue",
+    "aliases": ["vuejs", "vue.js", "vue3", "nuxt"],
+    "category": "framework"
+  },
+  "angular": {
+    "canonical": "Angular",
+    "aliases": ["angularjs", "angular 2+"],
+    "category": "framework"
+  },
+  "svelte": {
+    "canonical": "Svelte",
+    "aliases": ["sveltekit", "svelte.js"],
+    "category": "framework"
+  },
+  "tailwind": {
+    "canonical": "Tailwind CSS",
+    "aliases": ["tailwind", "tailwindcss"],
+    "category": "framework"
+  },
+  "nodejs": {
+    "canonical": "Node.js",
+    "aliases": ["node", "nodejs", "node.js"],
+    "category": "framework"
+  },
+  "express": {
+    "canonical": "Express",
+    "aliases": ["expressjs", "express.js"],
+    "category": "framework"
+  },
+  "fastapi": {
+    "canonical": "FastAPI",
+    "aliases": ["fast-api"],
+    "category": "framework"
+  },
+  "django": {
+    "canonical": "Django",
+    "aliases": ["django rest framework", "drf"],
+    "category": "framework"
+  },
+  "flask": {
+    "canonical": "Flask",
+    "aliases": ["flask-api"],
+    "category": "framework"
+  },
+  "spring_boot": {
+    "canonical": "Spring Boot",
+    "aliases": ["spring", "springboot", "spring-boot"],
+    "category": "framework"
+  },
+  "graphql": {
+    "canonical": "GraphQL",
+    "aliases": ["gql", "apollo", "apollo client", "apollo server"],
+    "category": "technology"
+  },
+  "rest_api": {
+    "canonical": "REST APIs",
+    "aliases": ["rest", "restful", "rest api", "rest apis", "restful api"],
+    "category": "technology"
+  },
+  "grpc": {
+    "canonical": "gRPC",
+    "aliases": ["protobuf", "protocol buffers"],
+    "category": "technology"
+  },
+  "postgresql": {
+    "canonical": "PostgreSQL",
+    "aliases": ["postgres", "pgsql", "psql"],
+    "category": "database"
+  },
+  "mysql": {
+    "canonical": "MySQL",
+    "aliases": ["mariadb"],
+    "category": "database"
+  },
+  "mongodb": {
+    "canonical": "MongoDB",
+    "aliases": ["mongo", "mongoose"],
+    "category": "database"
+  },
+  "redis": {
+    "canonical": "Redis",
+    "aliases": ["key-value store", "in-memory cache", "valkey"],
+    "category": "database"
+  },
+  "sqlite": {
+    "canonical": "SQLite",
+    "aliases": ["sqlite3", "better-sqlite3"],
+    "category": "database"
+  },
+  "docker": {
+    "canonical": "Docker",
+    "aliases": ["dockerfile", "containerization", "containers"],
+    "category": "devops"
+  },
+  "kubernetes": {
+    "canonical": "Kubernetes",
+    "aliases": ["k8s", "container orchestration"],
+    "category": "devops"
+  },
+  "aws": {
+    "canonical": "AWS",
+    "aliases": ["amazon web services", "ec2", "s3", "lambda", "ecs", "eks"],
+    "category": "cloud"
+  },
+  "gcp": {
+    "canonical": "Google Cloud",
+    "aliases": ["gcp", "google cloud platform", "cloud run", "bigquery"],
+    "category": "cloud"
+  },
+  "azure": {
+    "canonical": "Azure",
+    "aliases": ["microsoft azure", "azure functions"],
+    "category": "cloud"
+  },
+  "ci_cd": {
+    "canonical": "CI/CD",
+    "aliases": ["continuous integration", "continuous deployment", "github actions", "gitlab ci", "jenkins"],
+    "category": "devops"
+  },
+  "git": {
+    "canonical": "Git",
+    "aliases": ["version control", "github", "gitlab"],
+    "category": "tool"
+  },
+  "testing": {
+    "canonical": "Unit & Integration Testing",
+    "aliases": ["jest", "vitest", "mocha", "pytest", "cypress", "playwright", "unit testing", "integration testing", "e2e testing", "tdd"],
+    "category": "methodology"
+  },
+  "microservices": {
+    "canonical": "Microservices",
+    "aliases": ["microservice architecture", "service-oriented architecture", "soa"],
+    "category": "architecture"
+  },
+  "distributed_systems": {
+    "canonical": "Distributed Systems",
+    "aliases": ["concurrency", "distributed caching", "fault tolerance", "event-driven architecture"],
+    "category": "architecture"
+  },
+  "kafka": {
+    "canonical": "Kafka",
+    "aliases": ["apache kafka", "event streaming", "message broker", "rabbitmq"],
+    "category": "technology"
+  }
+}

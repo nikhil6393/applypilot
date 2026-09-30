@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? dirname(fileURLToPath(import.meta.url)) : process.cwd());
 const projectEnvPath = resolve(__dirname, '../.env');
 if (fs.existsSync(projectEnvPath)) {
     loadDotenv({ path: projectEnvPath, override: true });

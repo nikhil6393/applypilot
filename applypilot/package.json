@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.js",
-    "build": "vite build && esbuild server.js --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server.js --bundle --platform=node --format=cjs --packages=external --alias:@applypilot/scraping=./packages/scraping/src/index.ts --alias:@applypilot/parsing=./packages/parsing/src/index.ts --alias:@applypilot/scoring=./packages/scoring/src/index.ts --alias:@applypilot/security=./packages/security/src/index.ts --alias:@applypilot/db=./packages/db/src/index.ts --alias:@applypilot/domain=./packages/domain/src/index.ts --alias:@applypilot/config=./packages/config/src/index.ts --alias:@applypilot/ai-local=./packages/ai-local/src/index.ts --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "node -e \"const fs = require('fs'); ['dist'].forEach(p => fs.rmSync(p, { recursive: true, force: true }))\"",

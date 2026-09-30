@@ -1,9 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-// Load auditable, versioned scoring rules from config
-const __dirname_ats = dirname(fileURLToPath(import.meta.url));
-const SCORING_RULES = JSON.parse(readFileSync(resolve(__dirname_ats, 'scoring-rules.json'), 'utf-8'));
+import SCORING_RULES from './scoring-rules.json';
 const RULES = SCORING_RULES.categories;
 const GRADING = SCORING_RULES.grading;
 // 200+ Industry Action Verbs across Engineering, Architecture, Leadership, Data & Execution

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 
-const __dirname = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? dirname(fileURLToPath(import.meta.url)) : process.cwd());
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectEnvPath = resolve(__dirname, '../.env');
 if (fs.existsSync(projectEnvPath)) {
     loadDotenv({ path: projectEnvPath, override: true });
@@ -50,6 +50,19 @@ export const config = {
     scrapeTimeoutMs: int('SCRAPE_TIMEOUT_MS', 15000),
     scrapeConcurrency: int('SCRAPE_CONCURRENCY', 3),
     fitThreshold: float('FIT_THRESHOLD', 0.45),
+    cloudinary: {
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+        apiKey: process.env.CLOUDINARY_API_KEY || '',
+        apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+        get configured() {
+            return (
+                Boolean(this.cloudName) &&
+                Boolean(this.apiKey) &&
+                Boolean(this.apiSecret) &&
+                this.apiSecret !== 'YOUR_API_SECRET_HERE'
+            );
+        },
+    },
 };
 
 export const isProd = config.nodeEnv === 'production';
@@ -61,10 +74,22 @@ if (isProd) {
     if (!jwtSecret || jwtSecret.length < 32) {
         missing.push('JWT_SECRET (must be at least 32 characters)');
     }
+    if (!process.env.CLOUDINARY_CLOUD_NAME) missing.push('CLOUDINARY_CLOUD_NAME');
+    if (!process.env.CLOUDINARY_API_KEY) missing.push('CLOUDINARY_API_KEY');
+    if (!process.env.CLOUDINARY_API_SECRET) missing.push('CLOUDINARY_API_SECRET');
     if (missing.length > 0) {
         console.warn('[config] ⚠️  Missing required production environment variables:');
         for (const m of missing) {
             console.warn(`  - ${m}`);
         }
+    }
+} else {
+    // Dev: friendly reminder when Cloudinary is not configured
+    if (!process.env.CLOUDINARY_API_SECRET ||
+        process.env.CLOUDINARY_API_SECRET === 'YOUR_API_SECRET_HERE') {
+        console.info(
+            '[config] ℹ️  Cloudinary is not configured — resume/image uploads will use local fallbacks.\n' +
+            '         Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env to enable.'
+        );
     }
 }

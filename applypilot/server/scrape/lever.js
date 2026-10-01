@@ -4,6 +4,7 @@ import { enrichJobMetadata } from './metadata-extractor.js';
 import { LEVER_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
 import { resolveCompanyLogo } from './logo-resolver.js';
+import { htmlToCleanMarkdown, extractStructuredSections } from './clean-description.js';
 function stableId(url) {
     return `lever_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
@@ -67,10 +68,19 @@ export async function lever(req) {
                 if (!isJobLocationMatch(j.categories?.location || '', remote, req.location, req.remoteOnly)) {
                     continue;
                 }
-                const desc = (j.descriptionPlain || j.description || '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                let combinedHtml = j.description || j.descriptionPlain || '';
+                if (Array.isArray(j.lists)) {
+                    for (const section of j.lists) {
+                        if (section.text) {
+                            combinedHtml += `\n\n<h3>${section.text}</h3>\n${section.content || ''}`;
+                        } else if (section.content) {
+                            combinedHtml += `\n\n${section.content}`;
+                        }
+                    }
+                }
+                const cleanMarkdown = htmlToCleanMarkdown(combinedHtml);
+                const desc = cleanMarkdown || j.text;
+                const sections = extractStructuredSections(cleanMarkdown);
                 const apply = j.applyUrl || j.hostedUrl;
                 if (!apply)
                     continue;
@@ -112,8 +122,13 @@ export async function lever(req) {
                     applyUrl: apply,
                     location: j.categories?.location || 'Worldwide',
                     remote,
-                    description: desc || j.text,
-                    descriptionHtml: j.description,
+                    description: desc,
+                    descriptionHtml: combinedHtml,
+                    sections,
+                    responsibilities: sections.responsibilities,
+                    requirements: sections.requirements,
+                    preferred: sections.preferred,
+                    benefits: sections.benefits,
                     postedAt: new Date(createdMs).toISOString(),
                     postedDate: new Date(createdMs).toISOString(),
                     postedRelative: rel,

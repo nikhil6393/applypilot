@@ -21,6 +21,7 @@ import { simplifyJobs } from '../scrape/simplify-jobs.js';
 import { validateAndFilterJobs, validateJobPosting, filterJobsByCriteria, verifyJobUrlLive, detectDuplicateJobs, cleanCanonicalUrl } from '../scrape/validator.js';
 import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 import { defaultRegistry } from '@applypilot/scraping';
+import { scrapeJobFromUrlOrText } from '../scrape/advanced-url-scraper.js';
 import { listRecentMonitorRuns } from '../store/monitoring.js';
 import { monitorSseManager } from '../sse/monitor-sse.js';
 import { isSoftwareEngineerInternQuery, isSoftwareEngineerFullTimeQuery, SOFTWARE_ENGINEER_INTERN_ROLES, SOFTWARE_ENGINEER_FULLTIME_ROLES, } from '../scrape/RoleExpansionConfig.js';
@@ -552,108 +553,17 @@ jobsRouter.post('/scrape-url', scrapeRateLimiter, async (req, res) => {
                 .json({ success: false, error: bodyValidation.error.issues[0]?.message || 'Invalid input' });
         }
         const { url, rawText } = req.body || {};
-        let fetchedHtmlOrText = rawText || '';
-        if (url) {
-            try {
-                let targetFetchUrl = url;
-                if (url.includes('linkedin.com')) {
-                    const idMatch = url.match(/\/view\/(\d+)/) ||
-                        url.match(/currentJobId=(\d+)/) ||
-                        url.match(/jobs\/(\d+)/);
-                    if (idMatch && idMatch[1]) {
-                        targetFetchUrl = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${idMatch[1]}`;
-                    }
-                }
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 6500);
-                const pageRes = await fetch(targetFetchUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    },
-                    signal: controller.signal,
-                });
-                clearTimeout(timeout);
-                if (pageRes.ok) {
-                    const html = await pageRes.text();
-                    fetchedHtmlOrText = html
-                        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
-                        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
-                        .replace(/<[^>]+>/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .slice(0, 10000);
-                }
-            }
-            catch (fetchErr) {
-                console.warn('URL direct fetch error:', fetchErr.message);
-            }
+        if (!url && !rawText) {
+            return res.status(400).json({ success: false, error: 'Please provide either a job URL or raw description text.' });
         }
-        const prompt = `You are a precision job scraper and ATS analyzer.
-Extract the exact job details from the provided job link URL or job description text.
 
-Target URL: ${url || 'N/A'}
-Content:
-${fetchedHtmlOrText ? fetchedHtmlOrText.slice(0, 6000) : url}
-
-Return strictly a JSON object with:
-- "title": exact job title
-- "company": company name
-- "location": city, country or "Remote"
-- "isRemote": boolean
-- "isInternship": boolean
-- "salary": string if mentioned or estimate
-- "skills": array of 4-6 key technical skills
-- "description": 2-3 sentence overview of the role
-- "applyUrl": direct application URL or the target URL`;
-        let parsedJob = null;
-        try {
-            const aiRes = await bestEffortComplete(prompt, { maxTokens: 500, temperature: 0.1, signal: req.signal });
-            if (aiRes?.text) {
-                const cleanJson = aiRes.text
-                    .trim()
-                    .replace(/^```(?:json)?\s*/i, '')
-                    .replace(/```\s*$/i, '');
-                parsedJob = JSON.parse(cleanJson);
-            }
-        }
-        catch {
-            // Fallback heuristic
-        }
-        if (!parsedJob) {
-            parsedJob = {
-                title: 'Software Engineer',
-                company: url ? new URL(url).hostname.replace('www.', '').split('.')[0] : 'Tech Company',
-                location: 'Remote / Hybrid',
-                isRemote: true,
-                isInternship: (fetchedHtmlOrText || '').toLowerCase().includes('intern'),
-                skills: ['React', 'TypeScript', 'Node.js'],
-                description: fetchedHtmlOrText.slice(0, 300) ||
-                    'Exciting software engineering role at high-growth organization.',
-                applyUrl: url || '#',
-            };
-        }
-        const id = `manual_${Date.now()}`;
-        const fullJob = {
-            id,
-            title: parsedJob.title || 'Software Engineer',
-            company: parsedJob.company || 'Tech Company',
-            source: 'manual',
-            url: parsedJob.applyUrl || url || '#',
-            applyUrl: parsedJob.applyUrl || url || '#',
-            location: parsedJob.location || 'Remote',
-            remote: Boolean(parsedJob.isRemote),
-            description: parsedJob.description || '',
-            postedAt: new Date().toISOString(),
-            fetchedAt: new Date().toISOString(),
-            employmentType: parsedJob.isInternship ? 'internship' : 'full-time',
-            skills: Array.isArray(parsedJob.skills) ? parsedJob.skills : [],
-            tags: parsedJob.salary ? [parsedJob.salary] : [],
-        };
-        upsertJob(fullJob);
-        res.json({ success: true, job: fullJob });
+        const job = await scrapeJobFromUrlOrText(url, rawText);
+        upsertJob(job);
+        res.json({ success: true, job });
     }
     catch (err) {
-        res.status(500).json({ error: err.message || 'Failed to scrape job' });
+        console.error('[jobs/scrape-url] Error scraping job:', err);
+        res.status(500).json({ success: false, error: err.message || 'Failed to extract original details from job description' });
     }
 });
 // ── 5. Standard Orchestrator Scrape ────────────────────────────────────────

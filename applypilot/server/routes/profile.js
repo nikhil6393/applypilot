@@ -7,8 +7,15 @@ import { buildLatexResume } from '../export/latex-resume.js';
 import { tailorResumeForJob } from '../profile/tailor-engine.js';
 import { getSessionUser } from '../security/auth.js';
 import multer from 'multer';
+import {
+    isCloudinaryConfigured,
+    uploadProfileImageToCloudinary,
+    deleteProfileImageFromCloudinary,
+} from '../storage/cloudinary.js';
 
+// Multer: 5 MB limit for resumes; 3 MB limit for profile images
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } });
 
 export const profileRouter = Router();
 function getProfileId(req) {
@@ -300,35 +307,123 @@ profileRouter.patch('/', (req, res) => {
   `).run(JSON.stringify(merged), now, updates.rawText, profileId);
     res.json({ success: true, data: { id: profileId, ...merged } });
 });
-profileRouter.post('/image', (req, res) => {
-    const db = getDb();
-    const profileId = getProfileId(req);
-    const { imageBase64, mimeType } = req.body;
-    if (!imageBase64 || !mimeType) {
-        return res.status(400).json({ success: false, error: 'imageBase64 and mimeType required' });
+// POST /api/profile/image  — upload profile photo (multipart file OR base64 JSON body)
+profileRouter.post('/image', uploadImage.single('image'), async (req, res) => {
+    try {
+        const db = getDb();
+        const profileId = getProfileId(req);
+
+        const existing = db
+            .prepare('SELECT * FROM candidate_profiles WHERE id = ?')
+            .get(profileId);
+        if (!existing) {
+            return res.status(404).json({ success: false, error: 'Profile not found' });
+        }
+
+        // --- Resolve image buffer from multipart file OR JSON base64 body ---
+        let imageBuffer;
+        if (req.file?.buffer) {
+            imageBuffer = req.file.buffer;
+        } else if (req.body?.imageBase64) {
+            const clean = req.body.imageBase64.replace(/^data:[^;]+;base64,/, '');
+            imageBuffer = Buffer.from(clean, 'base64');
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: 'Provide image as multipart field "image" or JSON field "imageBase64"',
+            });
+        }
+
+        // --- Upload to Cloudinary if configured, otherwise fall back to base64 ---
+        if (isCloudinaryConfigured()) {
+            // Delete old Cloudinary image if present
+            const pJson = JSON.parse(existing.profile_json || '{}');
+            if (pJson.profileImagePublicId) {
+                await deleteProfileImageFromCloudinary(pJson.profileImagePublicId);
+            }
+
+            const { url, publicId, thumbnailUrl } = await uploadProfileImageToCloudinary(
+                imageBuffer,
+                profileId
+            );
+
+            // Store URL (not base64) + publicId in profile_json for later deletion
+            const merged = {
+                ...pJson,
+                profileImageUrl: url,
+                profileImagePublicId: publicId,
+                profileImageThumbnailUrl: thumbnailUrl,
+                // Clear any legacy base64 blob
+                profileImageBase64: undefined,
+            };
+
+            db.prepare(`
+                UPDATE candidate_profiles
+                SET profile_json = ?, profile_image = NULL, profile_image_mime = NULL, updated_at = ?
+                WHERE id = ?
+            `).run(JSON.stringify(merged), new Date().toISOString(), profileId);
+
+            return res.json({
+                success: true,
+                data: { profileId, imageSet: true, imageUrl: url, thumbnailUrl },
+            });
+        }
+
+        // --- Fallback: store as base64 (no Cloudinary configured) ---
+        const mimeType = req.file?.mimetype || req.body?.mimeType || 'image/jpeg';
+        const imageBase64 = imageBuffer.toString('base64');
+        db.prepare(`
+            UPDATE candidate_profiles
+            SET profile_image = ?, profile_image_mime = ?, updated_at = ?
+            WHERE id = ?
+        `).run(imageBase64, mimeType, new Date().toISOString(), profileId);
+
+        return res.json({ success: true, data: { profileId, imageSet: true } });
+    } catch (err) {
+        console.error('[profile/image] Upload error:', err);
+        res.status(500).json({ success: false, error: err.message || 'Image upload failed' });
     }
-    const existing = db
-        .prepare('SELECT * FROM candidate_profiles WHERE id = ?')
-        .get(profileId);
-    if (!existing) {
-        return res.status(404).json({ success: false, error: 'Profile not found' });
-    }
-    db.prepare(`
-    UPDATE candidate_profiles 
-    SET profile_image = ?, profile_image_mime = ?, updated_at = ?
-    WHERE id = ?
-  `).run(imageBase64, mimeType, new Date().toISOString(), profileId);
-    res.json({ success: true, data: { profileId, imageSet: true } });
 });
-profileRouter.delete('/image', (req, res) => {
-    const db = getDb();
-    const profileId = getProfileId(req);
-    db.prepare(`
-    UPDATE candidate_profiles 
-    SET profile_image = NULL, profile_image_mime = NULL, updated_at = ?
-    WHERE id = ?
-  `).run(new Date().toISOString(), profileId);
-    res.json({ success: true, data: { profileId, imageRemoved: true } });
+
+// DELETE /api/profile/image — remove profile photo
+profileRouter.delete('/image', async (req, res) => {
+    try {
+        const db = getDb();
+        const profileId = getProfileId(req);
+
+        const existing = db
+            .prepare('SELECT profile_json FROM candidate_profiles WHERE id = ?')
+            .get(profileId);
+
+        // Delete from Cloudinary if we stored a publicId
+        if (existing?.profile_json) {
+            const pJson = JSON.parse(existing.profile_json);
+            if (pJson.profileImagePublicId) {
+                await deleteProfileImageFromCloudinary(pJson.profileImagePublicId);
+            }
+            // Clear Cloudinary refs from profile_json
+            delete pJson.profileImageUrl;
+            delete pJson.profileImagePublicId;
+            delete pJson.profileImageThumbnailUrl;
+            delete pJson.profileImageBase64;
+            db.prepare(`
+                UPDATE candidate_profiles
+                SET profile_json = ?, profile_image = NULL, profile_image_mime = NULL, updated_at = ?
+                WHERE id = ?
+            `).run(JSON.stringify(pJson), new Date().toISOString(), profileId);
+        } else {
+            db.prepare(`
+                UPDATE candidate_profiles
+                SET profile_image = NULL, profile_image_mime = NULL, updated_at = ?
+                WHERE id = ?
+            `).run(new Date().toISOString(), profileId);
+        }
+
+        res.json({ success: true, data: { profileId, imageRemoved: true } });
+    } catch (err) {
+        console.error('[profile/image] Delete error:', err);
+        res.status(500).json({ success: false, error: err.message || 'Image delete failed' });
+    }
 });
 profileRouter.post('/parse-resume', async (req, res) => {
     try {

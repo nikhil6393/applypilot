@@ -4,6 +4,7 @@ import { enrichJobMetadata } from './metadata-extractor.js';
 import { GREENHOUSE_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
 import { resolveCompanyLogo } from './logo-resolver.js';
+import { htmlToCleanMarkdown, extractStructuredSections } from './clean-description.js';
 const GREENHOUSE_BOARDS = GREENHOUSE_COMPANIES;
 function stableId(url) {
     return `greenhouse_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
@@ -111,10 +112,10 @@ export async function greenhouse(req) {
                 if (!isJobLocationMatch(jobLoc, remote, req.location, req.remoteOnly)) {
                     continue;
                 }
-                const desc = (j.content || '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                const rawContent = j.content || '';
+                const cleanMarkdown = htmlToCleanMarkdown(rawContent);
+                const desc = cleanMarkdown || j.title;
+                const sections = extractStructuredSections(cleanMarkdown);
                 // Compute relative time
                 const updatedMs = j.updated_at ? new Date(j.updated_at).getTime() : Date.now();
                 const diffMin = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
@@ -155,8 +156,13 @@ export async function greenhouse(req) {
                     applyUrl: j.absolute_url,
                     location: j.location?.name || 'Worldwide',
                     remote,
-                    description: desc || j.title,
+                    description: desc,
                     descriptionHtml: j.content,
+                    sections,
+                    responsibilities: sections.responsibilities,
+                    requirements: sections.requirements,
+                    preferred: sections.preferred,
+                    benefits: sections.benefits,
                     postedAt: j.updated_at || new Date().toISOString(),
                     postedDate: j.updated_at || new Date().toISOString(),
                     postedRelative: rel,

@@ -166,14 +166,40 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
                 </div>
               </div>)}
 
-            {activeTab === 'requirements' && (<div className="space-y-3">
-                <h4 className="font-bold text-slate-900">Required Skills &amp; Keywords:</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {(currentJob.skills || currentJob.tags || ['TypeScript', 'React', 'Node.js', 'PostgreSQL']).map((s) => (<span key={s} className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold">
+            {activeTab === 'requirements' && (
+              <div className="space-y-4">
+                {currentJob.requirements && currentJob.requirements.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-slate-900">Key Qualifications &amp; Requirements:</h4>
+                    <ul className="space-y-1 list-disc pl-4 text-slate-600">
+                      {currentJob.requirements.map((req, i) => (
+                        <li key={i}>{req}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {currentJob.responsibilities && currentJob.responsibilities.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-slate-900">Core Responsibilities:</h4>
+                    <ul className="space-y-1 list-disc pl-4 text-slate-600">
+                      {currentJob.responsibilities.map((resp, i) => (
+                        <li key={i}>{resp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <h4 className="font-bold text-slate-900">Required Skills &amp; Keywords:</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(currentJob.skills || currentJob.tags || ['TypeScript', 'React', 'Node.js', 'PostgreSQL']).map((s) => (
+                      <span key={s} className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold">
                         {s}
-                      </span>))}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>)}
+              </div>
+            )}
 
             {activeTab === 'company' && (<div className="space-y-2">
                 <div className="flex justify-between py-1 border-b border-slate-100">

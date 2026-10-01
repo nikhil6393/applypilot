@@ -301,6 +301,9 @@ function migrate(db) {
     safeAlter('ALTER TABLE resume_versions ADD COLUMN template_name TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN profile_image TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN profile_image_mime TEXT');
+    // Cloudinary-based image storage (URL + publicId, replaces base64 blob approach)
+    safeAlter('ALTER TABLE candidate_profiles ADD COLUMN profile_image_url TEXT');
+    safeAlter('ALTER TABLE candidate_profiles ADD COLUMN profile_image_public_id TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN target_role TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN skills_json TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0');

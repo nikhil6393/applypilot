@@ -23,3 +23,4 @@ linkedin-login-debug.png
 # Testing & Temp
 scratch/
 test-results/
+*.tar.gz

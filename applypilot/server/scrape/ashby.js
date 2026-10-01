@@ -4,6 +4,7 @@ import { enrichJobMetadata } from './metadata-extractor.js';
 import { ASHBY_COMPANIES } from './company-directory.js';
 import { isJobLocationMatch } from './geo-resolver.js';
 import { resolveCompanyLogo } from './logo-resolver.js';
+import { htmlToCleanMarkdown, extractStructuredSections } from './clean-description.js';
 const ASHBY_BOARDS = ASHBY_COMPANIES;
 function stableId(url) {
     return `ashby_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
@@ -72,10 +73,10 @@ export async function ashby(req) {
                 if (!isJobLocationMatch(j.location || '', remote, req.location, req.remoteOnly)) {
                     continue;
                 }
-                const desc = (j.descriptionPlain || j.descriptionHtml || '')
-                    .replace(/<[^>]+>/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                const rawHtml = j.descriptionHtml || j.descriptionPlain || '';
+                const cleanMarkdown = htmlToCleanMarkdown(rawHtml);
+                const desc = cleanMarkdown || j.title;
+                const sections = extractStructuredSections(cleanMarkdown);
                 if (!j.applyUrl)
                     continue;
                 const pubMs = j.publishedAt ? new Date(j.publishedAt).getTime() : Date.now();
@@ -116,8 +117,13 @@ export async function ashby(req) {
                     applyUrl: j.applyUrl,
                     location: j.location || 'Worldwide',
                     remote,
-                    description: desc || j.title,
+                    description: desc,
                     descriptionHtml: j.descriptionHtml,
+                    sections,
+                    responsibilities: sections.responsibilities,
+                    requirements: sections.requirements,
+                    preferred: sections.preferred,
+                    benefits: sections.benefits,
                     postedAt: j.publishedAt || new Date().toISOString(),
                     postedDate: j.publishedAt || new Date().toISOString(),
                     postedRelative: rel,

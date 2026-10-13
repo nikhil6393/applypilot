@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --font-display: 'Sora', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Sora', sans-serif;
+  --font-body: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -13,8 +15,8 @@
 
 :root {
   /* Fonts */
-  --font-display: 'Sora', sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Sora', sans-serif;
+  --font-body: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Design System Inspired by ApplyPilot */
@@ -87,20 +89,19 @@
   --tint-rose: #FFF1F2;
 }
 
-/* ── Base Reset ───────────────────────────────────────── */
-html {
-  scroll-behavior: smooth;
-  font-size: 16px;
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
   font-family: var(--font-body);
-  background-color: var(--bg);
+  background-color: #F4F7FB;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  margin: 0;
-  padding: 0;
   overflow-x: hidden;
 }
 
@@ -112,6 +113,11 @@ h1, h2, h3, h4, h5, h6 {
 
 code, pre, .mono {
   font-family: var(--font-mono);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* ── Keyframe Animations ──────────────────────────────── */
@@ -541,3 +547,8 @@ code, pre, .mono {
 .float-card  { animation: float-y 4s ease-in-out infinite; }
 .float-card-2 { animation: float-y 4s ease-in-out infinite 1.3s; }
 .float-card-3 { animation: float-y 4s ease-in-out infinite 2.6s; }
+
+.font-hand {
+  font-family: 'Caveat', cursive, sans-serif;
+}
+

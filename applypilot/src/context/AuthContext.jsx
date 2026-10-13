@@ -1,9 +1,26 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 const DEMO_CREDENTIALS = {
-    swe: { email: 'nikhil900285@gmail.com', pass: 'nikhil123' },
+    swe: { email: 'demo@applypilot.io', pass: 'DemoPass123!' },
     ml: { email: 'priya.sharma@aiml.io', pass: 'DemoPass123!' },
     pm: { email: 'jordan.m@productscale.com', pass: 'DemoPass123!' },
 };
+const clearLocalAuthData = () => {
+    const keysToRemove = [
+        'applypilot_user',
+        'applypilot_token',
+        'applypilot_resume',
+        'applypilot_settings',
+        'applypilot_linkedin_profile',
+        'applypilot_current_job_id',
+        'applypilot_draft_resume',
+    ];
+    for (const key of keysToRemove) {
+        try {
+            localStorage.removeItem(key);
+        } catch {}
+    }
+};
+
 const AuthContext = createContext(undefined);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
@@ -49,16 +66,14 @@ export const AuthProvider = ({ children }) => {
                         // Invalid session
                         setUser(null);
                         setToken(null);
-                        localStorage.removeItem('applypilot_user');
-                        localStorage.removeItem('applypilot_token');
+                        clearLocalAuthData();
                     }
                 }
                 else {
                     // Token expired or invalid
                     setUser(null);
                     setToken(null);
-                    localStorage.removeItem('applypilot_user');
-                    localStorage.removeItem('applypilot_token');
+                    clearLocalAuthData();
                 }
             }
             catch (err) {
@@ -70,8 +85,7 @@ export const AuthProvider = ({ children }) => {
         const handleAuthExpired = () => {
             setUser(null);
             setToken(null);
-            localStorage.removeItem('applypilot_user');
-            localStorage.removeItem('applypilot_token');
+            clearLocalAuthData();
             setIsAuthModalOpen(true);
             setAuthModalTab('login');
         };
@@ -228,6 +242,27 @@ export const AuthProvider = ({ children }) => {
             return { success: false, error: err.message || 'Connection error.' };
         }
     };
+    // Reset password with token from email link
+    const resetPassword = async (resetToken, newPassword) => {
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: resetToken, password: newPassword }),
+            });
+            const data = await res.json();
+            setIsLoading(false);
+            if (!res.ok || !data.success) {
+                return { success: false, error: data.error || 'Password reset failed.' };
+            }
+            return { success: true, message: data.message };
+        }
+        catch (err) {
+            setIsLoading(false);
+            return { success: false, error: err.message || 'Connection error.' };
+        }
+    };
     // Logout and revoke token on backend
     const logout = async () => {
         const currentToken = token;
@@ -243,8 +278,7 @@ export const AuthProvider = ({ children }) => {
         }
         setUser(null);
         setToken(null);
-        localStorage.removeItem('applypilot_user');
-        localStorage.removeItem('applypilot_token');
+        clearLocalAuthData();
         setTimeout(() => {
             setIsTransitioning(false);
         }, 600);
@@ -306,6 +340,7 @@ export const AuthProvider = ({ children }) => {
             loginWithDemo,
             loginWithGoogle,
             forgotPassword,
+            resetPassword,
             isAuthModalOpen,
             setIsAuthModalOpen,
             isSettingsModalOpen,

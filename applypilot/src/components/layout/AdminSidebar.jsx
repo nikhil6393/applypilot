@@ -19,18 +19,11 @@ export const AdminSidebar = () => {
     {/* Brand Header with Admin Red Badge */}
     <div className="h-16 px-5 border-b border-[#E5E7EB] flex items-center justify-between">
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-[10px] bg-gradient-to-b from-[#161D2C] to-[#080C14] border-t border-white/20 border-x border-[#1E293B] border-b border-black/80 flex items-center justify-center shadow-xs">
-          <svg viewBox="0 0 32 32" className="w-5 h-5" fill="none">
-            <ellipse cx="16" cy="24.5" rx="8" ry="2.5" fill="#000000" opacity="0.6" />
-            <path d="M6 20.2V22.6L16 26.2V23.8Z" fill="#034B75" />
-            <path d="M26 20.2V22.6L16 26.2V23.8Z" fill="#012A45" />
-            <path d="M16 3.8L6 20.2L16 16.8V3.8Z" fill="#0284C7" />
-            <path d="M16 3.8L26 20.2L16 16.8V3.8Z" fill="#0369A1" />
-            <line x1="16" y1="3.8" x2="16" y2="16.8" stroke="#FFFFFF" strokeWidth="1" strokeLinecap="round" />
-            <polygon points="16,8.5 12.8,13.5 16,15.6" fill="#FFFFFF" />
-            <polygon points="16,8.5 19.2,13.5 16,15.6" fill="#7DD3FC" />
-          </svg>
-        </div>
+        <img
+          src="/applypilot-logo.png"
+          alt="ApplyPilot Logo"
+          className="w-8 h-8 object-contain shrink-0 drop-shadow-xs"
+        />
         <div>
           <div className="flex items-center gap-1.5">
             <h1 className="text-sm font-extrabold text-gray-900 tracking-tight leading-none">Apply<span className="text-[#0284C7]">Pilot</span></h1>

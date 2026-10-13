@@ -232,12 +232,34 @@ export function isJobLocationMatch(jobLocation = '', isJobRemoteOrRequestedLocat
             return false;
         }
     }
-    // 6. Check if requestedLocation is a specific City or Metro area
-    // Extract primary token if separated by comma/slash/pipe (e.g. "Bangalore, India" -> check both "bangalore" and "india")
+    // 6. Check if requestedLocation contains a specific City or Metro area
     const tokens = reqClean
         .split(/[,/|]+/)
         .map((t) => t.trim())
         .filter(Boolean);
+
+    // If any token is a specific city, prioritize exact city matching
+    const hasSpecificCity = tokens.some((t) => {
+        for (const region of ALL_REGIONS) {
+            for (const [canonicalCity, aliases] of Object.entries(region.cities)) {
+                if (canonicalCity === t || aliases.includes(t)) return true;
+            }
+        }
+        return false;
+    });
+
+    if (hasSpecificCity) {
+        for (const token of tokens) {
+            if (textMatchesCity(jobLocLower, token)) {
+                return true;
+            }
+        }
+        if (remote) {
+            return true;
+        }
+        return false;
+    }
+
     for (const token of tokens) {
         // If token matches city
         if (textMatchesCity(jobLocLower, token)) {

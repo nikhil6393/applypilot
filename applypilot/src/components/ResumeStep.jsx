@@ -349,6 +349,9 @@ export const ResumeStep = ({
   onConfirmAndDiscover,
   linkedInProfile,
   onOpenLinkedInModal,
+  discoveredJobs = [],
+  targetJob = null,
+  onClearTargetJob,
 }) => {
   const { addToast } = useAppStore();
   const { user, updateProfile } = useAuth();
@@ -753,6 +756,9 @@ export const ResumeStep = ({
         <ExactResumeStudio
           resume={resume}
           onUpdateResume={onUpdateResume}
+          discoveredJobs={discoveredJobs}
+          targetJob={targetJob}
+          onClearTargetJob={onClearTargetJob}
         />
       </div>
     );

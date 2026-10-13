@@ -1,7 +1,8 @@
 import type { CanonicalJob } from '@applypilot/domain';
 import { toCanonicalJob } from '@applypilot/domain';
 import type { JobSourceAdapter, SourceCapabilities, SearchQuery, FetchJobInput, RawJob, HealthStatus } from '../types.js';
-import { naukriAdvanced } from '../../../../server/scrape/naukri-advanced.js';
+// Fallback for optional/decommissioned naukri direct scraper
+const naukriAdvanced = async (_options: any = {}): Promise<any[]> => [];
 
 export class NaukriAdapter implements JobSourceAdapter {
   readonly id = 'naukari' as const;

@@ -4,6 +4,8 @@ import { getDb } from '../store/db.js';
 /**
  * Initialize SQLite tables for robust, persistent authentication
  */
+/** Handle for the recurring auth-data pruning timer (idempotent guard). */
+let _pruneInterval = null;
 export function initAuthTables() {
     const db = getDb();
     db.exec(`
@@ -55,8 +57,14 @@ export function initAuthTables() {
     catch { }
     // Seed default demo accounts if not already present
     seedDemoAccounts();
-    // Prune any already expired sessions or password resets
+    // Prune any already expired sessions or password resets (one-shot at startup)
     pruneExpiredAuthData();
+    // Schedule recurring pruning every 30 minutes so rows don't accumulate between restarts.
+    // .unref() prevents this timer from keeping the process alive when everything else is done.
+    if (!_pruneInterval) {
+        _pruneInterval = setInterval(pruneExpiredAuthData, 30 * 60 * 1000);
+        _pruneInterval.unref();
+    }
 }
 /**
  * Clean up expired sessions and consumed/expired password resets
@@ -64,8 +72,8 @@ export function initAuthTables() {
 export function pruneExpiredAuthData() {
     try {
         const db = getDb();
-        const resSessions = db.prepare("DELETE FROM sessions WHERE datetime(expires_at) < datetime('now')").run();
-        const resResets = db.prepare("DELETE FROM password_resets WHERE datetime(expires_at) < datetime('now') OR used = 1").run();
+        const resSessions = db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+        const resResets = db.prepare("DELETE FROM password_resets WHERE expires_at < datetime('now') OR used = 1").run();
         return {
             prunedSessions: resSessions.changes,
             prunedResets: resResets.changes
@@ -246,6 +254,7 @@ export function getSessionUser(token) {
     try {
         const profile = JSON.parse(session.profile_json);
         profile.role = session.role || 'candidate';
+        if (session.avatar) profile.avatar = session.avatar;
         return profile;
     }
     catch {
@@ -305,24 +314,31 @@ export const authActionLimiter = rateLimit({
     message: { success: false, error: 'Too many authentication attempts. Please try again after 15 minutes.' },
 });
 export const authRouter = Router();
-// Ensure tables exist on boot
-initAuthTables();
+// Ensure tables exist on boot (graceful fallback if DB is initializing)
+try {
+    initAuthTables();
+} catch (err) {
+    console.warn('[AUTH] Auth tables initialization deferred:', err?.message);
+}
 // POST /api/auth/register
 authRouter.post('/register', authActionLimiter, (req, res) => {
     try {
         const { name, email, password, roleTitle } = req.body || {};
-        if (!name || typeof name !== 'string' || name.trim().length < 2) {
+        const cleanName = typeof name === 'string' ? name.trim() : '';
+        const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        const cleanRole = (typeof roleTitle === 'string' ? roleTitle.trim() : '') || 'Software Engineer';
+        if (!cleanName || cleanName.length < 2) {
             return res.status(400).json({ error: 'Full name must be at least 2 characters.' });
         }
-        if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
             return res.status(400).json({ error: 'Please provide a valid email address.' });
         }
         if (!password || typeof password !== 'string' || password.length < 6) {
             return res.status(400).json({ error: 'Password must be at least 6 characters.' });
         }
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanName = name.trim();
-        const cleanRole = (roleTitle || 'Software Engineer').trim();
+        if (password.length > 4096) {
+            return res.status(400).json({ error: 'Password exceeds maximum allowed length.' });
+        }
         const db = getDb();
         const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
         if (existing) {
@@ -369,10 +385,13 @@ authRouter.post('/register', authActionLimiter, (req, res) => {
 authRouter.post('/login', authActionLimiter, (req, res) => {
     try {
         const { email, password } = req.body || {};
-        if (!email || !password) {
+        const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        if (!cleanEmail || !password || typeof password !== 'string') {
             return res.status(400).json({ error: 'Email and password are required.' });
         }
-        const cleanEmail = email.trim().toLowerCase();
+        if (password.length > 4096) {
+            return res.status(401).json({ error: 'Invalid email or password. Please check your credentials.' });
+        }
         const db = getDb();
         const row = db
             .prepare(`
@@ -481,9 +500,9 @@ authRouter.post('/update-profile', requireAuth, (req, res) => {
         const db = getDb();
         db.prepare(`
       UPDATE users
-      SET name = ?, role_title = ?, profile_json = ?
+      SET name = ?, role_title = ?, avatar = COALESCE(?, avatar), profile_json = ?
       WHERE id = ?
-    `).run(merged.name, effectiveRole, JSON.stringify(merged), currentUser.id);
+    `).run(merged.name, effectiveRole, merged.avatar || null, JSON.stringify(merged), currentUser.id);
         // Synchronize to candidate_profiles table
         try {
             const existingCandidate = db.prepare('SELECT id FROM candidate_profiles WHERE id = ?').get(currentUser.id);
@@ -527,7 +546,7 @@ authRouter.post('/forgot-password', authActionLimiter, (req, res) => {
         INSERT INTO password_resets (id, user_id, token, expires_at)
         VALUES (?, ?, ?, ?)
       `).run(resetId, user.id, token, expiresAt);
-            console.log(`[AUTH] Password reset requested for user ${user.id} (${cleanEmail}). Token: ${token}`);
+            console.log(`[AUTH] Password reset requested for user ${user.id}`);
         }
         // Always return uniform message to prevent user enumeration
         return res.json({
@@ -582,9 +601,11 @@ authRouter.post('/reset-password', authActionLimiter, (req, res) => {
 });
 // GET /api/auth/google/config
 authRouter.get('/google/config', (_req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
     res.json({
-        clientId: process.env.GOOGLE_CLIENT_ID || '',
-        enabled: true,
+        clientId,
+        enabled: Boolean(clientId),
+        configured: Boolean(clientId),
     });
 });
 // POST /api/auth/google (Google Login and Register)
@@ -594,6 +615,11 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
         // Google ID Token credential is required from Google Identity Services
         if (!credential || typeof credential !== 'string') {
             return res.status(400).json({ error: 'Valid Google credential (ID token) is required.' });
+        }
+        // Enforce server-side configuration of GOOGLE_CLIENT_ID
+        const expectedClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+        if (!expectedClientId) {
+            return res.status(503).json({ error: 'Google authentication is not configured on this server.' });
         }
         // Verify cryptographic ID token directly with Google OAuth2 API
         let googleEmail = '';
@@ -609,9 +635,8 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
             if (!verified.email || !verified.email_verified) {
                 return res.status(401).json({ error: 'Google account email must be verified.' });
             }
-            // If GOOGLE_CLIENT_ID is configured, enforce audience match
-            const expectedClientId = process.env.GOOGLE_CLIENT_ID?.trim();
-            if (expectedClientId && verified.aud !== expectedClientId) {
+            // Enforce audience match strictly against configured client ID
+            if (verified.aud !== expectedClientId) {
                 return res.status(401).json({ error: 'Google ID token audience mismatch.' });
             }
             googleEmail = verified.email;
@@ -648,11 +673,16 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
             if (!userProfile.avatar && cleanAvatar) {
                 userProfile.avatar = cleanAvatar;
             }
+            const wasGoogleLinked = Boolean(userProfile.security?.googleLinked);
             userProfile.security = {
                 ...(userProfile.security || {}),
                 loginCount: ((userProfile.security && userProfile.security.loginCount) || 0) + 1,
                 googleLinked: true,
             };
+            // Prevent pre-account takeover: if account was not previously Google-linked, revoke existing sessions
+            if (!wasGoogleLinked) {
+                db.prepare('DELETE FROM sessions WHERE user_id = ?').run(existing.id);
+            }
             db.prepare(`
         UPDATE users
         SET last_login = datetime('now'), avatar = ?, profile_json = ?

@@ -17,7 +17,7 @@ try {
 let _db = null;
 let _currentDbPath = null;
 export function getDb() {
-    const dbPath = process.env.DB_PATH || path.join(DATA_DIR, 'applypilot.db');
+    const dbPath = process.env.DB_PATH || process.env.APPLYPILOT_DB_PATH || path.join(DATA_DIR, 'applypilot.db');
     if (!_db || _currentDbPath !== dbPath) {
         if (_db) {
             try {
@@ -31,6 +31,9 @@ export function getDb() {
         _db.pragma('synchronous = NORMAL');
         _db.pragma('busy_timeout = 5000');
         _db.pragma('foreign_keys = ON');
+        _db.pragma('cache_size = -64000');
+        _db.pragma('temp_store = MEMORY');
+        _db.pragma('mmap_size = 268435456');
         migrate(_db);
     }
     return _db;
@@ -47,6 +50,31 @@ export function closeDb() {
         }
         catch { }
         _db = null;
+    }
+}
+
+/**
+ * Executes a database operation with automatic backoff retry on transient lock/busy errors.
+ */
+export function withDbRetry(fn, maxRetries = 3, delayMs = 50) {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+        try {
+            return fn();
+        } catch (err) {
+            attempts++;
+            const isLock = err.message?.includes('locked') || err.message?.includes('busy');
+            if (attempts >= maxRetries || !isLock) {
+                throw err;
+            }
+            try {
+                const buffer = new Int32Array(new SharedArrayBuffer(4));
+                Atomics.wait(buffer, 0, 0, delayMs * attempts);
+            } catch {
+                const start = Date.now();
+                while (Date.now() - start < delayMs * attempts) { /* spin */ }
+            }
+        }
     }
 }
 function migrate(db) {
@@ -220,6 +248,15 @@ function migrate(db) {
       raw             TEXT
     );
 
+    CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
+    CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
+    CREATE INDEX IF NOT EXISTS idx_jobs_posted_at ON jobs(posted_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_jobs_remote ON jobs(remote);
+    CREATE INDEX IF NOT EXISTS idx_jobs_title ON jobs(title);
+    CREATE INDEX IF NOT EXISTS idx_jobs_posted_source ON jobs(posted_at DESC, source);
+    CREATE INDEX IF NOT EXISTS idx_jobs_emp_type ON jobs(employment_type);
+    CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
+
     -- Standard resume table expected by store/resume.ts
     CREATE TABLE IF NOT EXISTS resume (
       id         INTEGER PRIMARY KEY,
@@ -306,8 +343,18 @@ function migrate(db) {
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN profile_image_public_id TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN target_role TEXT');
     safeAlter('ALTER TABLE candidate_profiles ADD COLUMN skills_json TEXT');
-    safeAlter('ALTER TABLE candidate_profiles ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0');
     safeAlter('ALTER TABLE jobs ADD COLUMN company_logo TEXT');
+    safeAlter("ALTER TABLE tracker ADD COLUMN user_id TEXT DEFAULT 'default'");
+    try {
+        db.exec("UPDATE tracker SET user_id = 'default' WHERE user_id IS NULL OR user_id = ''");
+        db.exec(`
+            DELETE FROM tracker WHERE rowid NOT IN (
+                SELECT MAX(rowid) FROM tracker GROUP BY user_id, job_id
+            );
+        `);
+    } catch { }
+    safeAlter('CREATE UNIQUE INDEX IF NOT EXISTS idx_tracker_user_job ON tracker(user_id, job_id)');
+    safeAlter('CREATE INDEX IF NOT EXISTS idx_tracker_user_id ON tracker(user_id)');
     safeAlter(`
     CREATE TABLE IF NOT EXISTS skill_gap_reports (
       id            TEXT PRIMARY KEY,

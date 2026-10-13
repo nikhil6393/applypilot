@@ -38,33 +38,108 @@ export function extractVisaSponsorship(text) {
     }
     return undefined;
 }
-export function extractEligibleBatches(text) {
-    if (!text)
+export function extractEligibleBatches(text, title = '') {
+    if (!text && !title)
         return undefined;
-    const lower = text.toLowerCase();
+    const combined = `${title} ${text || ''}`.toLowerCase();
     const batches = new Set();
-    // Check for graduating year mentions: "class of 2025", "graduating in 2026", "2024/2025 batch", "2025 or 2026 grad"
-    const yearMatches = lower.match(/(?:batch|class of|graduat(?:ing|ion|e) in|graduates? of|passing out)\s*(?:of\s*)?(\d{4})/gi);
-    if (yearMatches) {
-        for (const ym of yearMatches) {
-            const year = ym.match(/\b(202[3-9]|2030)\b/);
-            if (year)
-                batches.add(year[1]);
-        }
-    }
-    // Check for direct year mentions in intern contexts
-    const internYears = lower.match(/\b(2024|2025|2026|2027|2028)\b/g);
-    if (internYears && /intern|graduate|student|co-?op/i.test(lower)) {
-        for (const y of internYears) {
-            if (Number(y) >= 2024 && Number(y) <= 2028) {
-                batches.add(y);
+
+    // 1. Multi-year ranges and slashes: "2024/2025", "2025, 2026", "2025 - 2027", "2024-2026", "2025/2026/2027"
+    const rangeMatches = combined.match(/\b(202[3-9]|2030)\s*(?:[-/|&,\s]+to\s*|[-/|&,]\s*)(202[3-9]|2030)(?:\s*[-/|&,]\s*(202[3-9]|2030))?\b/g);
+    if (rangeMatches) {
+        for (const rm of rangeMatches) {
+            const yrs = rm.match(/\b(202[3-9]|2030)\b/g);
+            if (yrs) {
+                const start = parseInt(yrs[0], 10);
+                const end = parseInt(yrs[yrs.length - 1], 10);
+                if (end > start && end - start <= 4) {
+                    for (let y = start; y <= end; y++) {
+                        batches.add(String(y));
+                    }
+                } else {
+                    yrs.forEach((y) => batches.add(y));
+                }
             }
         }
     }
+
+    // 2. Explicit graduating phrases: "class of 2025", "batch 2026", "2025 passout", "passing out year 2026", "graduation: 2025"
+    const phraseMatches = combined.match(/(?:batch|class\s+of|graduat(?:ing|ion|e)s?|pass(?:ing)?\s*out|eligib(?:le|ility)|target\s+year)\s*[:\-–]?\s*(?:of\s*)?(\d{4})/gi);
+    if (phraseMatches) {
+        for (const pm of phraseMatches) {
+            const yr = pm.match(/\b(202[3-9]|2030)\b/);
+            if (yr) batches.add(yr[1]);
+        }
+    }
+
+    // 3. Season + year mentions: "Summer 2025", "Summer 2026", "Fall 2025", "Winter 2026", "Spring 2026"
+    const seasonMatches = combined.match(/\b(?:summer|fall|winter|spring)\s*(?:of\s*)?(202[4-9]|2030)\b/gi);
+    if (seasonMatches) {
+        for (const sm of seasonMatches) {
+            const yr = sm.match(/\b(202[4-9]|2030)\b/);
+            if (yr) batches.add(yr[1]);
+        }
+    }
+
+    // 4. College academic year mentions:
+    // "pre-final year" / "3rd year" / "5th sem" -> 2027, 2028
+    // "final year" -> 2025, 2026
+    if (/\b(pre-?final\s+year|penultimate\s+year|3rd\s+year|third\s+year|5th\s+sem(?:ester)?|6th\s+sem(?:ester)?)\b/i.test(combined)) {
+        batches.add('2027');
+        batches.add('2028');
+    }
+    if (/\bfinal\s+year\b/i.test(combined)) {
+        batches.add('2025');
+        batches.add('2026');
+    }
+    // 4b. Explicit degree batch ranges like "2024-2028" or "2024 to 2028"
+    if (/\b2024\s*[-–to/]+\s*2028\b/i.test(combined)) {
+        batches.add('2028');
+    }
+
+    // 5. Direct year mentions in intern / student contexts
+    const isInternContext = /intern|co-?op|trainee|apprentice|student|fresher|fellow/i.test(combined);
+    if (isInternContext) {
+        const directYears = combined.match(/\b(2024|2025|2026|2027|2028|2029|2030)\b/g);
+        if (directYears) {
+            for (const y of directYears) {
+                if (Number(y) >= 2024 && Number(y) <= 2030) {
+                    batches.add(y);
+                }
+            }
+        }
+    }
+
+    // If it's an internship with no specific batch mentioned, default to active college cohorts (including 2028)
+    if (batches.size === 0 && isInternContext) {
+        return ['2025', '2026', '2027', '2028', 'All Batches'];
+    }
+
     if (batches.size === 0) {
         return undefined;
     }
     return Array.from(batches).sort();
+}
+
+export function formatEligibleBatchText(batches, isInternship = false, title = '', text = '') {
+    const combined = `${title} ${text}`.toLowerCase();
+    const explicitYears = (batches || []).filter((b) => b !== 'All Batches' && /^\d{4}$/.test(b));
+    if (explicitYears.length > 0) {
+        if (explicitYears.length === 1) {
+            return `${explicitYears[0]} Batch`;
+        }
+        if (explicitYears.length <= 4) {
+            return `${explicitYears.join(', ')} Batch`;
+        }
+        return `${explicitYears[0]}–${explicitYears[explicitYears.length - 1]} Batch`;
+    }
+    if (isInternship || /intern|co-?op|trainee/i.test(combined)) {
+        return '2025, 2026, 2027, 2028 Batch (Students/Freshers)';
+    }
+    if (/fresher|graduate|entry\s*level|new\s*grad/i.test(combined)) {
+        return '2024, 2025 Batch';
+    }
+    return 'All Batches Eligible';
 }
 /**
  * Parses numeric salary ranges across USD ($), INR (₹ / LPA), and EUR (€)
@@ -219,16 +294,133 @@ export function extractGeoRestrictions(text) {
     }
     return undefined;
 }
-export function enrichJobMetadata(text, title = '') {
-    const combined = `${title} ${text}`;
-    const salaryInfo = extractSalaryRange(combined);
+export function extractIndianCitizenEligibility({ text = '', title = '', location = '', sponsorsVisa = undefined, remote = false } = {}) {
+    const combined = `${title} ${location} ${text || ''}`.toLowerCase();
+
+    // 1. Explicit negative citizenship / residency / visa restrictions
+    const hasCitizenshipRestriction =
+        /u\.?s\.?\s*citizens?\s*(?:or\s*green\s*card\s*holders?)?\s*(only|required)/i.test(combined) ||
+        /must\s*be\s*(?:a\s*)?(?:u\.?s\.?|united\s*states)\s*citizen/i.test(combined) ||
+        /only\s*(us|u\.s\.)\s*citizens/i.test(combined) ||
+        /(us|u\.s\.|united\s*states)\s*citizenship\s*(is\s*)?required/i.test(combined) ||
+        /security\s*clearance\s*required/i.test(combined) ||
+        /must\s*be\s*legally\s*authorized\s*to\s*work\s*in\s*.*without\s*(the\s*need\s*for\s*)?sponsorship/i.test(combined) ||
+        /(?:no|without|not\s*offer|unable\s*to\s*sponsor|cannot\s*sponsor)\s*(?:c2c\s*(?:or|\/)\s*)?visa\s*sponsorship/i.test(combined) ||
+        /will\s*not\s*sponsor/i.test(combined) ||
+        /unable\s*to\s*sponsor/i.test(combined) ||
+        /cannot\s*sponsor/i.test(combined) ||
+        /does\s*not\s*(offer|provide)\s*sponsorship/i.test(combined) ||
+        /without\s*(company|employer)\s*sponsorship/i.test(combined) ||
+        /\b(us\s*only|united\s*states\s*only|must\s*reside\s*in\s*(the\s*)?us|candidates\s*must\s*be\s*located\s*in\s*(the\s*)?us)\b/i.test(combined);
+
+    const isIndiaLocation =
+        /\b(india|noida|bengaluru|bangalore|hyderabad|pune|mumbai|delhi|gurgaon|gurugram|chennai|kolkata|ahmedabad|jaipur|indore|kochi|chandigarh|ncr)\b/i.test(location.toLowerCase());
+
+    const isExplicitWorldwideRemote =
+        /\b(worldwide\s*remote|remote\s*worldwide|work\s*from\s*anywhere|anywhere\s*in\s*the\s*world|global\s*remote|hire\s*anywhere|international\s*remote|remote\s*-\s*global|remote\s*-\s*worldwide)\b/i.test(combined) ||
+        /^(worldwide|global|anywhere|remote \/ worldwide)$/i.test(location.trim().toLowerCase());
+
+    const hasExplicitVisaSponsorship =
+        sponsorsVisa === true ||
+        /visa\s*sponsorship\s*(is\s*)?(available|provided|offered|supported)/i.test(combined) ||
+        /(offers?|provides?|supports?)\s+(visa|work authorization|h-?1b)\s*sponsorship/i.test(combined) ||
+        /willing\s*to\s*sponsor/i.test(combined) ||
+        /relocation\s*(assistance|support|package)\s*(provided|available)/i.test(combined);
+
+    if (hasCitizenshipRestriction && !isIndiaLocation) {
+        return {
+            allowed: false,
+            status: 'restricted',
+            badgeText: 'Indian Citizens: Not Allowed',
+            shortLabel: 'Not Allowed',
+            badgeClass: 'citizen-restricted',
+            reason: 'Requires US/local work authorization without visa sponsorship.',
+        };
+    }
+
+    if (isIndiaLocation) {
+        return {
+            allowed: true,
+            status: 'allowed',
+            badgeText: 'Indian Citizens: Allowed (India)',
+            shortLabel: 'Allowed',
+            badgeClass: 'citizen-allowed',
+            reason: 'Position based in India or direct hire.',
+        };
+    }
+
+    if (hasExplicitVisaSponsorship) {
+        return {
+            allowed: true,
+            status: 'allowed',
+            badgeText: 'Indian Citizens: Allowed (Visa Sponsored)',
+            shortLabel: 'Visa Sponsored',
+            badgeClass: 'citizen-allowed',
+            reason: 'Employer offers international visa sponsorship.',
+        };
+    }
+
+    if (isExplicitWorldwideRemote || (remote && /worldwide|global|anywhere/i.test(location))) {
+        return {
+            allowed: true,
+            status: 'allowed',
+            badgeText: 'Indian Citizens: Allowed (Worldwide Remote)',
+            shortLabel: 'Worldwide Remote',
+            badgeClass: 'citizen-allowed',
+            reason: 'Global / Worldwide remote role open to international candidates.',
+        };
+    }
+
+    const isForeignLocation = /\b(united states|usa|us|uk|united kingdom|canada|germany|france|australia|singapore|netherlands|switzerland|poland|japan|ireland|california|new york|texas|london|berlin)\b/i.test(location.toLowerCase());
+
+    if (isForeignLocation && !remote) {
+        return {
+            allowed: false,
+            status: 'requires_auth',
+            badgeText: 'Indian Citizens: Work Visa Required',
+            shortLabel: 'Work Visa Required',
+            badgeClass: 'citizen-warning',
+            reason: 'Foreign location without explicit remote or visa sponsorship.',
+        };
+    }
+
+    if (remote) {
+        return {
+            allowed: true,
+            status: 'allowed',
+            badgeText: 'Indian Citizens: Allowed (Remote)',
+            shortLabel: 'Allowed Remote',
+            badgeClass: 'citizen-allowed',
+            reason: 'Remote role without geographic citizenship restrictions.',
+        };
+    }
+
     return {
-        sponsorsVisa: extractVisaSponsorship(combined),
-        eligibleBatches: extractEligibleBatches(combined),
+        allowed: true,
+        status: 'allowed',
+        badgeText: 'Indian Citizens: Allowed',
+        shortLabel: 'Allowed',
+        badgeClass: 'citizen-allowed',
+        reason: 'Open position without stated citizenship restriction.',
+    };
+}
+
+export function enrichJobMetadata(text, title = '', location = '', remote = false) {
+    const combined = `${title} ${text || ''}`;
+    const salaryInfo = extractSalaryRange(combined);
+    const eligibleBatches = extractEligibleBatches(text, title);
+    const isIntern = /intern|co-?op|trainee/i.test(title) || /internship/i.test(combined);
+    const eligibleBatchText = formatEligibleBatchText(eligibleBatches, isIntern, title, text);
+    const sponsorsVisa = extractVisaSponsorship(combined);
+    return {
+        sponsorsVisa,
+        eligibleBatches,
+        eligibleBatchText,
         salary: salaryInfo.formatted,
         salaryRange: salaryInfo.range,
         seniority: extractSeniority(title, text),
         techStack: extractTechStack(combined),
         geoRestriction: extractGeoRestrictions(combined),
+        indianCitizenEligibility: extractIndianCitizenEligibility({ text, title, location, sponsorsVisa, remote }),
     };
 }

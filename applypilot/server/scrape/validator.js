@@ -1,5 +1,7 @@
 import { isJobLocationMatch as geoResolverLocationMatch } from './geo-resolver.js';
 import { detectDomainFromQuery, matchesDomainJob, isSoftwareEngineerInternQuery, isSoftwareEngineerFullTimeQuery, matchesSoftwareEngineerInternRole, matchesSoftwareEngineerFullTimeRole, } from './RoleExpansionConfig.js';
+import { semanticMatchJob } from '../../shared/roleTaxonomy.js';
+import { extractEligibleBatches, formatEligibleBatchText, extractIndianCitizenEligibility, extractVisaSponsorship } from './metadata-extractor.js';
 const VALID_SOURCES = new Set([
     'linkedin',
     'naukari',
@@ -17,6 +19,7 @@ const VALID_SOURCES = new Set([
     'internshala',
     'unstop',
     'simplify_jobs',
+    'workingnomads',
     'linkedin_dork',
     'manual',
 ]);
@@ -144,6 +147,21 @@ export function validateJobPosting(raw) {
         Boolean(raw.isInternship) ||
         /intern|co-?op|trainee/i.test(title);
     const canonicalUrl = cleanCanonicalUrl(targetUrl);
+    const descText = (raw.description || title).trim();
+    const batches = (Array.isArray(raw.eligibleBatches) && raw.eligibleBatches.length > 0)
+        ? raw.eligibleBatches
+        : extractEligibleBatches(descText, title);
+    const batchText = raw.eligibleBatchText || formatEligibleBatchText(batches, isIntern, title, descText);
+    const cleanLocation = (raw.location || '').trim() || 'Remote';
+    const isRemote = Boolean(raw.remote || /remote|wfh|work from home/i.test(cleanLocation + ' ' + title));
+    const sponsorsVisa = raw.sponsorsVisa !== undefined ? raw.sponsorsVisa : extractVisaSponsorship(`${title} ${descText}`);
+    const indianCitizenEligibility = raw.indianCitizenEligibility || extractIndianCitizenEligibility({
+        text: descText,
+        title,
+        location: cleanLocation,
+        sponsorsVisa,
+        remote: isRemote,
+    });
     const cleanJob = {
         id: raw.id || `${source}_${Math.random().toString(36).slice(2, 10)}`,
         title,
@@ -152,9 +170,9 @@ export function validateJobPosting(raw) {
         url: canonicalUrl,
         applyUrl: canonicalUrl,
         canonicalUrl,
-        location: (raw.location || '').trim() || 'Remote',
-        remote: Boolean(raw.remote || /remote|wfh|work from home/i.test(raw.location || '' + ' ' + title)),
-        description: (raw.description || title).trim(),
+        location: cleanLocation,
+        remote: isRemote,
+        description: descText,
         descriptionHtml: raw.descriptionHtml,
         postedAt: validPostedAt || new Date().toISOString(),
         postedDate: validPostedAt || undefined,
@@ -175,7 +193,8 @@ export function validateJobPosting(raw) {
         duplicateCount: raw.duplicateCount,
         applicantCount: validApplicantCount,
         isInternship: isIntern,
-        eligibleBatches: Array.isArray(raw.eligibleBatches) ? raw.eligibleBatches : undefined,
+        eligibleBatches: batches,
+        eligibleBatchText: batchText,
         tags: Array.isArray(raw.tags) ? raw.tags : [],
         fetchedAt: raw.fetchedAt || new Date().toISOString(),
         employmentType,
@@ -184,7 +203,8 @@ export function validateJobPosting(raw) {
         salaryRange: raw.salaryRange,
         seniority: raw.seniority,
         techStack: Array.isArray(raw.techStack) ? raw.techStack : undefined,
-        sponsorsVisa: raw.sponsorsVisa,
+        sponsorsVisa,
+        indianCitizenEligibility,
         companyLogo: raw.companyLogo,
     };
     return { valid: true, job: cleanJob };
@@ -273,23 +293,27 @@ export function isJobLocationMatch(jobLocation, isJobRemoteOrRequestedLocation =
 export function isJobTypeMatch(jobOrTitle, jobType, internshipsOnly) {
     const job = typeof jobOrTitle === 'string' ? { title: jobOrTitle } : jobOrTitle;
     const isInternshipReq = internshipsOnly || jobType === 'internship';
-    const text = `${job.title || ''} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
-    // Expanded student & early-career matching with word boundaries
-    const hasInternToken = job.isInternship === true ||
-        job.employmentType === 'internship' ||
-        /\b(intern(ship)?|co-?op|working\s+student|werkstudent|praktikant|trainee|apprentice|apprenticeship|fellow(ship)?|student|fresher|graduate\s+engineer|get\b|campus|early\s+career|associate\s+(software|developer|engineer|product|qa)|sde\s+intern)\b/i.test(job.title) ||
-        (/\b(intern|internship|co-?op|trainee|apprentice)\b/i.test(text) &&
-            !/\b(internal|international|internet)\b/i.test(job.title));
-    // A role is senior only if it has senior keywords AND lacks internship keywords (e.g. "Senior Intern" is still an intern)
-    const isSeniorOnly = /\b(senior|sr\.|lead|principal|staff|director|vp|head\s+of|manager)\b/i.test(job.title) &&
-        !/\bintern(ship)?\b/i.test(job.title);
+    const titleLower = (job.title || '').toLowerCase();
+    
+    // Explicit internship tokens in title, metadata, or tags
+    const titleHasIntern = /\b(intern(ship)?|co-?op|working\s+student|werkstudent|praktikant|trainee|apprentice|apprenticeship|fellow(ship)?|student\s+intern|sde\s+intern|swe\s+intern|campus(\s+hiring)?|graduate\s+engineer)\b/i.test(titleLower);
+    const isInternMeta = job.isInternship === true || job.employmentType === 'internship' || job.roleType === 'Internship';
+    const tagHasIntern = (job.tags || []).some((t) => /\b(intern(ship)?|co-?op|trainee|apprentice)\b/i.test(String(t)));
+
+    // Strict non-intern/senior exclusion
+    const isSeniorOnly = /\b(senior|sr\.|lead|principal|staff|director|vp|head\s+of|manager|chief|architect)\b/i.test(titleLower) &&
+        !/\bintern\b/i.test(titleLower);
+
     if (isInternshipReq) {
-        if (!hasInternToken || isSeniorOnly)
+        if (isSeniorOnly)
             return false;
-        return true;
+        // Strictly require internship indicator on the title, explicit flag, or tags
+        if (titleHasIntern || isInternMeta || tagHasIntern)
+            return true;
+        return false;
     }
     if (jobType === 'fulltime') {
-        if (hasInternToken)
+        if (titleHasIntern || isInternMeta || tagHasIntern)
             return false;
         return true;
     }
@@ -316,6 +340,16 @@ function isSingleRoleMatch(job, singleQuery) {
     const qLower = singleQuery.toLowerCase().trim();
     if (!qLower)
         return true;
+
+    // 1. LinkedIn-Grade Semantic Taxonomy Matcher (Handles Software Engineer -> Full Stack, Frontend, Backend, React, etc.)
+    const semanticRes = semanticMatchJob(job, singleQuery);
+    if (semanticRes.matched) {
+        return true;
+    }
+    if (semanticRes.tier === 'non_tech') {
+        return false;
+    }
+
     const titleLower = (job.title || '').toLowerCase();
     const descLower = (job.description || '').toLowerCase();
     const tagsLower = (job.tags || []).join(' ').toLowerCase();
@@ -324,12 +358,12 @@ function isSingleRoleMatch(job, singleQuery) {
         /\b(intern|internship|trainee|sde|swe)\b/i.test(qLower);
     const titleHasTech = TECH_TITLE_KEYWORDS.some((kw) => titleLower.includes(kw));
 
-    // 1. Strict Non-Tech Exclusion: Reject food, retail, clinical, and administrative roles
+    // 2. Strict Non-Tech Exclusion: Reject food, retail, clinical, and administrative roles
     if (NON_TECH_EXCLUDE.test(titleLower) && !titleHasTech) {
         return false;
     }
 
-    // 2. If the user searched for a tech role, the job TITLE must have tech relevance
+    // 3. If the user searched for a tech role, the job TITLE must have tech relevance
     if (queryHasTech && !titleHasTech) {
         const detectedDomain = detectDomainFromQuery(qLower);
         const isIntern = /\b(intern|internship|trainee|co-?op)\b/i.test(qLower);
@@ -338,7 +372,7 @@ function isSingleRoleMatch(job, singleQuery) {
         }
     }
 
-    // 3. Domain query expansion
+    // 4. Domain query expansion
     const detectedDomain = detectDomainFromQuery(qLower);
     if (detectedDomain) {
         const isIntern = /\b(intern|internship|trainee|co-?op)\b/i.test(qLower);
@@ -347,7 +381,7 @@ function isSingleRoleMatch(job, singleQuery) {
         }
     }
 
-    // 4. Direct checks for Software Engineer Intern (20 roles) & Software Engineer (21 roles)
+    // 5. Direct checks for Software Engineer Intern & Software Engineer
     if (isSoftwareEngineerInternQuery(qLower)) {
         if (matchesSoftwareEngineerInternRole(titleLower)) {
             return true;
@@ -359,14 +393,14 @@ function isSingleRoleMatch(job, singleQuery) {
         }
     }
 
-    // 5. Normalized title match
+    // 6. Normalized title match
     const normTitle = titleLower.replace(/[–—\-]/g, ' ').replace(/\.js\b/g, ' js');
     const normQuery = qLower.replace(/[–—\-]/g, ' ').replace(/\.js\b/g, ' js');
     if (normTitle.includes(normQuery)) {
         return true;
     }
 
-    // 6. Token matching: query keywords must match the job title or tags
+    // 7. Token matching: query keywords must match the job title or tags
     const specificTerms = qLower
         .split(/\s+/)
         .filter((t) => t.length > 2 && !/^(intern|internship|job|jobs|position|trainee|role|junior|senior)$/i.test(t));
@@ -379,10 +413,24 @@ function isSingleRoleMatch(job, singleQuery) {
     }
     return true;
 }
-export function isJobRoleMatch(jobOrTitle, query) {
-    if (!query || !query.trim())
+export function isJobRoleMatch(jobOrTitle, queryOrRequest) {
+    const rawQuery = typeof queryOrRequest === 'string'
+        ? queryOrRequest
+        : (queryOrRequest?.query || queryOrRequest?.role || '');
+    if (!rawQuery || !rawQuery.trim())
         return true;
+    const query = rawQuery.trim();
     const job = typeof jobOrTitle === 'string' ? { title: jobOrTitle } : jobOrTitle;
+
+    // Fast-path semantic match
+    const directSem = semanticMatchJob(job, query);
+    if (directSem.matched) {
+        return true;
+    }
+    if (directSem.tier === 'non_tech') {
+        return false;
+    }
+
     const targetText = `${job.title || ''} ${(job.tags || []).join(' ')} ${job.description || ''}`;
     // 1. High-accuracy matching for 20 Software Engineer Intern roles
     if (isSoftwareEngineerInternQuery(query)) {
@@ -409,14 +457,21 @@ export function isJobRoleMatch(jobOrTitle, query) {
     return isSingleRoleMatch(job, query);
 }
 export function isJobBatchMatch(job, batchYear) {
-    if (!batchYear || batchYear === 'any')
+    if (!batchYear || batchYear === 'any' || batchYear === 'All Batches')
         return true;
-    // If the job explicitly states eligible batches, it must include the requested batch.
-    // If no batches are specified, we don't exclude it (don't want to over-filter jobs that missed metadata).
-    if (job.eligibleBatches && job.eligibleBatches.length > 0) {
-        return job.eligibleBatches.includes(batchYear);
+    const yr = String(batchYear);
+    if (job.eligibleBatches && Array.isArray(job.eligibleBatches) && job.eligibleBatches.length > 0) {
+        return job.eligibleBatches.includes(yr) || job.eligibleBatches.includes('All Batches');
     }
-    return true;
+    const text = `${job.title || ''} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
+    if (text.includes(yr)) {
+        return true;
+    }
+    // For internships with unmentioned batch, assume current college cohorts are eligible
+    if ((job.isInternship || /intern/i.test(job.title)) && ['2025', '2026', '2027'].includes(yr)) {
+        return true;
+    }
+    return false;
 }
 export function isJobSeniorityMatch(job, seniorityLevel) {
     if (!seniorityLevel || seniorityLevel === 'any')

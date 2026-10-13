@@ -4,14 +4,16 @@
  * Re-exports shared domain definitions and adds server-side matching helpers.
  */
 export * from '../../shared/domains.js';
+export * from '../../shared/roleTaxonomy.js';
 import { SOFTWARE_ENGINEER_INTERN_ROLES, SOFTWARE_ENGINEER_FULLTIME_ROLES, detectDomainFromQuery, } from '../../shared/domains.js';
+import { normalizeQuery, semanticMatchJob } from '../../shared/roleTaxonomy.js';
 /**
  * Checks if search query is Software Engineer Intern (20 roles)
  */
 export function isSoftwareEngineerInternQuery(query) {
     if (!query)
         return false;
-    const q = query.toLowerCase().trim();
+    const q = normalizeQuery(query);
     const hasIntern = /\b(intern|internship|trainee|co-?op)\b/i.test(q);
     if (!hasIntern)
         return false;
@@ -19,7 +21,7 @@ export function isSoftwareEngineerInternQuery(query) {
         q.includes('software developer') ||
         q.includes('sde') ||
         q.includes('swe') ||
-        SOFTWARE_ENGINEER_INTERN_ROLES.some((r) => q === r.toLowerCase()));
+        SOFTWARE_ENGINEER_INTERN_ROLES.some((r) => q === normalizeQuery(r)));
 }
 /**
  * Checks if search query is Software Engineer Full-Time (21 roles)
@@ -27,7 +29,7 @@ export function isSoftwareEngineerInternQuery(query) {
 export function isSoftwareEngineerFullTimeQuery(query) {
     if (!query)
         return false;
-    const q = query.toLowerCase().trim();
+    const q = normalizeQuery(query);
     if (/\b(intern|internship|trainee|co-?op)\b/i.test(q))
         return false;
     return (q === 'software engineer' ||
@@ -36,7 +38,7 @@ export function isSoftwareEngineerFullTimeQuery(query) {
         q === 'swe' ||
         q.includes('software engineer') ||
         q.includes('software developer') ||
-        SOFTWARE_ENGINEER_FULLTIME_ROLES.some((r) => q === r.toLowerCase()));
+        SOFTWARE_ENGINEER_FULLTIME_ROLES.some((r) => q === normalizeQuery(r)));
 }
 export function matchesSoftwareEngineerInternRole(titleOrText) {
     if (!titleOrText)

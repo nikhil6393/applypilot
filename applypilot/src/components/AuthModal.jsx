@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Lock, Mail, User, Briefcase, ArrowRight, Eye, EyeOff, KeyRound, CheckCircle2 } from 'lucide-react';
+import { X, Lock, Mail, User, Briefcase, ArrowRight, Eye, EyeOff, KeyRound, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ApplyPilotLogo } from './ApplyPilotLogo';
 
 export const AuthModal = () => {
-    const { isAuthModalOpen, setIsAuthModalOpen, authModalTab, setAuthModalTab, login, register, loginWithDemo, forgotPassword, isLoading } = useAuth();
+    const { isAuthModalOpen, setIsAuthModalOpen, authModalTab, setAuthModalTab, login, register, forgotPassword, resetPassword, isLoading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [resetToken, setResetToken] = useState('');
     const [name, setName] = useState('');
     const [roleTitle, setRoleTitle] = useState('Software Engineer');
     const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +39,29 @@ export const AuthModal = () => {
                     setErrorMsg(res.error || 'Failed to request password reset.');
                 }
             }
+            else if (authModalTab === 'reset') {
+                if (!resetToken || !password) {
+                    setErrorMsg('Please enter both the reset token and your new password.');
+                    return;
+                }
+                if (password.length < 6) {
+                    setErrorMsg('New password should be at least 6 characters.');
+                    return;
+                }
+                const res = await resetPassword(resetToken, password);
+                if (res.success) {
+                    setSuccessMsg('Your password has been reset successfully! Redirecting to sign in...');
+                    setPassword('');
+                    setResetToken('');
+                    setTimeout(() => {
+                        setAuthModalTab('login');
+                        setSuccessMsg(null);
+                    }, 2000);
+                }
+                else {
+                    setErrorMsg(res.error || 'Password reset failed. Token may be invalid or expired.');
+                }
+            }
             else if (authModalTab === 'login') {
                 if (!email || !password) {
                     setErrorMsg('Please provide both email and password.');
@@ -45,7 +69,7 @@ export const AuthModal = () => {
                 }
                 const res = await login(email, password);
                 if (!res.success) {
-                    setErrorMsg(res.error || 'Invalid login credentials. Please try again or use a 1-Click Demo account.');
+                    setErrorMsg(res.error || 'Invalid email or password. Please check your credentials.');
                 }
             }
             else {
@@ -93,21 +117,25 @@ export const AuthModal = () => {
                     <h2 className="text-2xl font-display font-extrabold tracking-tight text-slate-900">
                         {authModalTab === 'forgot'
                             ? 'Reset Your Password'
-                            : authModalTab === 'login'
-                                ? 'Welcome Back, Job Hunter'
-                                : 'Create Your Candidate Account'}
+                            : authModalTab === 'reset'
+                                ? 'Set New Password'
+                                : authModalTab === 'login'
+                                    ? 'Welcome Back, Job Hunter'
+                                    : 'Create Your Candidate Account'}
                     </h2>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
                         {authModalTab === 'forgot'
                             ? 'Enter your registered email and we will send you secure instructions to reset your password.'
-                            : authModalTab === 'login'
-                                ? 'Access real-time scraped job postings, automated ATS tailoring, and track your applications.'
-                                : 'Unlock universal resume parsing, 100/100 ATS scanner, and auto-discovery across all job boards.'}
+                            : authModalTab === 'reset'
+                                ? 'Enter your verification token and your new password to restore account access.'
+                                : authModalTab === 'login'
+                                    ? 'Access real-time scraped job postings, automated ATS tailoring, and track your applications.'
+                                    : 'Unlock universal resume parsing, 100/100 ATS scanner, and auto-discovery across all job boards.'}
                     </p>
                 </div>
 
                 {/* Tab Switcher */}
-                {authModalTab !== 'forgot' ? (
+                {authModalTab !== 'forgot' && authModalTab !== 'reset' ? (
                     <div className="flex items-center p-1 bg-slate-100/80 rounded-2xl border border-slate-200/60">
                         <button
                             id="auth-tab-login-btn"
@@ -151,6 +179,31 @@ export const AuthModal = () => {
                         >
                             ← Back to Sign In
                         </button>
+                        {authModalTab === 'forgot' ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAuthModalTab('reset');
+                                    setErrorMsg(null);
+                                    setSuccessMsg(null);
+                                }}
+                                className="text-xs text-slate-500 hover:text-blue-600 cursor-pointer"
+                            >
+                                Have a reset token?
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAuthModalTab('forgot');
+                                    setErrorMsg(null);
+                                    setSuccessMsg(null);
+                                }}
+                                className="text-xs text-slate-500 hover:text-blue-600 cursor-pointer"
+                            >
+                                Request new token
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -189,28 +242,48 @@ export const AuthModal = () => {
                         </div>
                     )}
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
-                            <Mail className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Email Address</span>
-                        </label>
-                        <input
-                            id="auth-email-input"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="candidate@domain.com"
-                            className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none transition-all"
-                            required
-                        />
-                    </div>
+                    {authModalTab === 'reset' && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+                                <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Reset Token</span>
+                            </label>
+                            <input
+                                id="auth-reset-token-input"
+                                type="text"
+                                value={resetToken}
+                                onChange={(e) => setResetToken(e.target.value.trim())}
+                                placeholder="Paste the token sent to your email"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none transition-all font-mono"
+                                required
+                            />
+                        </div>
+                    )}
+
+                    {authModalTab !== 'reset' && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+                                <Mail className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Email Address</span>
+                            </label>
+                            <input
+                                id="auth-email-input"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="candidate@domain.com"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none transition-all"
+                                required
+                            />
+                        </div>
+                    )}
 
                     {authModalTab !== 'forgot' && (
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                                 <span className="flex items-center space-x-1.5">
                                     <Lock className="w-3.5 h-3.5 text-blue-600" />
-                                    <span>Password</span>
+                                    <span>{authModalTab === 'reset' ? 'New Password' : 'Password'}</span>
                                 </span>
                                 {authModalTab === 'login' && (
                                     <button
@@ -232,7 +305,7 @@ export const AuthModal = () => {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
+                                    placeholder={authModalTab === 'reset' ? 'Enter minimum 6 characters' : '••••••••'}
                                     className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-xl text-xs text-slate-900 placeholder-slate-400 outline-none transition-all"
                                     required
                                 />
@@ -283,71 +356,17 @@ export const AuthModal = () => {
                                 <span>
                                     {authModalTab === 'forgot'
                                         ? 'Send Password Reset Link'
-                                        : authModalTab === 'login'
-                                            ? 'Sign In to Workspace'
-                                            : 'Create Account & Start Applying'}
+                                        : authModalTab === 'reset'
+                                            ? 'Update Password & Sign In'
+                                            : authModalTab === 'login'
+                                                ? 'Sign In to Workspace'
+                                                : 'Create Account & Start Applying'}
                                 </span>
-                                {authModalTab === 'forgot' ? (<KeyRound className="w-4 h-4" />) : (<ArrowRight className="w-4 h-4" />)}
+                                {authModalTab === 'forgot' || authModalTab === 'reset' ? (<KeyRound className="w-4 h-4" />) : (<ArrowRight className="w-4 h-4" />)}
                             </>
                         )}
                     </button>
                 </form>
-
-                {/* 1-Click Fast Demo Logins */}
-                {authModalTab !== 'forgot' && (
-                    <div className="pt-3.5 border-t border-slate-100 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Or 1-Click Instant Demo Login:</span>
-                            </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                            <button
-                                id="demo-login-swe-btn"
-                                type="button"
-                                onClick={() => loginWithDemo('swe')}
-                                className="p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/40 text-left transition-all group cursor-pointer shadow-2xs"
-                            >
-                                <div className="text-[11px] font-bold text-slate-800 group-hover:text-blue-600">
-                                    Alex Chen
-                                </div>
-                                <div className="text-[9px] text-slate-500 truncate">
-                                    Sr. Full-Stack SWE
-                                </div>
-                            </button>
-
-                            <button
-                                id="demo-login-ml-btn"
-                                type="button"
-                                onClick={() => loginWithDemo('ml')}
-                                className="p-2.5 rounded-xl border border-slate-200 hover:border-purple-400 bg-slate-50 hover:bg-purple-50/40 text-left transition-all group cursor-pointer shadow-2xs"
-                            >
-                                <div className="text-[11px] font-bold text-slate-800 group-hover:text-purple-600">
-                                    Priya Sharma
-                                </div>
-                                <div className="text-[9px] text-slate-500 truncate">
-                                    AI/ML Engineer '27
-                                </div>
-                            </button>
-
-                            <button
-                                id="demo-login-pm-btn"
-                                type="button"
-                                onClick={() => loginWithDemo('pm')}
-                                className="p-2.5 rounded-xl border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/40 text-left transition-all group cursor-pointer shadow-2xs"
-                            >
-                                <div className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-600">
-                                    Jordan Miller
-                                </div>
-                                <div className="text-[9px] text-slate-500 truncate">
-                                    Technical PM
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

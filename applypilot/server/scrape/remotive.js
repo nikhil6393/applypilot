@@ -18,8 +18,13 @@ export async function remotive(req) {
     clearTimeout(timeout);
     if (!res.ok)
         throw new Error(`remotive ${res.status}`);
-    const data = (await res.json());
-    const jobs = data.jobs || [];
+    let data;
+    try {
+        data = (await res.json());
+    } catch {
+        return [];
+    }
+    const jobs = data?.jobs || [];
     const out = [];
     const maxAllowedMinutes = req.timeWindow === '1h'
         ? 60

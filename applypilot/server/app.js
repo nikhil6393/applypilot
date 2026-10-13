@@ -10,6 +10,7 @@ import { trackerRouter } from './routes/tracker.js';
 import { configRouter } from './routes/config.js';
 import { profileRouter } from './routes/profile.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { feedbackRouter } from './routes/feedback.js';
 import { authRouter } from './security/auth.js';
 import { requireAuth } from './security/auth.js';
 import { initDb, closeDb } from './store/db.js';
@@ -66,7 +67,8 @@ export function createApp() {
             req.path.startsWith('/tracker') ||
             req.path.startsWith('/tailor') ||
             req.path.startsWith('/resume') ||
-            req.path.startsWith('/scoring')) {
+            req.path.startsWith('/scoring') ||
+            req.path.startsWith('/feedback')) {
             return next();
         }
         requireAuth(req, _res, next);
@@ -83,6 +85,7 @@ export function createApp() {
     app.use('/api/profile', profileRouter);
     app.use('/api/dashboard', dashboardRouter);
     app.use('/api/monitor', monitorRouter);
+    app.use('/api/feedback', feedbackRouter);
     app.use((err, _req, res, _next) => {
         const isProd = process.env.NODE_ENV === 'production';
         console.error('[error]', err);

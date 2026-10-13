@@ -11,7 +11,7 @@ import { arbeitnow } from '../scrape/arbeitnow.js';
 import { himalayas } from '../scrape/himalayas.js';
 import { weworkremotely } from '../scrape/weworkremotely.js';
 import { linkedinRealtime } from '../scrape/linkedin-realtime.js';
-import { naukriAdvanced } from '../scrape/naukri-advanced.js';
+
 import { evaluateResumeAts } from '../scoring/ats-scorer.js';
 import { logAuditEvent } from '../events/event-logger.js';
 import { getDb } from '../store/db.js';
@@ -72,7 +72,9 @@ function saveConfig(cfg) {
         const dir = path.dirname(CONFIG_FILE);
         if (!fs.existsSync(dir))
             fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf-8');
+        const tempPath = `${CONFIG_FILE}.tmp.${Date.now()}`;
+        fs.writeFileSync(tempPath, JSON.stringify(cfg, null, 2), 'utf-8');
+        fs.renameSync(tempPath, CONFIG_FILE);
     }
     catch (err) {
         console.error('[AdminConfig] Error saving config file:', err);
@@ -653,10 +655,7 @@ adminRouter.post('/test/scraper', async (req, res) => {
                 results = await linkedinRealtime(reqPayload);
                 methodUsed = 'linkedin-realtime-circuit';
                 break;
-            case 'naukari':
-                results = await naukriAdvanced(reqPayload);
-                methodUsed = 'naukri-advanced-api';
-                break;
+            
             default:
                 return res.status(400).json({
                     success: false,

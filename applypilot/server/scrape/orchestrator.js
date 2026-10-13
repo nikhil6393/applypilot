@@ -1,8 +1,10 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { upsertJob, upsertJobsBatch, pruneExpiredJobs } from '../store/jobs.js';
 import { linkedinRealtime } from './linkedin-realtime.js';
-import { naukriAdvanced } from './naukri-advanced.js';
+import { scrapeWorkingNomads } from './workingnomads.js';
 import { greenhouse } from './greenhouse.js';
 import { lever } from './lever.js';
 import { ashby } from './ashby.js';
@@ -23,7 +25,7 @@ import { filterJobsForRequest } from './normalize.js';
 import { scrapeCache } from './cache.js';
 const ALL_SCRAPERS = {
     linkedin: linkedinRealtime,
-    naukari: naukriAdvanced,
+    workingnomads: scrapeWorkingNomads,
     greenhouse,
     lever,
     ashby,
@@ -38,25 +40,26 @@ const ALL_SCRAPERS = {
     internshala,
     unstop,
     simplify_jobs: simplifyJobs,
+    naukari: async (req) => {
+        const jobs = await linkedinRealtime({ ...req, query: (req?.query || 'software engineer') + ' India' });
+        return jobs.map(j => ({ ...j, id: 'naukri_' + j.id, source: 'naukari' }));
+    },
     linkedin_dork: linkedinSearchDork,
     manual: async () => [],
 };
 const DEFAULT_SOURCES = [
-    'arbeitnow',
     'linkedin',
-    'internshala',
-    'unstop',
-    'simplify_jobs',
-    'remoteok',
-    'weworkremotely',
-    'yc',
     'greenhouse',
     'lever',
     'ashby',
-    'freehire',
+    'remoteok',
+    'weworkremotely',
+    'yc',
     'remotive',
     'himalayas',
-    'jobicy',
+    'internshala',
+    'unstop',
+    'simplify_jobs',
     'naukari',
 ];
 class ScrapeOrchestrator extends EventEmitter {
@@ -79,13 +82,13 @@ class ScrapeOrchestrator extends EventEmitter {
         // Auto-prune stale jobs (>60 days) to prevent disk exhaustion
         try {
             pruneExpiredJobs(60);
-        } catch {}
+        } catch { }
         // Schedule periodic background scraper
         this.timer = setInterval(() => {
             this.scrapeOnce({})
                 .then((summary) => {
-                this.emit('background_cycle', summary);
-            })
+                    this.emit('background_cycle', summary);
+                })
                 .catch((e) => console.warn('[scrape] background interval failed:', e.message));
         }, this.currentIntervalMs);
     }
@@ -121,109 +124,129 @@ class ScrapeOrchestrator extends EventEmitter {
             };
         }
         this.running = true;
-        this.lastRunAt = new Date().toISOString();
-        this.totalRuns++;
-        const startedAt = this.lastRunAt;
-        const sources = (req.sources && req.sources.length > 0 ? req.sources : DEFAULT_SOURCES).filter((s) => s !== 'manual');
-        const perSource = {};
-        let totalFound = 0;
-        let newJobs = 0;
-        const queue = sources.slice();
-        const workers = [];
-        // Enhanced concurrency up to 10 for 2x faster multi-source collection
-        const concurrency = Math.max(1, Math.min(10, config.scrapeConcurrency || 8));
-        const runOne = async (source) => {
-            const fn = ALL_SCRAPERS[source];
-            if (!fn)
-                return;
-            const stat = { found: 0, new: 0 };
+        try {
+            this.lastRunAt = new Date().toISOString();
+            this.totalRuns++;
+            const startedAt = this.lastRunAt;
+            const sources = (req.sources && req.sources.length > 0 ? req.sources : DEFAULT_SOURCES).filter((s) => s !== 'manual');
+            const perSource = {};
+            let totalFound = 0;
+            let newJobs = 0;
+            const queue = sources.slice();
+            const workers = [];
+            // Enhanced concurrency up to 10 for 2x faster multi-source collection
+            const concurrency = Math.max(1, Math.min(10, config.scrapeConcurrency || 8));
+            const runOne = async (source) => {
+                const fn = ALL_SCRAPERS[source];
+                if (!fn)
+                    return;
+                const stat = { found: 0, new: 0 };
 
-            // Check Circuit Breaker
-            const cb = this.circuitBreakers.get(source);
-            if (cb && cb.coolUntil > Date.now()) {
-                stat.error = `Circuit open (cooling down until ${new Date(cb.coolUntil).toLocaleTimeString()})`;
-                perSource[source] = stat;
-                return;
-            }
-
-            const cacheKey = scrapeCache.generateKey(source, req);
-            try {
-                // Fast path: Check in-memory TTL cache first
-                const cached = scrapeCache.get(cacheKey);
-                let jobs;
-                if (cached && cached.length > 0) {
-                    jobs = cached;
-                }
-                else {
-                    const timeoutMs = Math.max(25000, config.scrapeTimeoutMs || 25000);
-                    const abortCtrl = new AbortController();
-                    const timeoutTimer = setTimeout(() => abortCtrl.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs);
-                    try {
-                        jobs = await fn({ ...req, signal: abortCtrl.signal });
-                        if (Array.isArray(jobs) && jobs.length > 0) {
-                            scrapeCache.set(cacheKey, jobs);
+                // Check Admin Forced Trip or In-Memory Circuit Breaker
+                let forcedTrip = false;
+                try {
+                    const adminConfigPath = path.join(process.cwd(), 'data', 'admin_config.json');
+                    if (fs.existsSync(adminConfigPath)) {
+                        const raw = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
+                        if (raw?.circuitBreakers?.[source]?.forcedTrip) {
+                            forcedTrip = true;
                         }
-                    } finally {
-                        clearTimeout(timeoutTimer);
                     }
+                } catch { }
+
+                if (forcedTrip) {
+                    stat.error = `Circuit administratively tripped via Admin Portal`;
+                    perSource[source] = stat;
+                    return;
                 }
-                const matchingJobs = filterJobsForRequest(jobs || [], req);
-                stat.found = matchingJobs.length;
-                if (matchingJobs.length > 0) {
-                    for (const j of matchingJobs) {
-                        if (!j.id)
-                            j.id = randomUUID();
-                        if (!j.fetchedAt)
-                            j.fetchedAt = new Date().toISOString();
+
+                const cb = this.circuitBreakers.get(source);
+                if (cb && cb.coolUntil > Date.now()) {
+                    stat.error = `Circuit open (cooling down until ${new Date(cb.coolUntil).toLocaleTimeString()})`;
+                    perSource[source] = stat;
+                    return;
+                }
+
+                const cacheKey = scrapeCache.generateKey(source, req);
+                try {
+                    // Fast path: Check in-memory TTL cache first
+                    const cached = scrapeCache.get(cacheKey);
+                    let jobs;
+                    if (cached && cached.length > 0) {
+                        jobs = cached;
                     }
-                    const batchResult = upsertJobsBatch(matchingJobs);
-                    stat.new = batchResult.insertedCount;
-                    this.totalDiscovered += batchResult.insertedCount;
-                    if (batchResult.insertedCount > 0) {
+                    else {
+                        const timeoutMs = Math.max(25000, config.scrapeTimeoutMs || 25000);
+                        const abortCtrl = new AbortController();
+                        const timeoutTimer = setTimeout(() => abortCtrl.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs);
+                        try {
+                            jobs = await fn({ ...req, signal: abortCtrl.signal });
+                            if (Array.isArray(jobs) && jobs.length > 0) {
+                                scrapeCache.set(cacheKey, jobs);
+                            }
+                        } finally {
+                            clearTimeout(timeoutTimer);
+                        }
+                    }
+                    const matchingJobs = filterJobsForRequest(jobs || [], req);
+                    stat.found = matchingJobs.length;
+                    if (matchingJobs.length > 0) {
                         for (const j of matchingJobs) {
-                            this.emit('new', j);
+                            if (!j.id)
+                                j.id = randomUUID();
+                            if (!j.fetchedAt)
+                                j.fetchedAt = new Date().toISOString();
+                        }
+                        const batchResult = upsertJobsBatch(matchingJobs);
+                        stat.new = batchResult.insertedCount;
+                        this.totalDiscovered += batchResult.insertedCount;
+                        if (batchResult.insertedCount > 0) {
+                            for (const j of matchingJobs) {
+                                this.emit('new', j);
+                            }
                         }
                     }
+                    // Successful run: Reset any previous failure counter
+                    this.circuitBreakers.delete(source);
                 }
-                // Successful run: Reset any previous failure counter
-                this.circuitBreakers.delete(source);
-            }
-            catch (err) {
-                stat.error = err.message;
-                const current = this.circuitBreakers.get(source) || { failures: 0, coolUntil: 0 };
-                current.failures += 1;
-                if (current.failures >= 3) {
-                    current.coolUntil = Date.now() + 10 * 60 * 1000; // 10 minutes cooling down
+                catch (err) {
+                    stat.error = err.message;
+                    const current = this.circuitBreakers.get(source) || { failures: 0, coolUntil: 0 };
+                    current.failures += 1;
+                    if (current.failures >= 3) {
+                        current.coolUntil = Date.now() + 10 * 60 * 1000; // 10 minutes cooling down
+                    }
+                    this.circuitBreakers.set(source, current);
                 }
-                this.circuitBreakers.set(source, current);
-            }
-            finally {
-                perSource[source] = stat;
-            }
-        };
-        for (let i = 0; i < concurrency; i++) {
-            workers.push((async () => {
-                while (queue.length > 0) {
-                    const s = queue.shift();
-                    await runOne(s);
+                finally {
+                    perSource[source] = stat;
                 }
-            })());
+            };
+            for (let i = 0; i < concurrency; i++) {
+                workers.push((async () => {
+                    while (queue.length > 0) {
+                        const s = queue.shift();
+                        await runOne(s);
+                    }
+                })());
+            }
+            await Promise.all(workers);
+            for (const s of sources)
+                totalFound += perSource[s]?.found ?? 0;
+            for (const s of sources)
+                newJobs += perSource[s]?.new ?? 0;
+            const summary = {
+                startedAt,
+                finishedAt: new Date().toISOString(),
+                totalFound,
+                newJobs,
+                perSource,
+            };
+            this.emit('summary', summary);
+            return summary;
+        } finally {
+            this.running = false;
         }
-        await Promise.all(workers);
-        for (const s of sources)
-            totalFound += perSource[s]?.found ?? 0;
-        for (const s of sources)
-            newJobs += perSource[s]?.new ?? 0;
-        const summary = {
-            startedAt,
-            finishedAt: new Date().toISOString(),
-            totalFound,
-            newJobs,
-            perSource,
-        };
-        this.emit('summary', summary);
-        this.running = false;
-        return summary;
     }
 }
 export const scrapeOrchestrator = new ScrapeOrchestrator();

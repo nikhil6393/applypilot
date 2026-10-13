@@ -24,7 +24,7 @@ echo.
 echo ================================================================
 echo   URL:         http://localhost:3000
 echo   Admin Login: nikhil900285@gmail.com
-echo   Password:    nikhil12
+echo   Password:    nikhil123
 echo ================================================================
 echo.
 echo Press Ctrl+C in this window anytime to stop the server.

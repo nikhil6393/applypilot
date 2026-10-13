@@ -30,7 +30,7 @@ const POWER_VERBS = [
     'Refactored',
     'Deployed',
 ];
-export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTailoredDocs, }) => {
+export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTailoredDocs, onUpdateResume }) => {
     const { addToast } = useAppStore();
     const [activeJobId, setActiveJobId] = useState(selectedJobs.length > 0 ? selectedJobs[0].id : '');
     const [selectedBatchJobIds, setSelectedBatchJobIds] = useState(new Set());
@@ -557,6 +557,33 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
           </div>
 
           <div className="flex items-center gap-2">
+            {onUpdateResume && (
+              <button
+                onClick={() => {
+                  const next = JSON.parse(JSON.stringify(resume));
+                  if (activeTailored?.tailoredSummary) next.summary = activeTailored.tailoredSummary;
+                  if (activeBullets && activeBullets.length > 0 && next.experience?.[0]) {
+                    next.experience[0].bullets = activeBullets;
+                  }
+                  if (jobKeywords.missing.length > 0) {
+                    if (Array.isArray(next.skills)) {
+                      jobKeywords.missing.forEach(m => { if (!next.skills.includes(m)) next.skills.push(m); });
+                    }
+                  }
+                  onUpdateResume(next);
+                  addToast({
+                    type: 'success',
+                    title: 'Active Resume Updated',
+                    message: `Saved tailored resume for ${activeJob?.company || 'role'} to your active profile!`,
+                  });
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-black transition-colors cursor-pointer shadow-xs"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Save as Active Resume</span>
+              </button>
+            )}
+
             {activeTab === 'bullets' && (
               <button onClick={() => {
                 navigator.clipboard.writeText(activeBullets.join('\n\n'));

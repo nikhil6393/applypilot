@@ -99,13 +99,23 @@ export async function internshala(req) {
                     if (!title || !rawHref)
                         return;
                     const applyUrl = rawHref.startsWith('http') ? rawHref : `https://internshala.com${rawHref}`;
-                    const company = $(el).find('.company-name, .company_name, [class*="company_name"]').first().text().trim() ||
-                        'Fast Growing Startup';
+                    const rawCompany = $(el).find('.company-name, .company_name, [class*="company_name"]').first().text().trim();
+                    const company = rawCompany
+                        .replace(/actively\s+hiring/i, '')
+                        .replace(/[\r\n\t]+/g, ' ')
+                        .replace(/\s{2,}/g, ' ')
+                        .trim() || 'Fast Growing Startup';
                     const cardLoc = $(el).find('.locations, #location_names, [class*="location"]').first().text().trim() ||
                         (remoteOnly ? 'Remote' : 'India');
                     const remote = /work from home|wfh|remote/i.test(cardLoc + ' ' + title);
+                    // Tech-only filter: exclude non-tech, sales, HR, marketing, telecaller, and irrelevant roles
+                    const isTech = /software|developer|engineer|frontend|backend|fullstack|full-stack|data|devops|react|node|cloud|web|ai|ml|python|java|systems?|programmer|programming|tech|sdet|architect|platform|mobile|android|ios|machine\s+learning/i.test(title);
+                    const isIrrelevant = /outreach|counselor|fundraising|graphic|catalog|tailor|clerk|cook|driver|cleaner|sales|marketing|tele|call\s*center|voice|reception|business\s*development|hr\b|human\s*resource|accountant/i.test(title);
+                    if (!isTech || isIrrelevant) {
+                        return;
+                    }
                     // Location verification
-                    if (!isJobLocationMatch(cardLoc, remote, req.location, req.remoteOnly)) {
+                    if (req.location && !isJobLocationMatch(cardLoc, remote, req.location, req.remoteOnly)) {
                         return;
                     }
                     const stipend = $(el).find('.stipend, .salary, [class*="stipend"]').first().text().trim() || undefined;
@@ -126,6 +136,13 @@ export async function internshala(req) {
                         ? (rawLogo.startsWith('//') ? `https:${rawLogo}` : (rawLogo.startsWith('http') ? rawLogo : `https://internshala.com${rawLogo}`))
                         : undefined;
                     const finalLogo = resolveCompanyLogo(company, cleanLogo, applyUrl);
+                    const fallbackSkills = /marketing|sales|business/i.test(title)
+                        ? ['Lead Generation', 'Market Research', 'Client Relations', 'CRM']
+                        : /data|analyst|analytics/i.test(title)
+                            ? ['SQL', 'Python', 'Data Analysis', 'Excel']
+                            : /design|ui|ux/i.test(title)
+                                ? ['Figma', 'UI/UX Design', 'Wireframing']
+                                : ['React', 'JavaScript', 'Node.js', 'Web Development'];
                     out.push({
                         id,
                         title,
@@ -145,7 +162,7 @@ export async function internshala(req) {
                         isInternship: true,
                         salary: stipend,
                         eligibleBatches: ['2028', '2027', '2026', '2025', 'All Batches'],
-                        skills: meta.techStack && meta.techStack.length > 0 ? meta.techStack : ['React', 'Node.js', 'Python', 'Web Development'],
+                        skills: meta.techStack && meta.techStack.length > 0 ? meta.techStack : fallbackSkills,
                         tags,
                     });
                     if (out.length >= max)

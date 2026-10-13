@@ -210,4 +210,88 @@ describe('ApplyPilot Complete Authentication & Security Test Suite', () => {
             .set('Authorization', `Bearer ${candidateToken}`);
         expect(afterLogout.status).toBe(401);
     });
+
+    it('15. DoS Defense: Password > 4096 chars rejected with 400 Bad Request', async () => {
+        const hugePassword = 'A'.repeat(5000);
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'DoS Test',
+                email: `dos_${Date.now()}@example.com`,
+                password: hugePassword,
+            });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toContain('maximum allowed length');
+    });
+
+    it('16. Sanitization: Email with leading and trailing spaces is trimmed and succeeds', async () => {
+        const rawEmail = `  spaced_${Date.now()}@applypilot.io  `;
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'Spaced Candidate',
+                email: rawEmail,
+                password: 'ValidPassword123!',
+            });
+        expect(res.status).toBe(201);
+        expect(res.body.user.email).toBe(rawEmail.trim().toLowerCase());
+    });
+
+    it('17. Google OAuth Config: GET /api/auth/google/config returns configuration state', async () => {
+        const res = await request(app).get('/api/auth/google/config');
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty('configured');
+        expect(typeof res.body.configured).toBe('boolean');
+    });
+
+    it('18. Multi-tenant Tracker Isolation: User A cannot see or mutate User B tracker data', async () => {
+        // Create User A
+        const userARes = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'User Alpha',
+                email: `user_a_${Date.now()}@applypilot.io`,
+                password: 'Password123!',
+            });
+        expect(userARes.status).toBe(201);
+        const tokenA = userARes.body.token;
+
+        // Create User B
+        const userBRes = await request(app)
+            .post('/api/auth/register')
+            .send({
+                name: 'User Beta',
+                email: `user_b_${Date.now()}@applypilot.io`,
+                password: 'Password123!',
+            });
+        expect(userBRes.status).toBe(201);
+        const tokenB = userBRes.body.token;
+
+        // User A adds tracker item
+        const trackA = await request(app)
+            .post('/api/tracker')
+            .set('Authorization', `Bearer ${tokenA}`)
+            .send({
+                jobId: 'alpha-job-1',
+                jobTitle: 'Alpha Engineer',
+                company: 'Alpha Corp',
+                applyUrl: 'https://alpha.corp/apply',
+            });
+        expect(trackA.status).toBe(201);
+        const trackIdA = trackA.body.id;
+
+        // User B listing tracker should NOT see User A's item
+        const listB = await request(app)
+            .get('/api/tracker')
+            .set('Authorization', `Bearer ${tokenB}`);
+        expect(listB.status).toBe(200);
+        const foundInB = listB.body.items.some((item) => item.id === trackIdA);
+        expect(foundInB).toBe(false);
+
+        // User B cannot delete User A's tracker item
+        const deleteB = await request(app)
+            .delete(`/api/tracker/${trackIdA}`)
+            .set('Authorization', `Bearer ${tokenB}`);
+        expect(deleteB.status).toBe(404);
+    });
 });

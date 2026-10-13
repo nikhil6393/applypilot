@@ -4,15 +4,15 @@ export function validateTruth(profile, generatedContent) {
     const contentStr = typeof generatedContent === 'string' ? generatedContent : JSON.stringify(generatedContent);
     const contentLower = contentStr.toLowerCase();
     // Extract all valid terms from the profile
-    const validCompanies = profile.experience?.map((e) => e.company.toLowerCase()) || [];
-    const validSchools = profile.education?.map((e) => e.school.toLowerCase()) || [];
-    const validDegrees = profile.education?.map((e) => e.degree.toLowerCase()) || [];
+    const validCompanies = profile.experience?.map((e) => e?.company?.toLowerCase()).filter(Boolean) || [];
+    const validSchools = profile.education?.map((e) => e?.school?.toLowerCase()).filter(Boolean) || [];
+    const validDegrees = profile.education?.map((e) => e?.degree?.toLowerCase()).filter(Boolean) || [];
     const validSkills = [
         ...(profile.skills?.languages || []),
         ...(profile.skills?.frameworks || []),
         ...(profile.skills?.tools || []),
         ...(profile.skills?.domain || []),
-    ].map((s) => s.toLowerCase());
+    ].filter(Boolean).map((s) => (typeof s === 'string' ? s.toLowerCase() : String(s).toLowerCase()));
     // A very basic check: we look for common red-flag fabrications
     // that Gemini or other models tend to invent if not anchored.
     const commonHallucinations = [

@@ -283,7 +283,7 @@ export function getDomainFromCompany(name, url = '') {
             const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
             const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
             // Skip generic job board / hosting domains
-            if (!/greenhouse\.io|lever\.co|ashbyhq\.com|internshala\.com|naukri\.com|unstop\.com|linkedin\.com|github\.com|remotive\.com|remoteok\.com|arbeitnow\.com|weworkremotely\.com|jobicy\.com|himalayas\.app/i.test(host)) {
+            if (!/greenhouse\.io|lever\.co|ashbyhq\.com|internshala\.com|unstop\.com|linkedin\.com|github\.com|remotive\.com|remoteok\.com|arbeitnow\.com|weworkremotely\.com|jobicy\.com|himalayas\.app/i.test(host)) {
                 return host;
             }
         } catch {}

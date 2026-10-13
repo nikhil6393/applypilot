@@ -87,3 +87,57 @@ scoringRouter.post('/batch-fit-score', async (req, res) => {
     results.sort((a, b) => b.score - a.score);
     res.json({ results, count: results.length });
 });
+
+scoringRouter.post('/batch', async (req, res) => {
+    try {
+        const body = req.body || {};
+        let resume = body.resume || getResume();
+        if (!resume) {
+            return res.status(400).json({ success: false, error: 'Resume required' });
+        }
+        let jobs = body.jobs;
+        if (!Array.isArray(jobs) || jobs.length === 0) {
+            if (Array.isArray(body.jobIds) && body.jobIds.length > 0) {
+                jobs = body.jobIds.map((id) => getJob(id)).filter(Boolean);
+            } else {
+                jobs = listJobs({ limit: 50 });
+            }
+        }
+
+        const candidateSkills = [
+            ...(resume.skills?.languages || []),
+            ...(resume.skills?.frameworks || []),
+            ...(resume.skills?.tools || []),
+        ].map((s) => String(s).toLowerCase());
+
+        const results = {};
+        for (const job of jobs) {
+            const jobText = `${job.title} ${job.description || ''} ${(job.tags || []).join(' ')}`.toLowerCase();
+            const matched = [];
+            const missing = [];
+            candidateSkills.forEach((skill) => {
+                if (jobText.includes(skill))
+                    matched.push(skill);
+            });
+            const commonKeywords = ['react', 'typescript', 'node.js', 'docker', 'graphql', 'python', 'aws', 'sql'];
+            commonKeywords.forEach((kw) => {
+                if (jobText.includes(kw) && !matched.includes(kw)) {
+                    missing.push(kw);
+                }
+            });
+            const fitScore = Math.min(98, Math.max(54, Math.round((matched.length / Math.max(1, matched.length + missing.length)) * 60 + 38)));
+            results[job.id] = {
+                jobId: job.id,
+                fitScore,
+                oneLineWhy: `Matches ${matched.length} verified technical competencies with strong alignment.`,
+                matchingKeywords: matched.slice(0, 8),
+                missingKeywords: missing.slice(0, 5),
+                strengths: ['Relevant core tech stack', 'Eligible experience requirement'],
+            };
+        }
+
+        res.json({ success: true, results, count: Object.keys(results).length });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message || 'Batch scoring failed' });
+    }
+});

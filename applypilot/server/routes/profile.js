@@ -19,6 +19,9 @@ const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize
 
 export const profileRouter = Router();
 function getProfileId(req) {
+    if (req.user?.id) {
+        return req.user.id;
+    }
     const authHeader = req.headers.authorization;
     const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
     if (token) {
@@ -30,7 +33,7 @@ function getProfileId(req) {
         }
         catch { }
     }
-    return req.headers['x-profile-id'] || 'default';
+    return 'default';
 }
 profileRouter.get('/', (req, res) => {
     const db = getDb();
@@ -76,7 +79,11 @@ profileRouter.post('/upload', upload.single('resume'), async (req, res) => {
         ) {
             parsed = await parseResumeDocx(buffer);
         } else {
-            parsed = await parseResumeText(buffer.toString('utf-8'));
+            const rawStr = buffer.toString('utf-8');
+            if (rawStr.startsWith('%PDF') || rawStr.startsWith('PK\u0003\u0004')) {
+                throw new Error("Cannot parse binary PDF/DOCX as raw text.");
+            }
+            parsed = await parseResumeText(rawStr);
         }
 
         const rawText = parsed.rawText || '';
@@ -458,7 +465,11 @@ profileRouter.post('/parse-resume', async (req, res) => {
                     parsed = await parseResumeDocx(buf);
                 }
                 catch {
-                    parsed = await parseResumeText(buf.toString('utf-8'));
+                    const rawStr = buf.toString('utf-8');
+                    if (rawStr.startsWith('%PDF') || rawStr.startsWith('PK\u0003\u0004')) {
+                        throw new Error("Cannot parse binary PDF/DOCX as raw text.");
+                    }
+                    parsed = await parseResumeText(rawStr);
                 }
             }
         }

@@ -769,6 +769,10 @@ export async function parseResumeText(text, options = {}) {
         return buildDeterministic('', extraLinks);
     }
 
+    if (cleaned.startsWith('%PDF') || cleaned.startsWith('PK\u0003\u0004')) {
+        return buildDeterministic('', extraLinks);
+    }
+
     // Try AI-powered deep extraction first if key exists
     try {
         const aiResult = await extractWithAi(cleaned);

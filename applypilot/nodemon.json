@@ -1,0 +1,20 @@
+{
+  "watch": [
+    "server.js",
+    "server",
+    "shared"
+  ],
+  "ext": "js,ts,json",
+  "ignore": [
+    "data/**",
+    "scratch/**",
+    "dist/**",
+    "tests/**",
+    "test-results/**",
+    "node_modules/**",
+    "*.db*",
+    "*.sqlite*",
+    "*.log"
+  ],
+  "exec": "tsx server.js"
+}

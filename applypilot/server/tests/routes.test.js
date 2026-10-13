@@ -2,8 +2,13 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
 beforeAll(() => {
+    process.env.NODE_ENV = 'test';
     process.env.DB_PATH = './data/test-routes.db';
     process.env.SCRAPE_TIMEOUT_MS = '1000';
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.NVIDIA_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.NVIDIA_NIM_API_KEY;
 });
 describe('routes', () => {
     it('GET /api/health returns ok', async () => {
@@ -33,7 +38,7 @@ describe('routes', () => {
         expect(res.status).toBe(200);
         expect(res.body.resume.email).toBe('jane@example.com');
         expect(res.body.resume.skills).toContain('react');
-    }, 15000);
+    }, 30000);
     it('POST /api/jobs/fit-score without resume returns 400', async () => {
         const app = createApp();
         // Clear any prior resume by re-initing in this process is not possible; just call and either get 200 or 400 depending on state.

@@ -45,12 +45,28 @@ export function isCloudinaryConfigured() {
  * @param {object} options - Cloudinary upload options
  * @returns {Promise<{ url: string, publicId: string }>}
  */
-function uploadBufferToCloudinary(buffer, options) {
+function uploadBufferToCloudinary(buffer, options, timeoutMs = 25000) {
   return new Promise((resolve, reject) => {
+    let timer = setTimeout(() => {
+      timer = null;
+      reject(new Error(`Cloudinary upload timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
     const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
       if (error) return reject(error);
       resolve({ url: result.secure_url, publicId: result.public_id });
     });
+
+    stream.on('error', (err) => {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      reject(err);
+    });
+
     stream.end(buffer);
   });
 }

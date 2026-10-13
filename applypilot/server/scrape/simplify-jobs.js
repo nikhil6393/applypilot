@@ -27,6 +27,7 @@ export async function simplifyJobs(req) {
     const out = [];
     const seen = new Set();
     const feeds = [
+        'https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/.github/scripts/listings.json',
         'https://raw.githubusercontent.com/SimplifyJobs/Summer2025-Internships/dev/.github/scripts/listings.json',
         'https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json',
     ];
@@ -36,7 +37,7 @@ export async function simplifyJobs(req) {
     } else {
         const feedResults = await Promise.allSettled(feeds.map(async (feedUrl) => {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 3500);
+            const timeout = setTimeout(() => controller.abort(), 9000);
             try {
                 const res = await fetch(feedUrl, { signal: controller.signal });
                 if (res.ok) {

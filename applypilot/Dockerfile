@@ -37,9 +37,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/data/applypilot.db
 ENV LOG_FORMAT=json
+ENV CHROMIUM_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-# Install minimal runtime dependencies
-RUN apk add --no-cache wget python3 make g++
+# Install minimal runtime dependencies and Chromium for PDF resume generation
+RUN apk add --no-cache wget python3 make g++ chromium nss freetype harfbuzz ca-certificates ttf-freefont
 
 # Copy root dependency manifests
 COPY package.json package-lock.json ./

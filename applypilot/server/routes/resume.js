@@ -6,6 +6,8 @@ import { defaultAtsScorerV2, sanitizeLatex } from '@applypilot/parsing';
 import { tokenize, inverseDocumentFrequency, vectorize, cosineSimilarity } from '../scoring/tfidf.js';
 import { computeSkillGapReport } from '../scoring/skill-gap.js';
 import { uploadResumeToCloudinary } from '../storage/cloudinary.js';
+import { generateStrictDocx } from '../export/docx-resume.js';
+import { generateStrictPdf } from '../export/pdf-resume.js';
 export const resumeRouter = Router();
 
 // Static list of strong action verbs for deterministic bullet suggestions
@@ -390,7 +392,11 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
                     if (!fileName.toLowerCase().endsWith('.docx')) fileName = fileName.replace(/\.[^.]+$/, '') + '.docx';
                 }
                 catch {
-                    parsed = await parseResumeText(fileBuffer.toString('utf-8'));
+                    const rawStr = fileBuffer.toString('utf-8');
+                    if (rawStr.startsWith('%PDF') || rawStr.startsWith('PK\u0003\u0004')) {
+                        throw new Error("Cannot parse binary PDF/DOCX as raw text.");
+                    }
+                    parsed = await parseResumeText(rawStr);
                     fileBuffer = null; // plain text — nothing to store on Cloudinary
                 }
             }
@@ -479,3 +485,41 @@ resumeRouter.post('/upload', parseRateLimiter, async (req, res) => {
         res.status(500).json({ success: false, error: err.message || 'Cloudinary upload failed' });
     }
 });
+
+// ── Strict Template Resume Exporters (Exact Specs: Latin Modern Roman, US Letter) ──
+// POST /api/resume/export/docx
+resumeRouter.post('/export/docx', async (req, res) => {
+    try {
+        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getResume();
+        if (!resume) {
+            return res.status(400).json({ success: false, error: 'Resume data required for export' });
+        }
+        const buffer = await generateStrictDocx(resume);
+        const candidateName = (resume.fullName || resume.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="${candidateName}_Resume.docx"`);
+        return res.send(buffer);
+    } catch (err) {
+        console.error('[Export DOCX Error]:', err);
+        return res.status(500).json({ success: false, error: err.message || 'Failed to generate DOCX resume' });
+    }
+});
+
+// POST /api/resume/export/pdf
+resumeRouter.post('/export/pdf', async (req, res) => {
+    try {
+        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getResume();
+        if (!resume) {
+            return res.status(400).json({ success: false, error: 'Resume data required for export' });
+        }
+        const buffer = await generateStrictPdf(resume);
+        const candidateName = (resume.fullName || resume.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${candidateName}_Resume.pdf"`);
+        return res.send(buffer);
+    } catch (err) {
+        console.error('[Export PDF Error]:', err);
+        return res.status(500).json({ success: false, error: err.message || 'Failed to generate PDF resume' });
+    }
+});
+

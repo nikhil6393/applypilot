@@ -276,74 +276,171 @@ export function getDomainFromCompany(name) {
     return slug ? `${slug}.com` : 'company.com';
 }
 
-function getBrandColor(name) {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+// ── Dynamic First Alphabet Theme & Gradient Map (A–Z) ─────────────────────
+export const ALPHABET_THEMES = {
+    A: { from: '#4F46E5', to: '#6366F1' }, // Indigo
+    B: { from: '#2563EB', to: '#3B82F6' }, // Blue
+    C: { from: '#0284C7', to: '#0EA5E9' }, // Sky
+    D: { from: '#0D9488', to: '#14B8A6' }, // Teal
+    E: { from: '#059669', to: '#10B981' }, // Emerald
+    F: { from: '#16A34A', to: '#22C55E' }, // Green
+    G: { from: '#D97706', to: '#F59E0B' }, // Amber
+    H: { from: '#EA580C', to: '#FB923C' }, // Orange
+    I: { from: '#6366F1', to: '#818CF8' }, // Indigo Light
+    J: { from: '#7C3AED', to: '#A855F7' }, // Purple
+    K: { from: '#9333EA', to: '#C084FC' }, // Violet
+    L: { from: '#C026D3', to: '#E879F9' }, // Fuchsia
+    M: { from: '#DB2777', to: '#F472B6' }, // Pink
+    N: { from: '#E11D48', to: '#FB7185' }, // Rose
+    O: { from: '#DC2626', to: '#EF4444' }, // Red
+    P: { from: '#F97316', to: '#FB923C' }, // Warm Orange
+    Q: { from: '#0891B2', to: '#22D3EE' }, // Cyan
+    R: { from: '#3B82F6', to: '#60A5FA' }, // Sky Blue
+    S: { from: '#0284C7', to: '#6366F1' }, // Electric Blue / Indigo
+    T: { from: '#0F766E', to: '#14B8A6' }, // Deep Teal
+    U: { from: '#7C3AED', to: '#EC4899' }, // Violet Pink
+    V: { from: '#6366F1', to: '#06B6D4' }, // Indigo Cyan
+    W: { from: '#1D4ED8', to: '#2563EB' }, // Royal Blue
+    X: { from: '#334155', to: '#64748B' }, // Slate
+    Y: { from: '#EA580C', to: '#F59E0B' }, // Sunset Orange
+    Z: { from: '#6D28D9', to: '#8B5CF6' }, // Deep Violet
+};
+
+/**
+ * Extracts the single first alphabet letter from a company name.
+ * If company name starts with numbers/symbols, finds the first alphabetical character.
+ */
+export function getCompanyFirstAlphabet(name) {
+    if (!name || typeof name !== 'string') return 'C';
+    const clean = name.trim();
+    // 1. Look for first alphabetical letter
+    const letterMatch = clean.match(/[a-zA-Z]/);
+    if (letterMatch) {
+        return letterMatch[0].toUpperCase();
     }
-    const h = Math.abs(hash) % 360;
-    return `hsl(${h}, 65%, 45%)`;
+    // 2. Fall back to first alphanumeric character
+    const numMatch = clean.match(/[0-9]/);
+    if (numMatch) {
+        return numMatch[0];
+    }
+    return (clean.charAt(0) || 'C').toUpperCase();
 }
 
-export const CompanyIcon = ({ company = '', logoUrl, size = 40, className = '', }) => {
+/**
+ * Returns the gradient color palette for a given alphabet letter.
+ */
+export function getAlphabetTheme(letter, name = '') {
+    const upper = (letter || '').toUpperCase();
+    if (ALPHABET_THEMES[upper]) {
+        return ALPHABET_THEMES[upper];
+    }
+    const keys = Object.keys(ALPHABET_THEMES);
+    let hash = 0;
+    const str = name || letter || 'C';
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % keys.length;
+    return ALPHABET_THEMES[keys[idx]];
+}
+
+/**
+ * Standalone First Alphabet Logo Component
+ * Renders a crisp, stylish monogram using the company's first alphabet letter.
+ */
+export const FirstAlphabetLogo = ({ company = '', size = 40, className = '' }) => {
+    const cleanName = (company || '').trim();
+    const firstAlphabet = useMemo(() => getCompanyFirstAlphabet(cleanName), [cleanName]);
+    const theme = useMemo(() => getAlphabetTheme(firstAlphabet, cleanName), [firstAlphabet, cleanName]);
+    const fontSize = Math.max(12, Math.round(size * 0.52));
+
+    return (
+        <div
+            style={{
+                width: size,
+                height: size,
+                background: `linear-gradient(135deg, ${theme.from} 0%, ${theme.to} 100%)`,
+                boxShadow: '0 2px 6px -1px rgba(0, 0, 0, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.35)',
+            }}
+            className={`rounded-xl flex items-center justify-center shrink-0 text-white select-none border border-white/20 transition-all duration-200 hover:scale-105 shadow-sm ${className}`}
+            title={cleanName || 'Company'}
+        >
+            <span
+                style={{
+                    fontSize,
+                    lineHeight: 1,
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)',
+                    fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    fontWeight: 800,
+                }}
+                className="tracking-tight text-white select-none"
+            >
+                {firstAlphabet}
+            </span>
+        </div>
+    );
+};
+
+export const CompanyIcon = ({ company = '', logoUrl, size = 40, className = '' }) => {
     const [sourceIndex, setSourceIndex] = useState(0);
+    const [imgFailed, setImgFailed] = useState(false);
     const cleanName = (company || '').trim();
     const slug = useMemo(() => toCompanySlug(cleanName), [cleanName]);
     const domain = useMemo(() => getDomainFromCompany(cleanName), [cleanName]);
 
-    // Reset error fallback index whenever target company or logo changes
+    // Reset error fallback whenever company name or logo changes
     useEffect(() => {
         setSourceIndex(0);
+        setImgFailed(false);
     }, [cleanName, logoUrl]);
 
-    // Progressive hierarchy of original logo candidate sources
+    // Hierarchy of real logo sources:
+    // 1. Verified official brand logo registry (Clearbit/GitHub vector asset)
+    // 2. Clean scraped logo from job posting (if provided)
+    // 3. Clearbit brand logo CDN
+    // 4. Unavatar brand resolver (fallback=false so it 404s if missing)
+    // (Notice: We deliberately omit generic favicon/globe APIs so missing logos fall back to first alphabet)
     const candidateSources = useMemo(() => {
         const list = [];
-        // 1. Check verified official original logo registry (100% verified vector/PNG asset)
+        // 1. Verified official original logo registry
         if (slug && KNOWN_ORIGINAL_LOGOS[slug]) {
             list.push(KNOWN_ORIGINAL_LOGOS[slug]);
         }
-        // 2. Direct clean logoUrl passed from scraper (if provided)
-        if (logoUrl && typeof logoUrl === 'string' && logoUrl.startsWith('http') && !/placeholder|default|avatar|blank|icon-company/i.test(logoUrl)) {
+        // 2. Direct clean logoUrl passed from scraper
+        if (logoUrl && typeof logoUrl === 'string' && logoUrl.startsWith('http') && !/placeholder|default|avatar|blank|icon-company|globe|favicon/i.test(logoUrl)) {
             list.push(logoUrl);
         }
         // 3. Official Clearbit Brand Logo CDN
         if (domain && domain !== 'company.com') {
             list.push(`https://logo.clearbit.com/${domain}`);
         }
-        // 4. Unavatar Universal CDN (multi-provider brand resolver)
+        // 4. Unavatar Universal CDN (without generic fallback)
         if (domain && domain !== 'company.com') {
             list.push(`https://unavatar.io/${domain}?fallback=false`);
-        }
-        // 5. Google 128px high-resolution favicon
-        if (domain && domain !== 'company.com') {
-            list.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-        }
-        // 6. DuckDuckGo High-Res Icon
-        if (domain && domain !== 'company.com') {
-            list.push(`https://icons.duckduckgo.com/ip3/${domain}.ico`);
         }
         return list;
     }, [slug, domain, logoUrl]);
 
-    const currentImageSrc = sourceIndex < candidateSources.length ? candidateSources[sourceIndex] : null;
+    const currentImageSrc = (!imgFailed && sourceIndex < candidateSources.length) ? candidateSources[sourceIndex] : null;
 
     const handleImageError = () => {
-        setSourceIndex((prev) => prev + 1);
+        setSourceIndex((prev) => {
+            const next = prev + 1;
+            if (next >= candidateSources.length) {
+                setImgFailed(true);
+            }
+            return next;
+        });
     };
 
-    const initials = cleanName
-        ? cleanName
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((w) => w[0])
-            .join('')
-            .toUpperCase()
-        : 'CO';
+    const handleImageLoad = (e) => {
+        // If the image is a 1x1 blank pixel or tiny spacer, fall back to first alphabet logo
+        if (e.currentTarget.naturalWidth <= 1 || e.currentTarget.naturalHeight <= 1) {
+            handleImageError();
+        }
+    };
 
-    const brandBg = useMemo(() => getBrandColor(cleanName), [cleanName]);
-
+    // If real company logo exists and hasn't errored, display it inside crisp white container
     if (currentImageSrc) {
         return (
             <div
@@ -357,24 +454,18 @@ export const CompanyIcon = ({ company = '', logoUrl, size = 40, className = '', 
                     loading="lazy"
                     className="w-full h-full object-contain rounded-lg transition-transform duration-200 hover:scale-105"
                     onError={handleImageError}
+                    onLoad={handleImageLoad}
                 />
             </div>
         );
     }
 
-    // Refined modern corporate monogram fallback with dynamic brand coloring
+    // Otherwise, add the first alphabet as a logo for everyone!
     return (
-        <div
-            style={{ width: size, height: size, backgroundColor: brandBg }}
-            className={`rounded-xl flex items-center justify-center shrink-0 text-white font-black shadow-xs border border-white/20 select-none ${className}`}
-            title={cleanName}
-        >
-            <span
-                style={{ fontSize: Math.max(10, Math.floor(size * 0.38)) }}
-                className="tracking-tight text-white drop-shadow-sm font-bold"
-            >
-                {initials}
-            </span>
-        </div>
+        <FirstAlphabetLogo
+            company={cleanName}
+            size={size}
+            className={className}
+        />
     );
 };

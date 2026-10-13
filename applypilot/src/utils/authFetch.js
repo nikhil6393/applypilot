@@ -17,8 +17,20 @@ export function setupAuthFetchInterceptor() {
         else if (input && typeof input.url === 'string') {
             url = input.url;
         }
-        // Only attach bearer token and timeout to internal /api/ routes
-        const isApiRequest = url.startsWith('/api/') || url.includes('/api/');
+        // Only attach bearer token and timeout to internal /api/ routes (prevent token leakage to third parties)
+        let isApiRequest = false;
+        try {
+            if (url.startsWith('/api/')) {
+                isApiRequest = true;
+            } else if (url.startsWith('http://') || url.startsWith('https://')) {
+                const parsedUrl = new URL(url);
+                if (parsedUrl.origin === window.location.origin && parsedUrl.pathname.startsWith('/api/')) {
+                    isApiRequest = true;
+                }
+            }
+        } catch {
+            isApiRequest = false;
+        }
         if (isApiRequest) {
             try {
                 const token = localStorage.getItem('applypilot_token');

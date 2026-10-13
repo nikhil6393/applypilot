@@ -1,6 +1,8 @@
 import React from 'react';
 import { Bookmark } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { CompanyIcon } from './CompanyIcon';
+
 export const SavedJobsScreen = ({ jobs, onSelectJobForDetail, onSelectJobForTailoring, }) => {
     const { bookmarkedJobIds, toggleBookmark, setClientScreen } = useAppStore();
     const savedJobs = jobs.filter((j) => bookmarkedJobIds.has(j.id));
@@ -33,11 +35,14 @@ export const SavedJobsScreen = ({ jobs, onSelectJobForDetail, onSelectJobForTail
           {savedJobs.map((job) => (<div key={job.id} onClick={() => onSelectJobForDetail(job)} className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between">
-                  <span className="text-xs font-semibold text-slate-500">{job.company}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <CompanyIcon company={job.company} logoUrl={job.companyLogo} size={28} className="rounded-lg shadow-2xs" />
+                    <span className="text-xs font-semibold text-slate-500 truncate">{job.company}</span>
+                  </div>
                   <button onClick={(e) => {
                     e.stopPropagation();
                     toggleBookmark(job.id);
-                }} className="text-[#F59E0B] hover:text-slate-400 p-1 cursor-pointer" title="Remove from saved">
+                }} className="text-[#F59E0B] hover:text-slate-400 p-1 cursor-pointer shrink-0" title="Remove from saved">
                     <Bookmark className="w-4 h-4 fill-[#F59E0B]"/>
                   </button>
                 </div>

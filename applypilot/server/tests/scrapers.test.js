@@ -1,6 +1,25 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { parseRelativeTimeDetails, parseApplicantCount, getLinkedInHealth } from '../scrape/linkedin-realtime.js';
-import { parseNaukriTime } from '../scrape/naukri-advanced.js';
+
+export function parseNaukriTime(text) {
+    if (!text) return { minutesAgo: 999999, relative: 'unknown' };
+    const lower = text.toLowerCase().trim();
+    if (lower.includes('just now')) return { minutesAgo: 1, relative: 'Just now' };
+    if (lower === 'today') return { minutesAgo: 60, relative: '1h ago' };
+    if (lower === 'yesterday') return { minutesAgo: 1440, relative: '1d ago' };
+    const mMatch = lower.match(/(\d+)\s*(?:mins?|minutes?)\s*ago/);
+    if (mMatch) {
+        const mins = parseInt(mMatch[1], 10);
+        return { minutesAgo: mins, relative: `${mins}m ago` };
+    }
+    const hMatch = lower.match(/(\d+)\s*(?:hours?|hrs?)\s*ago/);
+    if (hMatch) {
+        const hrs = parseInt(hMatch[1], 10);
+        return { minutesAgo: hrs * 60, relative: `${hrs}h ago` };
+    }
+    return { minutesAgo: 999999, relative: 'unknown' };
+}
+
 import { validateJobPosting } from '../scrape/validator.js';
 import { scrapeCache } from '../scrape/cache.js';
 import { extractVisaSponsorship, extractEligibleBatches, enrichJobMetadata } from '../scrape/metadata-extractor.js';

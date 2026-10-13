@@ -74,11 +74,14 @@ function isCircuitOpen() {
 const GUEST_SEARCH = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
 const GUEST_JOB_DETAIL = 'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting';
 const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/121.0.2277.112',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPad; CPU OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1',
 ];
 function randomUA() {
     return UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
@@ -86,7 +89,9 @@ function randomUA() {
 export function getBrowserHeaders() {
     return {
         'User-Agent': randomUA(),
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
@@ -340,7 +345,7 @@ async function fetchWithRetry(url, headers, retries = 1, fastMode = false) {
     for (let i = 0; i <= effectiveRetries; i++) {
         try {
             if (!fastMode) {
-                await new Promise((r) => setTimeout(r, 40 + Math.random() * 50));
+                await new Promise((r) => setTimeout(r, 400 + Math.random() * 1100));
             }
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -362,14 +367,28 @@ async function fetchWithRetry(url, headers, retries = 1, fastMode = false) {
     }
     return null;
 }
+/** Bounded LRU-style cache for LinkedIn job details (max 300 entries, 1-hour TTL). */
+const DETAIL_CACHE_MAX = 300;
+const DETAIL_CACHE_TTL_MS = 3600_000;
 const detailCache = new Map();
+function detailCacheSet(id, value) {
+    if (detailCache.size >= DETAIL_CACHE_MAX) {
+        // Evict oldest inserted key (Map iteration is insertion-ordered)
+        detailCache.delete(detailCache.keys().next().value);
+    }
+    detailCache.set(id, value);
+}
 /**
  * Fetches the complete, unredacted 5,000–10,000 character job description, criteria,
  * and exact role metadata directly from LinkedIn's public guest jobPosting endpoint.
  */
 export async function fetchLinkedInJobDetails(numericId) {
     const cached = detailCache.get(numericId);
-    if (cached && Date.now() - cached.fetchedAt < 3600_000) {
+    // Evict stale entry so memory is freed rather than pinned
+    if (cached && Date.now() - cached.fetchedAt >= DETAIL_CACHE_TTL_MS) {
+        detailCache.delete(numericId);
+    }
+    if (cached && Date.now() - cached.fetchedAt < DETAIL_CACHE_TTL_MS) {
         return cached;
     }
     const url = `${GUEST_JOB_DETAIL}/${numericId}`;
@@ -455,7 +474,7 @@ export async function fetchLinkedInJobDetails(numericId) {
             industries,
             jobFunction,
         };
-        detailCache.set(numericId, { ...detail, fetchedAt: Date.now() });
+        detailCacheSet(numericId, { ...detail, fetchedAt: Date.now() });
         return detail;
     }
     catch {
@@ -705,7 +724,7 @@ export async function linkedinRealtime(req) {
             }
             catch { }
             if (!req.fastMode) {
-                await new Promise((r) => setTimeout(r, 40 + Math.random() * 50));
+                await new Promise((r) => setTimeout(r, 400 + Math.random() * 1100));
             }
         }
     };
@@ -788,8 +807,8 @@ export async function linkedinRealtime(req) {
                     continue;
             }
 
-            // High-precision exclusions: drop non-tech, hospitality, healthcare, and retail positions
-            const isNonTech = /\b(barista|line cook|cook|chef|dishwasher|server|waiter|waitress|cashier|retail associate|sales associate|sales representative|customer service representative|nurse|medical assistant|dental assistant|driver|warehouse worker|forklift operator|security guard|housekeeper|cleaner|janitor|esthetician|stylist|receptionist|crew member|marketing intern|finance intern|accounting intern|hr intern|business development intern|human resources intern|legal intern)\b/i.test(title);
+            // High-precision exclusions: drop non-tech, hospitality, healthcare, recruiter, and retail positions
+            const isNonTech = /\b(barista|line cook|cook|chef|dishwasher|server|waiter|waitress|cashier|retail associate|sales associate|sales representative|customer service representative|nurse|medical assistant|dental assistant|driver|warehouse worker|forklift operator|security guard|housekeeper|cleaner|janitor|esthetician|stylist|receptionist|crew member|marketing intern|finance intern|accounting intern|hr intern|business development intern|human resources intern|legal intern|recruiter|recruitment|talent acquisition|sourcer|staffing)\b/i.test(title);
             if (isNonTech)
                 continue;
 

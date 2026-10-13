@@ -49,6 +49,27 @@ function persistBatch(batch) {
     }
 }
 
+/** Maximum number of completed batches to retain in memory. */
+const MAX_IN_MEMORY_BATCHES = 50;
+
+/**
+ * Evict the oldest completed batches from memory when the cap is exceeded.
+ * Persisted data in SQLite is unaffected – evicted batches are still
+ * retrieved from the DB on next access via getBatch().
+ */
+function evictOldBatches(batchesMap) {
+    if (batchesMap.size <= MAX_IN_MEMORY_BATCHES) return;
+    // Collect completed/failed batches sorted oldest-first
+    const evictable = [...batchesMap.entries()]
+        .filter(([, b]) => b.status === 'completed' || b.status === 'failed')
+        .sort(([, a], [, b]) => a.createdAt - b.createdAt);
+
+    const toRemove = batchesMap.size - MAX_IN_MEMORY_BATCHES;
+    for (let i = 0; i < toRemove && i < evictable.length; i++) {
+        batchesMap.delete(evictable[i][0]);
+    }
+}
+
 class BulkTailorManager extends EventEmitter {
     batches = new Map();
     concurrencyLimit = 3;
@@ -58,6 +79,34 @@ class BulkTailorManager extends EventEmitter {
         if (!this._tableReady) {
             ensureTable();
             this._tableReady = true;
+            this.recoverStaleBatches();
+        }
+    }
+
+    recoverStaleBatches() {
+        try {
+            const db = getDb();
+            const staleRows = db.prepare("SELECT * FROM bulk_tailor_batches WHERE status = 'processing'").all();
+            for (const row of staleRows) {
+                let results = {};
+                try { results = JSON.parse(row.results_json); } catch {}
+                for (const jobId of Object.keys(results)) {
+                    if (results[jobId].status === 'processing' || results[jobId].status === 'queued') {
+                        results[jobId].status = 'failed';
+                        results[jobId].error = 'Interrupted by server restart';
+                    }
+                }
+                db.prepare(`
+                    UPDATE bulk_tailor_batches
+                    SET status = 'interrupted', results_json = ?, updated_at = datetime('now')
+                    WHERE batch_id = ?
+                `).run(JSON.stringify(results), row.batch_id);
+            }
+            if (staleRows.length > 0) {
+                console.log(`[BulkTailorQueue] Recovered ${staleRows.length} stale batch(es) interrupted by server restart.`);
+            }
+        } catch (err) {
+            console.warn('[BulkTailorQueue] Error during stale batch recovery:', err.message);
         }
     }
 
@@ -78,11 +127,13 @@ class BulkTailorManager extends EventEmitter {
         this.batches.set(batchId, batch);
         // Persist immediately so a crash after createBatch() still records the batch
         persistBatch(batch);
+        // Evict oldest completed batches if the in-memory cap is exceeded
+        evictOldBatches(this.batches);
         return batch;
     }
 
     getBatch(batchId) {
-        // Check in-memory first; fall back to SQLite on cache miss (e.g. after restart)
+        // Check in-memory first; fall back to SQLite on cache miss (e.g. after restart or eviction)
         if (this.batches.has(batchId)) return this.batches.get(batchId);
         try {
             this._ensureOnce();
@@ -152,6 +203,9 @@ class BulkTailorManager extends EventEmitter {
         batch.status = 'completed';
         persistBatch(batch);
         this.emit(`batch:${batchId}`, { type: 'batch_complete', batchId });
+
+        // Evict oldest completed batches to keep memory footprint bounded
+        evictOldBatches(this.batches);
     }
 
     /** Returns up to 20 most recent batches from SQLite for admin/debug inspection. */
@@ -169,4 +223,3 @@ class BulkTailorManager extends EventEmitter {
 }
 
 export const bulkTailorQueue = new BulkTailorManager();
-

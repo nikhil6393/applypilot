@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { getDb } from '../store/db.js';
 const dashboardRouter = Router();
-dashboardRouter.get('/analytics', (_req, res) => {
+
+const getAnalyticsData = (req, res) => {
     try {
         const db = getDb();
         // Status Breakdown from applications table
@@ -49,7 +50,11 @@ dashboardRouter.get('/analytics', (_req, res) => {
     catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
-});
+};
+
+dashboardRouter.get('/analytics', getAnalyticsData);
+dashboardRouter.get('/stats', getAnalyticsData);
+
 dashboardRouter.get('/pipeline', (_req, res) => {
     try {
         const db = getDb();

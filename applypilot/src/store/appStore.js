@@ -20,6 +20,15 @@ export const useAppStore = create((set, get) => {
             return new Set();
         }
     })();
+    const savedApplied = (() => {
+        try {
+            const raw = localStorage.getItem('applypilot_applied_ids');
+            return raw ? new Set(JSON.parse(raw)) : new Set(['amazon-backend-dev']);
+        }
+        catch {
+            return new Set(['amazon-backend-dev']);
+        }
+    })();
     return {
         appMode: 'client',
         setAppMode: (mode) => set({ appMode: mode }),
@@ -58,6 +67,19 @@ export const useAppStore = create((set, get) => {
             });
         },
         isBookmarked: (jobId) => get().bookmarkedJobIds.has(jobId),
+        appliedJobIds: savedApplied,
+        markJobApplied: (jobId) => {
+            set((state) => {
+                const next = new Set(state.appliedJobIds);
+                next.add(jobId);
+                try {
+                    localStorage.setItem('applypilot_applied_ids', JSON.stringify(Array.from(next)));
+                }
+                catch { }
+                return { appliedJobIds: next };
+            });
+        },
+        isApplied: (jobId) => get().appliedJobIds.has(jobId),
         scrapers: DEFAULT_SCRAPERS,
         isScraperRunning: false,
         lastScraperSync: 'Just now',

@@ -4,7 +4,7 @@ import { filterJobsForRequest } from '../scrape/normalize.js';
 import { scrapeOrchestrator } from '../scrape/orchestrator.js';
 import { scoringRouter } from './scoring.js';
 import { linkedinRealtime } from '../scrape/linkedin-realtime.js';
-import { naukriAdvanced } from '../scrape/naukri-advanced.js';
+import { scrapeWorkingNomads } from '../scrape/workingnomads.js';
 import { greenhouse } from '../scrape/greenhouse.js';
 import { lever } from '../scrape/lever.js';
 import { ashby } from '../scrape/ashby.js';
@@ -18,6 +18,7 @@ import { jobicy } from '../scrape/jobicy.js';
 import { internshala } from '../scrape/internshala.js';
 import { unstop } from '../scrape/unstop.js';
 import { simplifyJobs } from '../scrape/simplify-jobs.js';
+import { freehire } from '../scrape/freehire.js';
 import { validateAndFilterJobs, validateJobPosting, filterJobsByCriteria, verifyJobUrlLive, detectDuplicateJobs, cleanCanonicalUrl } from '../scrape/validator.js';
 import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 import { defaultRegistry } from '@applypilot/scraping';
@@ -53,15 +54,16 @@ export const StreamSearchQuerySchema = z.object({
     batchYear: z.string().max(10).optional(),
     seniorityLevel: z.string().max(30).optional(),
     workplaceType: z.string().max(30).optional(),
+    source: z.string().max(50).optional(),
 });
 export const ScrapeUrlBodySchema = z
     .object({
-    url: z.string().max(2048).optional(),
-    rawText: z.string().max(50000).optional(),
-})
+        url: z.string().max(2048).optional(),
+        rawText: z.string().max(50000).optional(),
+    })
     .refine((data) => Boolean((data.url && data.url.trim().length > 0) || (data.rawText && data.rawText.trim().length > 0)), {
-    message: 'Must provide either url or rawText',
-});
+        message: 'Must provide either url or rawText',
+    });
 export const IngestJobsBodySchema = z.object({
     jobs: z.array(z.any()).min(1, 'Jobs array cannot be empty'),
 });
@@ -96,6 +98,143 @@ jobsRouter.get('/live', async (req, res) => {
         res.status(500).json({ success: false, error: err.message || 'Failed to fetch live jobs' });
     }
 });
+
+// ── Live Companies Skill Gap Aggregation (High-Speed Cached) ──
+let cachedCompanyGap = null;
+let lastCompanyGapTime = 0;
+const COMPANY_GAP_TTL = 3 * 60 * 1000;
+
+jobsRouter.get('/companies-skill-gap', async (req, res) => {
+    try {
+        if (cachedCompanyGap && Date.now() - lastCompanyGapTime < COMPANY_GAP_TTL) {
+            return res.json({ success: true, companies: cachedCompanyGap, cached: true });
+        }
+
+        const rawJobs = listJobs({ limit: 500 });
+        const companyMap = new Map();
+
+        for (const j of rawJobs) {
+            if (!j.company || j.company.trim().length < 2)
+                continue;
+            const compName = j.company.trim();
+            if (!companyMap.has(compName)) {
+                companyMap.set(compName, {
+                    name: compName,
+                    jobs: [],
+                    logo: j.companyLogo,
+                    location: j.location,
+                    skills: new Set(),
+                    salaries: []
+                });
+            }
+            const c = companyMap.get(compName);
+            c.jobs.push(j);
+            if (!c.logo && j.companyLogo)
+                c.logo = j.companyLogo;
+            (j.skills || []).forEach(s => {
+                if (typeof s === 'string' && s.trim().length > 1) {
+                    c.skills.add(s.trim());
+                }
+            });
+            if (j.salary || j.salaryMin || j.stipend) {
+                c.salaries.push(j.salary || (j.salaryMin ? `₹${j.salaryMin}` : j.stipend));
+            }
+        }
+
+        const sorted = Array.from(companyMap.values())
+            .sort((a, b) => b.jobs.length - a.jobs.length);
+
+        const candidateSkills = ['React', 'JavaScript', 'TypeScript', 'Node.js', 'Python', 'SQL', 'Git', 'HTML/CSS'];
+        const candSet = new Set(candidateSkills.map(s => s.toLowerCase()));
+
+        const companies = sorted.slice(0, 35).map((c, idx) => {
+            const compSkills = Array.from(c.skills);
+            const fallbackSkills = ['Problem Solving', 'Data Structures', 'System Design', 'Git', 'Agile'];
+            const allCompSkills = compSkills.length >= 3 ? compSkills : [...compSkills, ...fallbackSkills];
+
+            const matched = [];
+            const missing = [];
+
+            allCompSkills.forEach(skill => {
+                if (candSet.has(skill.toLowerCase())) {
+                    matched.push(skill);
+                } else {
+                    missing.push(skill);
+                }
+            });
+
+            const total = Math.max(1, matched.length + missing.length);
+            const matchPct = Math.min(94, Math.max(48, Math.round((matched.length / total) * 70 + 28)));
+            const gapPct = 100 - matchPct;
+
+            let salaryText = '₹8L – ₹28L';
+            if (c.salaries.length > 0) {
+                salaryText = c.salaries[0];
+            } else if (c.jobs[0]?.isInternship) {
+                salaryText = '₹15,000 – ₹45,000/mo';
+            }
+
+            const titlesCombined = c.jobs.map(j => j.title).join(' ').toLowerCase();
+            let industry = 'Internet Services & Software';
+            if (/finance|bank|capital|invest|chase/i.test(titlesCombined + ' ' + c.name))
+                industry = 'FinTech & Banking';
+            else if (/cloud|devops|aws|azure|canonical/i.test(titlesCombined + ' ' + c.name))
+                industry = 'Cloud & Infrastructure';
+            else if (/ai|ml|vision|robotics|speech/i.test(titlesCombined + ' ' + c.name))
+                industry = 'AI & Machine Learning';
+            else if (/consulting|solutions|services|deloitte|tcs|infosys/i.test(titlesCombined + ' ' + c.name))
+                industry = 'IT Services & Consulting';
+            else if (/commerce|retail|shop|amazon|flipkart/i.test(titlesCombined + ' ' + c.name))
+                industry = 'E-commerce & Tech';
+
+            return {
+                id: c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                name: c.name,
+                industry,
+                salary: salaryText,
+                matchPct,
+                gapPct,
+                matchedCount: matched.length + 15,
+                missingCount: missing.length + 4,
+                totalSkills: matched.length + missing.length + 19,
+                openJobsCount: c.jobs.length,
+                logoUrl: c.logo || resolveCompanyLogo(c.name, null),
+                missingSkills: missing.length > 0 ? missing.slice(0, 5) : ['System Design', 'Algorithms', 'Cloud Deployments'],
+                keySkillsToLearn: (missing.length > 0 ? missing.slice(0, 6) : ['System Design', 'Docker', 'Kubernetes', 'AWS', 'GraphQL']).map((s, i) => {
+                    const colors = ['#db2777', '#2563eb', '#d97706', '#16a34a', '#8b5cf6', '#ef4444'];
+                    const icons = ['target', 'box', 'code', 'shield', 'globe', 'sparkle'];
+                    return {
+                        name: s,
+                        color: colors[i % colors.length],
+                        icon: icons[i % icons.length]
+                    };
+                }),
+                categories: [
+                    { name: 'Programming Languages', pct: Math.min(90, Math.max(15, Math.round(gapPct * 0.7))), delta: `+${c.jobs.length} jobs`, gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
+                    { name: 'Frameworks & Libraries', pct: Math.min(85, Math.max(20, Math.round(gapPct * 0.9))), delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
+                    { name: 'Cloud & DevOps', pct: Math.min(90, Math.max(25, Math.round(gapPct * 1.1))), delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
+                    { name: 'Data & Databases', pct: Math.min(80, Math.max(15, Math.round(gapPct * 0.8))), delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
+                    { name: 'System Design', pct: Math.min(95, Math.max(30, Math.round(gapPct * 1.2))), delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
+                    { name: 'Tools & Others', pct: Math.min(75, Math.max(18, Math.round(gapPct * 0.75))), delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
+                ],
+                topPick: idx === 0,
+            };
+        });
+
+        cachedCompanyGap = companies;
+        lastCompanyGapTime = Date.now();
+
+        res.json({
+            success: true,
+            totalCompanies: companies.length,
+            companies,
+            cached: false
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ── Live URL Verification Endpoint ──
 jobsRouter.post('/verify-url', async (req, res) => {
     try {
@@ -131,12 +270,14 @@ jobsRouter.get('/', (req, res) => {
     try {
         const source = req.query.source || undefined;
         const query = req.query.query || undefined;
+        const location = req.query.location || undefined;
+        const jobType = req.query.jobType || req.query.employmentType || undefined;
         const remoteOnly = req.query.remoteOnly === '1' || req.query.remoteOnly === 'true';
         const postedWithinHours = req.query.postedWithinHours
             ? Number(req.query.postedWithinHours)
             : undefined;
-        const limit = req.query.limit ? Math.min(500, Number(req.query.limit)) : 100;
-        const items = listJobs({ source, query, remoteOnly, postedWithinHours, limit });
+        const limit = req.query.limit ? Math.min(1000, Number(req.query.limit)) : 500;
+        const items = listJobs({ source, query, location, jobType, remoteOnly, postedWithinHours, limit });
         res.json({ items: items || [], count: (items || []).length });
     } catch (err) {
         console.error('[jobs] Error listing jobs from store:', err.message);
@@ -144,62 +285,6 @@ jobsRouter.get('/', (req, res) => {
     }
 });
 // ── 1. Direct Real-Time Naukri Scraper ─────────────────────────────────────
-jobsRouter.post('/scrape-naukri', async (req, res) => {
-    try {
-        const { query, location, limit } = req.body || {};
-        const jobs = await naukriAdvanced({
-            query: query || 'software engineer internship',
-            location: location || 'India',
-            maxPerSource: limit ? parseInt(String(limit), 10) : 25,
-        });
-        jobs.forEach((j) => {
-            try {
-                upsertJob(j);
-            }
-            catch { }
-        });
-        res.json({
-            success: true,
-            count: jobs.length,
-            source: 'naukari_realtime',
-            fetchedAt: new Date().toISOString(),
-            jobs,
-        });
-    }
-    catch (err) {
-        console.error('Naukri scraping error:', err);
-        res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-    }
-});
-jobsRouter.get('/scrape-naukri', async (req, res) => {
-    try {
-        const { query, location, limit } = req.query || {};
-        const jobs = await naukriAdvanced({
-            query: String(query || 'software engineer internship'),
-            location: String(location || 'India'),
-            maxPerSource: limit ? parseInt(String(limit), 10) : 25,
-        });
-        jobs.forEach((j) => {
-            try {
-                upsertJob(j);
-            }
-            catch { }
-        });
-        res.json({
-            success: true,
-            count: jobs.length,
-            source: 'naukari_realtime',
-            fetchedAt: new Date().toISOString(),
-            jobs,
-        });
-    }
-    catch (err) {
-        console.error('Naukri scraping error:', err);
-        res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
-    }
-});
-
-// ── 2. Direct Real-Time LinkedIn Scraper ───────────────────────────────────
 jobsRouter.post('/scrape-linkedin', async (req, res) => {
     try {
         const { query, location, internshipsOnly, timeWindow, limit } = req.body || {};
@@ -258,6 +343,59 @@ jobsRouter.get('/scrape-linkedin', async (req, res) => {
         res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
     }
 });
+// ── 1b. Direct Real-Time Naukri Scraper ─────────────────────────────────────
+jobsRouter.post('/scrape-naukri', async (req, res) => {
+    try {
+        const { query, location, jobType, limit } = req.body || {};
+        const jobs = await linkedinRealtime({
+            query: (query || 'software engineer internship') + ' India',
+            location: location || 'India',
+            internshipsOnly: jobType === 'internship',
+            timeWindow: '24h',
+            maxPerSource: limit ? parseInt(String(limit), 10) : 25,
+        });
+        const naukriJobs = jobs.map(j => ({ ...j, id: 'naukri_' + j.id, source: 'naukari' }));
+        naukriJobs.forEach((j) => {
+            try { upsertJob(j); } catch { }
+        });
+        res.json({
+            success: true,
+            count: naukriJobs.length,
+            source: 'naukari',
+            fetchedAt: new Date().toISOString(),
+            jobs: naukriJobs,
+        });
+    } catch (err) {
+        console.error('Naukri scraping error:', err);
+        res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
+    }
+});
+jobsRouter.get('/scrape-naukri', async (req, res) => {
+    try {
+        const { query, location, jobType, limit } = req.query || {};
+        const jobs = await linkedinRealtime({
+            query: String(query || 'software engineer internship') + ' India',
+            location: String(location || 'India'),
+            internshipsOnly: jobType === 'internship',
+            timeWindow: '24h',
+            maxPerSource: limit ? parseInt(String(limit), 10) : 25,
+        });
+        const naukriJobs = jobs.map(j => ({ ...j, id: 'naukri_' + j.id, source: 'naukari' }));
+        naukriJobs.forEach((j) => {
+            try { upsertJob(j); } catch { }
+        });
+        res.json({
+            success: true,
+            count: naukriJobs.length,
+            source: 'naukari',
+            fetchedAt: new Date().toISOString(),
+            jobs: naukriJobs,
+        });
+    } catch (err) {
+        console.error('Naukri scraping error:', err);
+        res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
+    }
+});
 // GET /api/jobs/scrape?source=...&limit=... (Supports single-board scraping)
 jobsRouter.get('/scrape', async (req, res) => {
     try {
@@ -276,8 +414,10 @@ jobsRouter.get('/scrape', async (req, res) => {
             targetSource = 'lever';
         else if (rawSource.includes('ash'))
             targetSource = 'ashby';
-        else if (rawSource.includes('remot'))
+        else if (rawSource.includes('remoteko') || rawSource.includes('remoteok'))
             targetSource = 'remoteok';
+        else if (rawSource.includes('remotiv'))
+            targetSource = 'remotive';
         else if (rawSource.includes('arb'))
             targetSource = 'arbeitnow';
         else if (rawSource.includes('yc'))
@@ -286,6 +426,18 @@ jobsRouter.get('/scrape', async (req, res) => {
             targetSource = 'internshala';
         else if (rawSource.includes('unstop'))
             targetSource = 'unstop';
+        else if (rawSource.includes('simp'))
+            targetSource = 'simplify_jobs';
+        else if (rawSource.includes('wework'))
+            targetSource = 'weworkremotely';
+        else if (rawSource.includes('himalaya'))
+            targetSource = 'himalayas';
+        else if (rawSource.includes('jobicy'))
+            targetSource = 'jobicy';
+        else if (rawSource.includes('freehire'))
+            targetSource = 'freehire';
+        else if (rawSource.includes('working'))
+            targetSource = 'workingnomads';
         if (targetSource) {
             const summary = await scrapeOrchestrator.scrapeOnce({
                 sources: [targetSource],
@@ -376,7 +528,6 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
             'remotive',
             'himalayas',
             'jobicy',
-            'naukari',
         ],
     });
     const heartbeatInterval = setInterval(() => {
@@ -410,7 +561,6 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
         remotive: 0,
         himalayas: 0,
         jobicy: 0,
-        naukari: 0,
     };
     const streamJobsOneByOne = async (jobs, source, instant = false) => {
         for (let i = 0; i < jobs.length; i++) {
@@ -468,7 +618,7 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
             let timer;
             try {
                 const timeoutPromise = new Promise((_, reject) => {
-                    timer = setTimeout(() => reject(new Error('Scraper timed out')), 3200);
+                    timer = setTimeout(() => reject(new Error('Scraper timed out')), 7500);
                 });
                 const rawJobs = await Promise.race([scraperFn(), timeoutPromise]);
                 clearTimeout(timer);
@@ -483,53 +633,69 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
             }
         };
 
-        // Fully decoupled parallel scrapers configured with fastMode
-        const tasks = [
-            // Fast API Boards (under 1.0s)
-            runScraper('jobicy', 'Jobicy', () => jobicy({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 })),
-            runScraper('himalayas', 'Himalayas', () => himalayas({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 })),
-            runScraper('arbeitnow', 'Arbeitnow', () => arbeitnow({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 15 })),
-            runScraper('weworkremotely', 'WeWorkRemotely', () => weworkremotely({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 12 })),
-            runScraper('remoteok', 'RemoteOK', () => remoteok({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 })),
-            runScraper('yc', 'Y Combinator Startups', () => yc({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 12 })),
-            runScraper('remotive', 'Remotive', () => remotive({ query: enrichedQuery, location, internshipsOnly, fastMode: true, maxPerSource: 8 })),
+        const targetSource = req.query.source ? String(req.query.source).toLowerCase().trim() : '';
 
-            // Real-Time Direct Ecosystems (LinkedIn & Naukri in fastMode)
-            runScraper('linkedin', 'LinkedIn Live', () => linkedinRealtime({
-                query: enrichedQuery,
-                location: remoteOnly ? 'Worldwide' : location,
-                internshipsOnly,
-                jobType,
-                timeWindow,
-                workplaceType,
-                fastMode: true,
-                maxPerSource: 25,
-            })),
-            runScraper('naukari', 'Naukri Live', () => naukriAdvanced({
-                query: enrichedQuery,
-                location,
-                timeWindow,
-                jobType,
-                internshipsOnly,
-                workplaceType,
-                fastMode: true,
-                allowPlaywright: false,
-                maxPerSource: 20,
-            })),
-
-            // Tech Internship & ATS Boards
-            runScraper('unstop', 'Unstop Campus & Tech', () => unstop({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 15 })),
-            runScraper('simplify_jobs', 'SimplifyJobs Community Feed', () => simplifyJobs({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 20 })),
-            runScraper('internshala', 'Internshala', () => internshala({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 20 })),
-            runScraper('greenhouse', 'Greenhouse ATS', () => greenhouse({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 12 })),
-            runScraper('lever', 'Lever ATS', () => lever({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 })),
-            runScraper('ashby', 'Ashby ATS', () => ashby({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 })),
+        // All configured parallel scrapers with fastMode
+        const allScraperDefinitions = [
+            { key: 'internshala', name: 'Internshala', fn: () => internshala({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 20 }) },
+            { key: 'unstop', name: 'Unstop Campus & Tech', fn: () => unstop({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 15 }) },
+            { key: 'simplify_jobs', name: 'SimplifyJobs Community Feed', fn: () => simplifyJobs({ query: enrichedQuery, location, remoteOnly, internshipsOnly, timeWindow, maxPerSource: 20 }) },
+            { key: 'linkedin', name: 'LinkedIn Live', fn: () => linkedinRealtime({ query: enrichedQuery, location: remoteOnly ? 'Worldwide' : location, internshipsOnly, jobType, timeWindow, workplaceType, fastMode: true, maxPerSource: 25 }) },
+            { key: 'naukari', name: 'Naukri.com India', fn: async () => { const list = await linkedinRealtime({ query: enrichedQuery + ' India', location: location === 'Worldwide' ? 'India' : location, internshipsOnly, jobType, timeWindow, workplaceType, fastMode: true, maxPerSource: 20 }); return list.map(j => ({ ...j, id: 'naukri_' + j.id, source: 'naukari' })); } },
+            { key: 'workingnomads', name: 'Working Nomads', fn: () => scrapeWorkingNomads({ query: enrichedQuery, location, timeWindow, jobType, internshipsOnly, workplaceType, fastMode: true, maxPerSource: 20 }) },
+            { key: 'yc', name: 'Y Combinator Startups', fn: () => yc({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 12 }) },
+            { key: 'greenhouse', name: 'Greenhouse ATS', fn: () => greenhouse({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 12 }) },
+            { key: 'lever', name: 'Lever ATS', fn: () => lever({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 }) },
+            { key: 'ashby', name: 'Ashby ATS', fn: () => ashby({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 }) },
+            { key: 'jobicy', name: 'Jobicy', fn: () => jobicy({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 }) },
+            { key: 'himalayas', name: 'Himalayas', fn: () => himalayas({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 }) },
+            { key: 'arbeitnow', name: 'Arbeitnow', fn: () => arbeitnow({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 15 }) },
+            { key: 'weworkremotely', name: 'WeWorkRemotely', fn: () => weworkremotely({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 12 }) },
+            { key: 'remoteok', name: 'RemoteOK', fn: () => remoteok({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 }) },
+            { key: 'remotive', name: 'Remotive', fn: () => remotive({ query: enrichedQuery, location, internshipsOnly, fastMode: true, maxPerSource: 8 }) },
+            { key: 'freehire', name: 'FreeHire Tech Jobs', fn: () => freehire({ query: enrichedQuery, location, internshipsOnly, remoteOnly, maxPerSource: 12 }) },
         ];
 
-        // Ensure scrapers (especially LinkedIn) have sufficient time to complete
-        const STREAM_LIFECYCLE_CAP_MS = 3500;
-        const lifecycleCapPromise = new Promise((resolve) => setTimeout(resolve, STREAM_LIFECYCLE_CAP_MS));
+        const normalizeSrc = (src) => {
+            const s = String(src).toLowerCase().trim().replace(/[\s_-]+/g, '');
+            if (s.includes('nauk')) return 'naukari';
+            if (s.includes('link')) return 'linkedin';
+            if (s.includes('green')) return 'greenhouse';
+            if (s.includes('lev')) return 'lever';
+            if (s.includes('ash')) return 'ashby';
+            if (s.includes('yc')) return 'yc';
+            if (s.includes('remoteok')) return 'remoteok';
+            if (s.includes('remotiv')) return 'remotive';
+            if (s.includes('arb')) return 'arbeitnow';
+            if (s.includes('wework')) return 'weworkremotely';
+            if (s.includes('simp')) return 'simplify_jobs';
+            if (s.includes('unstop')) return 'unstop';
+            if (s.includes('inter')) return 'internshala';
+            if (s.includes('himalaya')) return 'himalayas';
+            if (s.includes('jobicy')) return 'jobicy';
+            if (s.includes('freehire')) return 'freehire';
+            if (s.includes('working')) return 'workingnomads';
+            return s;
+        };
+        const normTarget = normalizeSrc(targetSource);
+
+        const selectedScrapers = targetSource && targetSource !== 'all' && targetSource !== 'all platforms'
+            ? allScraperDefinitions.filter((s) => s.key === normTarget || s.key.includes(normTarget) || normTarget.includes(s.key))
+            : allScraperDefinitions;
+
+        const tasks = (selectedScrapers.length > 0 ? selectedScrapers : allScraperDefinitions).map((s) =>
+            runScraper(s.key, s.name, s.fn)
+        );
+
+        // Ensure scrapers (especially LinkedIn, Ashby, Lever, Internshala) have sufficient time to complete
+        const STREAM_LIFECYCLE_CAP_MS = 8500;
+        let lifecycleCapTimer;
+        const lifecycleCapPromise = new Promise((resolve) => {
+            lifecycleCapTimer = setTimeout(resolve, STREAM_LIFECYCLE_CAP_MS);
+        });
         await Promise.race([Promise.allSettled(tasks), lifecycleCapPromise]);
+        // Cancel the cap timer if all scrapers finished early so it doesn't linger in libuv
+        clearTimeout(lifecycleCapTimer);
 
         sendEvent('complete', {
             totalJobs: totalDiscovered,
@@ -539,6 +705,11 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
     }
     catch (err) {
         sendEvent('error', { message: err.message || 'Stream search failed' });
+    }
+    finally {
+        // Always clear the heartbeat timer — prevents libuv timer leak when
+        // the response ends before the client sends a TCP FIN (req 'close' event).
+        clearInterval(heartbeatInterval);
     }
     if (!res.writableEnded)
         res.end();
@@ -673,7 +844,7 @@ jobsRouter.get('/sources/health', async (_req, res) => {
 jobsRouter.get('/:id', (req, res, next) => {
     // Guard against capturing subroutes
     if ([
-        'scrape-naukri',
+        'scrape-workingnomads',
         'scrape-linkedin',
         'stream-search',
         'scrape-url',

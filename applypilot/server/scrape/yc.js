@@ -68,7 +68,7 @@ export async function yc(req) {
                         ? 43200
                         : req.postedWithinHours && req.postedWithinHours > 0
                             ? req.postedWithinHours * 60
-                            : 1440;
+                            : 43200;
     const out = [];
     try {
         const listController = new AbortController();

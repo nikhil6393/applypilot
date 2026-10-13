@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectEnvPath = resolve(__dirname, '../.env');
+const currentDir = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? dirname(fileURLToPath(import.meta.url)) : process.cwd());
+const projectEnvPath = resolve(currentDir, '../.env');
 if (fs.existsSync(projectEnvPath)) {
     loadDotenv({ path: projectEnvPath, override: true });
 } else {
@@ -44,12 +44,12 @@ export const config = {
     port: int('PORT', 3000),
     nodeEnv,
     dbPath: validateDbPath(
-        process.env.DB_PATH ?? (nodeEnv === 'test' ? './data/applypilot.test.db' : './data/applypilot.db'),
+        process.env.DB_PATH ?? process.env.APPLYPILOT_DB_PATH ?? (nodeEnv === 'test' ? './data/applypilot.test.db' : './data/applypilot.db'),
         nodeEnv
     ),
     scrapeTimeoutMs: int('SCRAPE_TIMEOUT_MS', 15000),
     scrapeConcurrency: int('SCRAPE_CONCURRENCY', 3),
-    fitThreshold: float('FIT_THRESHOLD', 0.45),
+    fitThreshold: float('FIT_THRESHOLD', 70),
     cloudinary: {
         cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
         apiKey: process.env.CLOUDINARY_API_KEY || '',
@@ -70,15 +70,11 @@ export const isProd = config.nodeEnv === 'production';
 // ── Startup validation ────────────────────────────────────────────────────────
 if (isProd) {
     const missing = [];
-    const jwtSecret = process.env.JWT_SECRET ?? '';
-    if (!jwtSecret || jwtSecret.length < 32) {
-        missing.push('JWT_SECRET (must be at least 32 characters)');
-    }
     if (!process.env.CLOUDINARY_CLOUD_NAME) missing.push('CLOUDINARY_CLOUD_NAME');
     if (!process.env.CLOUDINARY_API_KEY) missing.push('CLOUDINARY_API_KEY');
     if (!process.env.CLOUDINARY_API_SECRET) missing.push('CLOUDINARY_API_SECRET');
     if (missing.length > 0) {
-        console.warn('[config] ⚠️  Missing required production environment variables:');
+        console.warn('[config] ⚠️  Missing recommended production environment variables (uploads will use local fallbacks):');
         for (const m of missing) {
             console.warn(`  - ${m}`);
         }

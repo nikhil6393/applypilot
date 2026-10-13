@@ -1,8 +1,10 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import zlib from 'node:zlib';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+// ApplyPilot Production Server with Live Scrapers & Precision Filtering
 import { fileURLToPath } from 'url';
 const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
 import { exec } from 'child_process';
@@ -25,16 +27,16 @@ import { batchCalculateDeterministicFitScores, } from './server/scoring/determin
 // import { generateFitScore } from './server/profile/fit-scorer.js';
 import { getRecentAuditLogs } from './server/events/event-logger.js';
 import { linkedinRealtime } from './server/scrape/linkedin-realtime.js';
-import { naukriAdvanced } from './server/scrape/naukri-advanced.js';
-import { authRouter, getSessionUser } from './server/security/auth.js';
+
+import { authRouter, getSessionUser, requireAuth } from './server/security/auth.js';
 import { profileRouter } from './server/routes/profile.js';
 import { dashboardRouter } from './server/routes/dashboard.js';
-import { initDb } from './server/store/db.js';
+import { initDb, closeDb } from './server/store/db.js';
 import helmet from 'helmet';
 import { jobsRouter } from './server/routes/jobs.js';
 import { healthRouter } from './server/routes/health.js';
 import { resumeRouter } from './server/routes/resume.js';
-import { monitorRouter } from './server/sse/monitor-sse.js';
+import { monitorRouter, monitorSseManager } from './server/sse/monitor-sse.js';
 import { scoringRouter } from './server/routes/scoring.js';
 import { tailorRouter } from './server/routes/tailor.js';
 import { trackerRouter } from './server/routes/tracker.js';
@@ -81,55 +83,7 @@ function improveBullet(bullet) {
 }
 const jobCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-// Curated Top Tech Companies for Greenhouse, Lever & Ashby indexing
-const GREENHOUSE_COMPANIES = [
-    'stripe',
-    'figma',
-    'databricks',
-    'scaleai',
-    'ramp',
-    'cloudflare',
-    'doordash',
-    'brex',
-    'plaid',
-    'affirm',
-    'gusto',
-    'instacart',
-    'reddit',
-    'benchling',
-    'robinhood',
-    'dropbox',
-    'twitch',
-    'mongodb',
-    'hashicorp',
-    'datadog',
-];
-const LEVER_COMPANIES = [
-    'palantir',
-    'netlify',
-    'datadog',
-    'atlassian',
-    'coursera',
-    'box',
-    'roblox',
-    'spotify',
-    'yelp',
-    'lever',
-    'docker',
-];
-const ASHBY_COMPANIES = [
-    'linear',
-    'retool',
-    'modal',
-    'sentry',
-    'perplexity',
-    'supabase',
-    'cursor',
-    'anysphere',
-    'ramp',
-    'openai',
-    'vanta',
-];
+// Jobs are sourced exclusively from live real-time scrapers: Greenhouse, Lever, Ashby, Remotive, RemoteOK, LinkedIn.
 // NOTE: CURATED_LIVE_JOBS removed — all jobs come from real scraper adapters only.
 // NOTE: All fake job listings removed.
 // Jobs are sourced exclusively from real scrapers: Greenhouse, Lever, Ashby, Remotive, RemoteOK, LinkedIn guest API.
@@ -147,14 +101,123 @@ async function startServer() {
         console.warn('[DB] SQLite init warning:', dbErr);
     }
     const app = express();
+    app.set('trust proxy', 1);
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
     // Security Headers (Helmet with Vite-compatible CSP)
     app.use(helmet({
         contentSecurityPolicy: false,
         crossOriginEmbedderPolicy: false,
     }));
+    // CORS Middleware
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+    app.use((req, res, next) => {
+        const origin = req.headers.origin;
+        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+            res.setHeader('Access-Control-Allow-Origin', origin || '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-request-id');
+            res.setHeader('Access-Control-Expose-Headers', 'x-request-id');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            res.setHeader('Access-Control-Max-Age', '600');
+            if (req.method === 'OPTIONS')
+                return res.sendStatus(204);
+            next();
+        } else {
+            res.status(403).json({ error: 'origin not allowed' });
+        }
+    });
     app.use(express.json({ limit: '25mb' }));
     app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+    // Native Gzip/Deflate compression for JSON & text responses > 1KB (strictly skips SSE streams)
+    app.use((req, res, next) => {
+        const acceptEncoding = req.headers['accept-encoding'] || '';
+        if (!acceptEncoding.includes('gzip') && !acceptEncoding.includes('deflate')) {
+            return next();
+        }
+        const originalSend = res.send;
+        res.send = function (body) {
+            const contentType = String(res.getHeader('content-type') || '');
+            if (
+                res.headersSent ||
+                contentType.includes('text/event-stream') ||
+                req.path.includes('stream') ||
+                (typeof body !== 'string' && !Buffer.isBuffer(body))
+            ) {
+                return originalSend.call(this, body);
+            }
+            const buffer = Buffer.isBuffer(body) ? body : Buffer.from(body);
+            if (buffer.length < 1024) {
+                return originalSend.call(this, body);
+            }
+            try {
+                if (acceptEncoding.includes('gzip')) {
+                    const compressed = zlib.gzipSync(buffer, { level: 6 });
+                    res.setHeader('Content-Encoding', 'gzip');
+                    res.removeHeader('Content-Length');
+                    return originalSend.call(this, compressed);
+                } else if (acceptEncoding.includes('deflate')) {
+                    const compressed = zlib.deflateSync(buffer, { level: 6 });
+                    res.setHeader('Content-Encoding', 'deflate');
+                    res.removeHeader('Content-Length');
+                    return originalSend.call(this, compressed);
+                }
+            } catch {
+                return originalSend.call(this, body);
+            }
+            return originalSend.call(this, body);
+        };
+        next();
+    });
+    // API Route Protection Guard
+    app.use('/api', (req, res, next) => {
+        if (process.env.NODE_ENV === 'test') {
+            return next();
+        }
+        if (req.path.startsWith('/health') ||
+            req.path.startsWith('/auth') ||
+            req.path.startsWith('/config') ||
+            req.path.startsWith('/jobs') ||
+            req.path.startsWith('/monitor') ||
+            req.path.startsWith('/dashboard') ||
+            req.path.startsWith('/scoring') ||
+            req.path.startsWith('/tailor') ||
+            (req.method === 'GET' && req.path === '/resume') ||
+            (req.method === 'GET' && req.path === '/profile') ||
+            (req.method === 'GET' && req.path.startsWith('/profile/templates')) ||
+            (req.path === '/resume/parse') ||
+            (req.path === '/profile/parse-resume')) {
+            return next();
+        }
+        requireAuth(req, res, next);
+    });
+    // Global Feature Flag & Maintenance Guard
+    app.use((req, res, next) => {
+        if (req.method === 'GET' || req.path.startsWith('/api/admin') || req.path.startsWith('/api/auth') || req.path.startsWith('/health') || req.path.startsWith('/api/health')) {
+            return next();
+        }
+        try {
+            const adminConfigPath = path.join(process.cwd(), 'data', 'admin_config.json');
+            if (fs.existsSync(adminConfigPath)) {
+                const raw = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
+                if (raw?.featureFlags?.maintenanceMode) {
+                    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+                    const user = token ? getSessionUser(token) : null;
+                    if (user?.role !== 'admin') {
+                        return res.status(503).json({
+                            success: false,
+                            maintenance: true,
+                            error: 'ApplyPilot is currently undergoing scheduled maintenance. Candidate modifications are temporarily paused.',
+                        });
+                    }
+                }
+            }
+        } catch { }
+        next();
+    });
     // Mount health probes
     app.use('/health', healthRouter);
     app.use('/api/health', healthRouter);
@@ -176,8 +239,21 @@ async function startServer() {
     app.use('/api/profile', profileRouter);
     // Mount Dashboard Router
     app.use('/api/dashboard', dashboardRouter);
-    // Per-user active LinkedIn sessions
+    // Per-user active LinkedIn sessions and OAuth CSRF state tracking
     const userLinkedInSessions = new Map();
+    const activeLinkedInStates = new Map();
+    // Sweep abandoned sessions and states
+    const _linkedInSessionSweeper = setInterval(() => {
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        for (const [uid, entry] of userLinkedInSessions) {
+            if (entry.storedAt < cutoff) userLinkedInSessions.delete(uid);
+        }
+        const stateCutoff = Date.now() - 15 * 60 * 1000;
+        for (const [st, val] of activeLinkedInStates) {
+            if (val.timestamp < stateCutoff) activeLinkedInStates.delete(st);
+        }
+    }, 15 * 60 * 1000);
+    _linkedInSessionSweeper.unref();
     function getCallerUserId(req) {
         const authHeader = req.headers.authorization;
         const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : req.query?.token;
@@ -238,7 +314,10 @@ async function startServer() {
                 ? process.env.APP_URL.replace(/\/$/, '')
                 : `${req.protocol}://${req.get('host')}`;
             const redirectUri = `${baseUrl}/auth/linkedin/callback`;
-            const state = `li_state_${Math.random().toString(36).substring(2, 10)}`;
+            const state = `li_state_${Math.random().toString(36).substring(2, 10)}_${Date.now()}`;
+            const userId = getCallerUserId(req);
+            activeLinkedInStates.set(state, { userId, timestamp: Date.now() });
+
             if (clientId) {
                 const scope = process.env.LINKEDIN_OAUTH_SCOPE || 'openid profile email';
                 const params = new URLSearchParams({
@@ -254,6 +333,7 @@ async function startServer() {
                     url: authUrl,
                     redirectUri,
                     clientId,
+                    state,
                 });
             }
             else {
@@ -287,6 +367,24 @@ async function startServer() {
         }
         if (!code) {
             return res.redirect('/');
+        }
+        let resolvedUserId = 'anonymous';
+        if (state && activeLinkedInStates.has(state)) {
+            const stateEntry = activeLinkedInStates.get(state);
+            activeLinkedInStates.delete(state);
+            resolvedUserId = stateEntry?.userId || 'anonymous';
+        } else if (process.env.NODE_ENV === 'production') {
+            return res.status(400).send(`
+        <html>
+          <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc;">
+            <div style="text-align: center; max-width: 420px; padding: 24px; background: #1e293b; border-radius: 16px; border: 1px solid #334155;">
+              <h2 style="color: #ef4444; margin-top: 0;">Invalid OAuth State</h2>
+              <p style="font-size: 14px; color: #94a3b8;">The authorization request was invalid or expired. Please close this window and try again.</p>
+              <button onclick="window.close()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 12px;">Close Window</button>
+            </div>
+          </body>
+        </html>
+            `);
         }
         try {
             const clientId = process.env.LINKEDIN_CLIENT_ID?.trim();
@@ -326,19 +424,15 @@ async function startServer() {
                         lastName: userinfo.family_name,
                         email: userinfo.email || '',
                         picture: userinfo.picture || '',
-                        headline: 'Computer Science Undergrad (2024–2028 Batch) • Software Engineering Intern Candidate',
+                        headline: 'Software Engineer',
                         location: userinfo.locale?.country
                             ? `${userinfo.locale.language || 'US'}, ${userinfo.locale.country}`
                             : 'Remote / Hybrid',
-                        graduationBatch: '2024-2028',
                         skills: [
-                            'Python',
-                            'Java',
+                            'JavaScript',
                             'TypeScript',
                             'React',
-                            'Data Structures & Algorithms',
-                            'C++',
-                            'Git',
+                            'Node.js',
                             'REST APIs',
                         ],
                         profileUrl: `https://www.linkedin.com/in/${(userinfo.given_name || 'candidate').toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`,
@@ -348,14 +442,13 @@ async function startServer() {
                 }
             }
             if (!profileData) {
-                const userId = getCallerUserId(req);
                 let userName = 'Candidate';
                 let userEmail = '';
-                if (userId !== 'anonymous') {
+                if (resolvedUserId !== 'anonymous') {
                     try {
                         const { getDb } = await import('./server/store/db.js');
                         const db = getDb();
-                        const u = db.prepare('SELECT name, email FROM users WHERE id = ?').get(userId);
+                        const u = db.prepare('SELECT name, email FROM users WHERE id = ?').get(resolvedUserId);
                         if (u) {
                             userName = u.name;
                             userEmail = u.email;
@@ -363,20 +456,19 @@ async function startServer() {
                     } catch {}
                 }
                 profileData = {
-                    id: `li_${userId !== 'anonymous' ? userId : Date.now()}`,
+                    id: `li_${resolvedUserId !== 'anonymous' ? resolvedUserId : Date.now()}`,
                     name: userName,
                     email: userEmail,
                     headline: 'Software Engineer',
                     location: '',
-                    graduationBatch: '',
                     skills: [],
                     profileUrl: '',
                     connectedAt: new Date().toISOString(),
                     isSimulated: false,
                 };
             }
-            const userId = getCallerUserId(req);
-            userLinkedInSessions.set(userId, profileData);
+            userLinkedInSessions.set(resolvedUserId, { profile: profileData, storedAt: Date.now() });
+            const safePayloadBase64 = Buffer.from(JSON.stringify(profileData)).toString('base64');
             // Return popup closing HTML with postMessage communication
             res.send(`
         <!DOCTYPE html>
@@ -390,16 +482,20 @@ async function startServer() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.6 1.6 0 0 0-1.6 1.6 1.6 1.6 0 0 0 1.6 1.6 1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-1.6-1.6Z"/></svg>
               </div>
               <h2 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 20px;">LinkedIn Connected!</h2>
-              <p style="font-size: 14px; color: #94a3b8; margin: 0 0 20px 0;">Welcome, ${profileData.name}. Syncing your profile and returning to ApplyPilot...</p>
+              <p style="font-size: 14px; color: #94a3b8; margin: 0 0 20px 0;">Syncing your profile and returning to ApplyPilot...</p>
               <div style="font-size: 12px; color: #64748b;">This window will close automatically.</div>
             </div>
             <script>
-              const profile = ${JSON.stringify(profileData)};
-              if (window.opener) {
-                window.opener.postMessage({ type: 'LINKEDIN_AUTH_SUCCESS', profile: profile }, window.location.origin);
-                setTimeout(() => window.close(), 600);
-              } else {
-                setTimeout(() => { window.location.href = '/'; }, 1000);
+              try {
+                const profile = JSON.parse(decodeURIComponent(escape(window.atob("${safePayloadBase64}"))));
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'LINKEDIN_AUTH_SUCCESS', profile: profile }, window.location.origin);
+                  setTimeout(() => window.close(), 600);
+                } else {
+                  setTimeout(() => { window.location.href = '/'; }, 1000);
+                }
+              } catch (e) {
+                console.error('LinkedIn response parsing error', e);
               }
             </script>
           </body>
@@ -417,20 +513,9 @@ async function startServer() {
     app.get('/api/auth/linkedin/session', async (req, res) => {
         try {
             const userId = getCallerUserId(req);
-            const userSession = userLinkedInSessions.get(userId);
+            const userSession = userLinkedInSessions.get(userId)?.profile;
             if (userSession) {
                 return res.json({ authenticated: true, profile: userSession });
-            }
-            // If user is authenticated, check Playwright session as well
-            if (userId !== 'anonymous') {
-                const playwrightLoggedIn = await isLoggedIn();
-                if (playwrightLoggedIn) {
-                    const profile = await getLinkedInProfile();
-                    if (profile) {
-                        userLinkedInSessions.set(userId, profile);
-                        return res.json({ authenticated: true, profile });
-                    }
-                }
             }
             res.json({ authenticated: false, profile: null });
         }
@@ -438,24 +523,9 @@ async function startServer() {
             res.json({ authenticated: false, profile: null });
         }
     });
-    // 4. Real LinkedIn Login with Credentials (Playwright automation)
+    // 4. Real LinkedIn Login with Credentials
     app.post('/api/auth/linkedin/login', async (req, res) => {
-        const { email, password } = req.body || {};
-        if (!email || !password) {
-            return res.status(400).json({ success: false, error: 'Email and password are required' });
-        }
-        try {
-            const result = await loginWithCredentials(email.trim(), password);
-            if (result.success && result.profile) {
-                const userId = getCallerUserId(req);
-                userLinkedInSessions.set(userId, result.profile);
-                return res.json({ success: true, profile: result.profile });
-            }
-            return res.status(401).json({ success: false, error: result.error || 'Login failed' });
-        }
-        catch (err) {
-            return res.status(500).json({ success: false, error: err.message || 'Login failed' });
-        }
+        return res.status(400).json({ success: false, error: 'Direct credential login is deprecated for security. Please use OAuth connect.' });
     });
     // 5. Disconnect LinkedIn
     app.post('/api/auth/linkedin/disconnect', async (req, res) => {
@@ -475,7 +545,7 @@ async function startServer() {
     app.post('/api/auth/linkedin/sync-resume', (req, res) => {
         const { profile } = req.body;
         const userId = getCallerUserId(req);
-        const active = profile || userLinkedInSessions.get(userId);
+        const active = profile || userLinkedInSessions.get(userId)?.profile;
         if (!active) {
             return res.status(400).json({ error: 'No active profile to sync' });
         }
@@ -533,7 +603,7 @@ async function startServer() {
         try {
             const { profile, resume, job, tailoredDoc } = req.body;
             const userId = getCallerUserId(req);
-            const active = profile || userLinkedInSessions.get(userId) || {};
+            const active = profile || userLinkedInSessions.get(userId)?.profile || {};
             const candidateResume = resume || {};
             const prompt = `You are a career consultant and ATS optimization expert.
 Generate a structured, high-conversion LinkedIn Easy Apply screening packet for this candidate and internship:
@@ -1383,9 +1453,15 @@ ${resume.name || 'Applicant'}`;
         // Send initial state
         res.write(`data: ${JSON.stringify({ type: 'init', results: batch.results })}\n\n`);
         const onUpdate = (data) => {
-            res.write(`data: ${JSON.stringify(data)}\n\n`);
-            if (data.type === 'batch_complete') {
-                res.end();
+            try {
+                if (!res.writableEnded) {
+                    res.write(`data: ${JSON.stringify(data)}\n\n`);
+                }
+                if (data.type === 'batch_complete') {
+                    bulkTailorQueue.removeListener(`batch:${batchId}`, onUpdate);
+                    if (!res.writableEnded) res.end();
+                }
+            } catch {
                 bulkTailorQueue.removeListener(`batch:${batchId}`, onUpdate);
             }
         };
@@ -1659,15 +1735,29 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
             ],
         });
     });
-    // Vite middleware setup
-    if (process.env.NODE_ENV !== 'production') {
+
+    // Centralized API Error Handling Middleware
+    app.use('/api', (err, req, res, next) => {
+        console.error(`[API Error] ${req.method} ${req.path}:`, err);
+        if (res.headersSent) {
+            return next(err);
+        }
+        res.status(err.status || 500).json({
+            success: false,
+            error: err.message || 'Internal server error',
+        });
+    });
+
+    // Vite middleware setup (only in development and non-bundled mode)
+    const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __filename !== 'undefined' && __filename.includes('server.cjs'));
+    if (!isProductionMode) {
         const vite = await createViteServer({
             root: APP_ROOT,
             server: {
                 middlewareMode: true,
                 watch: {
-                    usePolling: true,
-                    interval: 100,
+                    usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
+                    interval: 1000,
                     ignored: ['**/data/**', '**/*.db*', '**/*.sqlite*', '**/*.log', '**/scratch/**'],
                 },
             },
@@ -1677,8 +1767,17 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
     }
     else {
         const distPath = fs.existsSync(path.join(APP_ROOT, 'index.html')) ? APP_ROOT : (fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) ? path.join(APP_ROOT, 'dist') : path.join(process.cwd(), 'dist'));
-        app.use(express.static(distPath));
+        app.use(express.static(distPath, {
+            maxAge: '1y',
+            immutable: true,
+            setHeaders: (res, filePath) => {
+                if (filePath.endsWith('.html')) {
+                    res.setHeader('Cache-Control', 'no-cache');
+                }
+            }
+        }));
         app.get('*', (req, res) => {
+            res.setHeader('Cache-Control', 'no-cache');
             const indexFile = path.join(distPath, 'index.html');
             if (fs.existsSync(indexFile)) {
                 res.sendFile(indexFile);
@@ -1687,8 +1786,10 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
             }
         });
     }
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`ApplyPilot server running on http://0.0.0.0:${PORT}`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+        console.log(`ApplyPilot server running at:`);
+        console.log(`  > Local:   http://localhost:${PORT}`);
+        console.log(`  > Network: http://127.0.0.1:${PORT}`);
         // Auto-open browser only when explicitly requested (e.g. AUTO_OPEN=true)
         if (process.env.AUTO_OPEN === 'true') {
             const url = `http://localhost:${PORT}`;
@@ -1730,5 +1831,30 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
             console.warn('[monitor] failed to start background monitor:', e.message);
         }
     });
+
+    // Graceful process shutdown handler (SIGINT / SIGTERM)
+    let isShuttingDown = false;
+    const gracefulShutdown = (signal) => {
+        if (isShuttingDown) return;
+        isShuttingDown = true;
+        console.log(`\n[ApplyPilot] Received ${signal}. Starting graceful teardown...`);
+
+        try { scrapeOrchestrator.stop(); } catch {}
+        try { monitorSseManager.close(); } catch {}
+        try { closeDb(); } catch {}
+
+        server.close(() => {
+            console.log('[ApplyPilot] HTTP server closed cleanly. Exiting.');
+            process.exit(0);
+        });
+
+        setTimeout(() => {
+            console.warn('[ApplyPilot] Teardown timeout reached (3s). Force exiting.');
+            process.exit(1);
+        }, 3000).unref();
+    };
+
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 startServer();

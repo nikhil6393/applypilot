@@ -117,4 +117,24 @@ describe('Phase 11: Resume Studio Unification (§23 & §28)', () => {
         expect(res.body.sanitized.plainText).not.toContain('/etc/passwd');
         expect(res.body.sanitized.plainText).not.toContain('write18');
     });
+
+    it('POST /api/resume/export/docx generates valid DOCX buffer matching exact template', async () => {
+        const res = await request(app)
+            .post('/api/resume/export/docx')
+            .send({ resume: sampleResume });
+        expect(res.status).toBe(200);
+        expect(res.header['content-type']).toContain('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        expect(res.header['content-disposition']).toContain('Resume.docx');
+        expect(res.body).toBeDefined();
+    });
+
+    it('POST /api/resume/export/pdf generates valid PDF buffer matching exact template', async () => {
+        const res = await request(app)
+            .post('/api/resume/export/pdf')
+            .send({ resume: sampleResume });
+        expect(res.status).toBe(200);
+        expect(res.header['content-type']).toBe('application/pdf');
+        expect(res.header['content-disposition']).toContain('Resume.pdf');
+        expect(res.body).toBeDefined();
+    }, 45000);
 });

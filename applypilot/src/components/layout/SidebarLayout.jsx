@@ -6,7 +6,7 @@ import { Interactive3DTilt } from '../3d/Interactive3DTilt';
 import '../DashboardExact.css';
 
 /* ---------------- Sidebar Component ---------------- */
-function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount }) {
+function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className = '', isMobile = false }) {
   const navItems = [
     {
       id: 'analytics',
@@ -78,8 +78,8 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount }) {
   ];
 
   return (
-    <aside className="sidebar">
-      <div className="brand cursor-pointer" onClick={() => onSelectScreen('analytics')}>
+    <aside className={`sidebar ${className} ${isMobile ? 'is-mobile-drawer' : ''}`}>
+      <div className="brand cursor-pointer" onClick={() => { onSelectScreen('analytics'); if (onClose) onClose(); }}>
         <img
           src="/applypilot-logo.png"
           alt="ApplyPilot"
@@ -91,7 +91,7 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount }) {
         </span>
         <span className="pro">PRO</span>
         {onClose && (
-          <button onClick={onClose} className="ml-auto lg:hidden text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} aria-label="Close navigation" className="ml-auto text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
             <X className="w-5 h-5" />
           </button>
         )}
@@ -242,6 +242,7 @@ export function SidebarLayout({
           currentScreen={currentScreen}
           onSelectScreen={onSelectScreen}
           jobCount={jobCount}
+          className="desktop-sidebar hidden lg:flex"
         />
 
         {/* Mobile Drawer */}
@@ -252,21 +253,23 @@ export function SidebarLayout({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+                className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 lg:hidden"
                 onClick={() => setMobileOpen(false)}
               />
               <motion.div
-                initial={{ x: -250 }}
+                initial={{ x: -280 }}
                 animate={{ x: 0 }}
-                exit={{ x: -250 }}
+                exit={{ x: -280 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="fixed left-0 top-0 bottom-0 z-50 lg:hidden bg-white shadow-xl"
+                className="fixed left-0 top-0 bottom-0 z-50 lg:hidden bg-white shadow-2xl w-[270px] max-w-[85vw]"
               >
                 <Sidebar
                   currentScreen={currentScreen}
                   onSelectScreen={onSelectScreen}
                   onClose={() => setMobileOpen(false)}
                   jobCount={jobCount}
+                  isMobile={true}
+                  className="mobile-sidebar flex"
                 />
               </motion.div>
             </>

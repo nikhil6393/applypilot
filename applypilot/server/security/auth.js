@@ -55,7 +55,8 @@ export function initAuthTables() {
         db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'candidate'`);
     }
     catch { }
-    // Seed default demo accounts if not already present
+    // Seed verified administrator and demo accounts if not already present
+    seedAdminAccount();
     seedDemoAccounts();
     // Prune any already expired sessions or password resets (one-shot at startup)
     pruneExpiredAuthData();
@@ -163,6 +164,31 @@ function createDefaultProfile(id, name, email, roleTitle, avatar, role = 'candid
             loginCount: 1,
         },
     };
+}
+/**
+ * Seed verified administrator account for nikhil900285@gmail.com on all environments
+ */
+export function seedAdminAccount() {
+    try {
+        const db = getDb();
+        const adminEmail = 'nikhil900285@gmail.com';
+        const adminPass = 'nikhil123';
+        const existing = db.prepare('SELECT id, role FROM users WHERE email = ?').get(adminEmail.toLowerCase());
+        const { hash, salt } = hashPassword(adminPass);
+        if (!existing) {
+            const profile = createDefaultProfile('usr_nikhil_singh', 'Nikhil Singh', adminEmail, 'Senior Full Stack Engineer', null, 'admin', false);
+            db.prepare(`
+                INSERT INTO users (id, name, email, password_hash, salt, role_title, tier, role, avatar, profile_json, created_at, last_login)
+                VALUES (?, ?, ?, ?, ?, ?, 'pro', 'admin', ?, ?, datetime('now'), datetime('now'))
+            `).run('usr_nikhil_singh', 'Nikhil Singh', adminEmail.toLowerCase(), hash, salt, 'Senior Full Stack Engineer', null, JSON.stringify(profile));
+        } else {
+            try {
+                db.prepare(`UPDATE users SET password_hash = ?, salt = ?, role = 'admin' WHERE email = ?`).run(hash, salt, adminEmail.toLowerCase());
+            } catch {}
+        }
+    } catch (e) {
+        console.warn('[AUTH] seedAdminAccount error:', e?.message);
+    }
 }
 /**
  * Seed verified demo users for immediate and seamless zero-friction testing

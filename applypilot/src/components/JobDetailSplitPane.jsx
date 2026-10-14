@@ -29,51 +29,18 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
       <span className="text-xs text-slate-400 font-medium">Split-Pane Detail Mode</span>
     </div>
 
-    {/* Split Pane: 320px list left, detail right */}
+    {/* Split Pane: detail right on desktop, top on mobile */}
     <div className="flex flex-col md:flex-row gap-5 items-start">
-      {/* LEFT COLUMN: 320px JOB LIST */}
-      <div className="w-full md:w-80 flex-shrink-0 bg-white border border-[#E5E7EB] rounded-2xl p-3 shadow-xs max-h-[calc(100vh-180px)] overflow-y-auto space-y-2">
-        <div className="px-2 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-          <span>Indexed Positions</span>
-          <span className="text-[10px] text-slate-400 font-mono">{jobs.length}</span>
-        </div>
-
-        <div className="space-y-1.5">
-          {jobs.map((j) => {
-            const isSelected = j.id === currentJob.id;
-            return (<div key={j.id} onClick={() => onSelectJob(j)} className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${isSelected
-              ? 'bg-[#EEF2FF] border-[#5B7BE8] shadow-2xs'
-              : 'bg-white border-slate-200/80 hover:bg-slate-50'}`}>
-              <div className="flex items-start justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 truncate">{j.company}</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 uppercase">
-                  {j.source}
-                </span>
-              </div>
-              <h4 className="text-xs font-bold text-[#111827] mt-0.5 line-clamp-1">{j.title}</h4>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 pt-1.5 border-t border-black/5">
-                <span>{j.location || 'Remote'}</span>
-                {j.salary && !j.salary.toLowerCase().includes('competitive') ? (
-                  <b className="text-emerald-700 font-bold">{j.salary}</b>
-                ) : (
-                  <span className="text-[10px] text-slate-400 font-medium">Direct Apply</span>
-                )}
-              </div>
-            </div>);
-          })}
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN: JOB DETAIL VIEW */}
-      <div className="flex-1 bg-white border border-[#E5E7EB] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6 min-w-0">
+      {/* JOB DETAIL VIEW: primary on mobile */}
+      <div className="flex-1 bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-6 md:p-8 shadow-xs space-y-6 min-w-0 w-full order-1 md:order-2">
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-start gap-4">
-            <CompanyIcon company={currentJob.company} logoUrl={currentJob.companyLogo} size={48} className="rounded-2xl shadow-sm" />
-            <div>
+          <div className="flex items-start gap-3 sm:gap-4">
+            <CompanyIcon company={currentJob.company} logoUrl={currentJob.companyLogo} size={44} className="rounded-2xl shadow-sm shrink-0" />
+            <div className="min-w-0">
               <span className="text-xs font-semibold text-slate-500">{currentJob.company}</span>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#111827] mt-0.5">{currentJob.title}</h1>
-              <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+              <h1 className="text-lg sm:text-2xl font-bold text-[#111827] mt-0.5 break-words">{currentJob.title}</h1>
+              <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-[#5B7BE8]" />
                   {currentJob.location || 'Remote'}
@@ -87,15 +54,15 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
           </div>
 
           {/* Action Bar */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <button type="button" onClick={() => toggleBookmark(currentJob.id)} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[#F59E0B] hover:border-slate-300 transition-colors cursor-pointer" title="Bookmark position">
               <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-[#F59E0B] text-[#F59E0B]' : ''}`} />
             </button>
-            <button type="button" onClick={() => onTailorJob(currentJob)} className="px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5">
+            <button type="button" onClick={() => onTailorJob(currentJob)} className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap">
               <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6]" />
-              <span>Score &amp; Tailor Resume</span>
+              <span>Score &amp; Tailor</span>
             </button>
-            <a href={getSafeJobApplyUrl(currentJob)} target="_blank" rel="noreferrer" className="px-3.5 py-2 rounded-xl bg-[#5B7BE8] hover:bg-[#3D5FD9] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1">
+            <a href={getSafeJobApplyUrl(currentJob)} target="_blank" rel="noreferrer" className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-[#5B7BE8] hover:bg-[#3D5FD9] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap">
               <span>Direct Apply</span>
               <ExternalLink className="w-3 h-3" />
             </a>
@@ -215,6 +182,50 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
               <b className="text-[#10B981]">Verified Source ({currentJob.source})</b>
             </div>
           </div>)}
+        </div>
+      </div>
+
+      {/* 320px JOB LIST: left on desktop, below detail on mobile */}
+      <div className="w-full md:w-80 flex-shrink-0 bg-white border border-[#E5E7EB] rounded-2xl p-3 shadow-xs max-h-[380px] md:max-h-[calc(100vh-180px)] overflow-y-auto space-y-2 order-2 md:order-1">
+        <div className="px-2 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+          <span>Other Positions in Feed</span>
+          <span className="text-[10px] text-slate-400 font-mono">{jobs.length}</span>
+        </div>
+
+        <div className="space-y-1.5">
+          {jobs.map((j) => {
+            const isSelected = j.id === currentJob.id;
+            return (
+              <div
+                key={j.id}
+                onClick={() => {
+                  onSelectJob(j);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-[#EEF2FF] border-[#5B7BE8] shadow-2xs'
+                    : 'bg-white border-slate-200/80 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 truncate">{j.company}</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                    {j.source}
+                  </span>
+                </div>
+                <h4 className="text-xs font-bold text-[#111827] mt-0.5 line-clamp-1">{j.title}</h4>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 pt-1.5 border-t border-black/5">
+                  <span>{j.location || 'Remote'}</span>
+                  {j.salary && !j.salary.toLowerCase().includes('competitive') ? (
+                    <b className="text-emerald-700 font-bold">{j.salary}</b>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-medium">Direct Apply</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

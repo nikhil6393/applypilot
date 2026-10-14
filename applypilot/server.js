@@ -103,30 +103,83 @@ async function startServer() {
     const app = express();
     app.set('trust proxy', 1);
     const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-    // Security Headers (Helmet with Vite-compatible CSP)
+    // Security Headers: Helmet with robust Content-Security-Policy
     app.use(helmet({
-        contentSecurityPolicy: false,
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+                styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+                fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+                imgSrc: [
+                    "'self'",
+                    "data:",
+                    "blob:",
+                    "https://res.cloudinary.com",
+                    "https://images.unsplash.com",
+                    "https://lh3.googleusercontent.com",
+                    "https://media.licdn.com",
+                    "https://*.licdn.com",
+                ],
+                connectSrc: [
+                    "'self'",
+                    "https://*.antideploy.app",
+                    "https://*.fly.dev",
+                    "https://openrouter.ai",
+                    "https://api.resend.com",
+                    "http://localhost:*",
+                    "http://127.0.0.1:*",
+                    "ws://localhost:*",
+                    "ws://127.0.0.1:*",
+                ],
+                frameAncestors: ["'none'"],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+            },
+        },
         crossOriginEmbedderPolicy: false,
     }));
-    // CORS Middleware
-    const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+    // CORS Middleware: strictly bound to authorized origins (never open wildcard *)
+    const defaultAllowedOrigins = [
+        'https://applypilot.antideploy.app',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
+    ];
+    const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
         .split(',')
         .map((o) => o.trim())
         .filter(Boolean);
+    const allowedOriginsSet = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
+
     app.use((req, res, next) => {
         const origin = req.headers.origin;
-        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-            res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        if (!origin) {
+            // Direct browser navigation or same-origin request: never send open wildcard *
+            return next();
+        }
+
+        const isAllowed =
+            allowedOriginsSet.has(origin) ||
+            /^https:\/\/([a-zA-Z0-9-]+\.)?antideploy\.app$/.test(origin) ||
+            /^https:\/\/([a-zA-Z0-9-]+\.)?fly\.dev$/.test(origin) ||
+            (process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+
+        if (isAllowed) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-request-id');
             res.setHeader('Access-Control-Expose-Headers', 'x-request-id');
             res.setHeader('Access-Control-Allow-Credentials', 'true');
             res.setHeader('Access-Control-Max-Age', '600');
-            if (req.method === 'OPTIONS')
+            res.setHeader('Vary', 'Origin');
+            if (req.method === 'OPTIONS') {
                 return res.sendStatus(204);
-            next();
+            }
+            return next();
         } else {
-            res.status(403).json({ error: 'origin not allowed' });
+            res.status(403).json({ error: 'Origin not allowed by CORS policy' });
         }
     });
     app.use(express.json({ limit: '25mb' }));
@@ -1749,12 +1802,14 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
     });
 
     // Vite middleware setup (only in development and non-bundled mode)
-    const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __filename !== 'undefined' && __filename.includes('server.cjs'));
+    const hasDist = fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) || fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+    const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __filename !== 'undefined' && __filename.includes('server.cjs')) || hasDist;
     if (!isProductionMode) {
         const vite = await createViteServer({
             root: APP_ROOT,
             server: {
                 middlewareMode: true,
+                allowedHosts: true,
                 watch: {
                     usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
                     interval: 1000,

@@ -21,14 +21,19 @@ export async function generateStrictPdf(resume) {
         });
         const context = await browser.newContext();
         const page = await context.newPage();
-        await page.setContent(html, { waitUntil: 'load' });
+        await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
         
-        // Wait for font rendering if supported
-        await page.evaluate(async () => {
-            if (document.fonts) {
-                await document.fonts.ready;
-            }
-        });
+        // Wait for font rendering if supported with bounded timeout
+        try {
+            await page.evaluate(async () => {
+                if (document.fonts) {
+                    await Promise.race([
+                        document.fonts.ready,
+                        new Promise(resolve => setTimeout(resolve, 1500))
+                    ]);
+                }
+            });
+        } catch (_) {}
 
         const pdfBuffer = await page.pdf({
             format: 'Letter',

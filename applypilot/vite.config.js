@@ -11,6 +11,7 @@ export default defineConfig(() => {
             },
         },
         server: {
+            allowedHosts: true,
             hmr: process.env.DISABLE_HMR !== 'true',
             watch: {
                 usePolling: true,

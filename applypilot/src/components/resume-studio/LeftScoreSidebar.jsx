@@ -179,7 +179,7 @@ export default function LeftScoreSidebar({
   else if (validScore < 60) strokeColor = '#ef4444';
 
   return (
-    <div className="w-56 xl:w-60 h-full bg-white border-r border-slate-200/90 flex flex-col justify-between shrink-0 select-none overflow-y-auto custom-scrollbar z-10 text-slate-800">
+    <div className="w-full lg:w-56 xl:w-60 h-full bg-white border-r border-slate-200/90 flex flex-col justify-between shrink-0 select-none overflow-y-auto custom-scrollbar z-10 text-slate-800">
       <div>
         {/* Top Circular Score Dial */}
         <div className="p-4 flex flex-col items-center justify-center border-b border-slate-100">

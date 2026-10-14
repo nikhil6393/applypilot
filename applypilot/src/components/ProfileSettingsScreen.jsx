@@ -284,49 +284,49 @@ export const ProfileSettingsScreen = ({
       </div>
 
       {/* Settings Navigation Tabs */}
-      <div className="flex border-b border-[#e8eaf3] bg-white rounded-2xl p-1.5 shadow-xs gap-1">
+      <div className="flex border-b border-[#e8eaf3] bg-white rounded-2xl p-1.5 shadow-xs gap-1 overflow-x-auto no-scrollbar max-w-full">
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'profile'
               ? 'bg-[#5b4df0] text-white shadow-xs'
               : 'text-[#565b78] hover:bg-slate-50'
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="w-4 h-4 shrink-0" />
           <span>Candidate Truth Anchor</span>
         </button>
         <button
           onClick={() => setActiveTab('guardrails')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'guardrails'
               ? 'bg-[#5b4df0] text-white shadow-xs'
               : 'text-[#565b78] hover:bg-slate-50'
           }`}
         >
-          <Shield className="w-4 h-4" />
+          <Shield className="w-4 h-4 shrink-0" />
           <span>Automation Guardrails</span>
         </button>
         <button
           onClick={() => setActiveTab('scrapers')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'scrapers'
               ? 'bg-[#5b4df0] text-white shadow-xs'
               : 'text-[#565b78] hover:bg-slate-50'
           }`}
         >
-          <Globe className="w-4 h-4" />
+          <Globe className="w-4 h-4 shrink-0" />
           <span>Job Boards &amp; Scrapers</span>
         </button>
         <button
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
             activeTab === 'security'
               ? 'bg-[#5b4df0] text-white shadow-xs'
               : 'text-[#565b78] hover:bg-slate-50'
           }`}
         >
-          <Lock className="w-4 h-4" />
+          <Lock className="w-4 h-4 shrink-0" />
           <span>Security &amp; Account</span>
         </button>
       </div>

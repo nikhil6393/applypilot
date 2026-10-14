@@ -73,8 +73,13 @@ export class SseStreamManager extends EventEmitter {
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache, no-transform');
         res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        const origin = req.headers?.origin;
+        if (origin) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Vary', 'Origin');
+        } else if (process.env.NODE_ENV === 'test') {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+        }
         res.flushHeaders?.();
         const client = { res, lastSentId: 0 };
         this.clients.add(client);

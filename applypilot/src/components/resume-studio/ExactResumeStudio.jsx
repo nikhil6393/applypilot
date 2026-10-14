@@ -37,6 +37,7 @@ export default function ExactResumeStudio({
   const [studioState, setStudioState] = useState(resume ? 'studio' : 'upload'); // 'upload' | 'extracting' | 'studio'
   const [uploadedFileName, setUploadedFileName] = useState('Resume.pdf');
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'fix'
+  const [mobileTab, setMobileTab] = useState('sheet'); // 'score' | 'details' | 'sheet'
   const [activeFixId, setActiveFixId] = useState(null);
   const [highlightWord, setHighlightWord] = useState(null);
   const [isHighlightActive, setIsHighlightActive] = useState(false);
@@ -162,6 +163,7 @@ export default function ExactResumeStudio({
   const handleSelectFix = (fixId) => {
     setActiveFixId(fixId);
     setActiveTab('fix');
+    setMobileTab('details');
 
     // Highlight the repeated word for this fix if applicable
     const issue = issues.find(i => i.id === fixId || i.category === fixId);
@@ -181,6 +183,7 @@ export default function ExactResumeStudio({
   // Back to Home Overview
   const handleBackToHome = () => {
     setActiveTab('home');
+    setMobileTab('details');
   };
 
   // Dynamic 1-Click Fix Handler
@@ -256,6 +259,7 @@ export default function ExactResumeStudio({
   const handleHighlightLines = (word) => {
     setIsHighlightActive(true);
     setHighlightWord(word || 'Built');
+    setMobileTab('sheet');
     const docEl = document.getElementById('resume-printable-document');
     if (docEl) {
       docEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -289,8 +293,8 @@ export default function ExactResumeStudio({
   return (
     <div className="flex flex-col h-[calc(100vh-68px)] min-h-[700px] w-full bg-[#F8FAFC] text-slate-900 overflow-hidden select-none">
       {/* Target Mode Bar */}
-      <div className="px-4 py-2 border-b border-slate-200/90 bg-white flex items-center justify-between text-xs shrink-0 shadow-2xs">
-        <div className="flex items-center gap-2">
+      <div className="px-3 sm:px-4 py-2 border-b border-slate-200/90 bg-white flex flex-wrap items-center justify-between gap-2 text-xs shrink-0 shadow-2xs">
+        <div className="flex items-center gap-2 flex-wrap">
           {activeTargetJob ? (
             <>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
@@ -314,10 +318,10 @@ export default function ExactResumeStudio({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsArmorModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300/80 transition-all cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300/80 transition-all cursor-pointer shadow-2xs text-[11px] sm:text-xs"
             title="Generate Interview Defense Talking Points & STAR Cheat Sheet"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
@@ -326,68 +330,106 @@ export default function ExactResumeStudio({
 
           <button
             onClick={() => setIsCompareModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-xs cursor-pointer text-[11px] sm:text-xs"
           >
             <Target className="w-3.5 h-3.5" />
-            <span>{activeTargetJob ? '⚡ Compare & Tailor to JD' : '🎯 Tailor to Job Description'}</span>
+            <span>{activeTargetJob ? '⚡ Compare & Tailor' : '🎯 Tailor to JD'}</span>
           </button>
         </div>
       </div>
 
+      {/* Mobile Screen Switcher (visible on < lg screens) */}
+      <div className="flex lg:hidden items-center justify-around bg-white border-b border-slate-200 px-2 py-1.5 shrink-0 z-30 shadow-2xs">
+        <button
+          onClick={() => setMobileTab('score')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            mobileTab === 'score'
+              ? 'bg-[#5b4df0] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>📊 Score ({Math.round(score)})</span>
+        </button>
+        <button
+          onClick={() => setMobileTab('details')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            mobileTab === 'details'
+              ? 'bg-[#5b4df0] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>⚡ {activeTab === 'fix' ? 'Fix Details' : 'Overview'}</span>
+        </button>
+        <button
+          onClick={() => setMobileTab('sheet')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            mobileTab === 'sheet'
+              ? 'bg-[#5b4df0] text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>📄 ATS Sheet</span>
+        </button>
+      </div>
+
       <div className="flex flex-1 min-h-0 w-full overflow-hidden">
         {/* Column 1: Left Navigation Sidebar */}
-        <LeftScoreSidebar
-          score={score}
-          categories={categories}
-          issues={issues}
-          activeTab={activeTab}
-          onSelectTab={(tab) => {
-            if (tab === 'home') setActiveTab('home');
-            else if (tab === 'keywords') setIsCompareModalOpen(true);
-            else handleSelectFix(tab);
-          }}
-          activeFix={activeFixId}
-          onSelectFix={handleSelectFix}
-          repetitionCount={repetitionCount}
-          onUploadNew={() => setStudioState('upload')}
-          onOpenFullReport={() => setIsReportModalOpen(true)}
-        />
+        <div className={`${mobileTab === 'score' ? 'flex w-full' : 'hidden'} lg:flex shrink-0 h-full`}>
+          <LeftScoreSidebar
+            score={score}
+            categories={categories}
+            issues={issues}
+            activeTab={activeTab}
+            onSelectTab={(tab) => {
+              if (tab === 'home') setActiveTab('home');
+              else if (tab === 'keywords') setIsCompareModalOpen(true);
+              else handleSelectFix(tab);
+            }}
+            activeFix={activeFixId}
+            onSelectFix={handleSelectFix}
+            repetitionCount={repetitionCount}
+            onUploadNew={() => setStudioState('upload')}
+            onOpenFullReport={() => setIsReportModalOpen(true)}
+          />
+        </div>
 
         {/* Column 2: Center Dual View (Home Overview vs Fix Detail) */}
-        <div className="flex-1 h-full min-w-0 flex flex-col overflow-hidden border-r border-slate-200/90 relative bg-[#F8FAFC]">
+        <div className={`${mobileTab === 'details' ? 'flex' : 'hidden'} lg:flex flex-1 h-full min-w-0 flex-col overflow-hidden border-r border-slate-200/90 relative bg-[#F8FAFC]`}>
           {activeTab === 'home' ? (
             <HomeOverviewView
               candidateName={candidateName}
               score={score}
-            issues={issues}
-            categories={categories}
-            onSelectFix={handleSelectFix}
-            onHowItWorks={() => setIsReportModalOpen(true)}
-          />
-        ) : (
-          <FixDetailView
-            fixId={activeFixId}
-            resume={resume}
-            issues={issues}
-            onBackToHome={handleBackToHome}
-            onApplyFix={handleApplyFix}
-            onHighlightLines={handleHighlightLines}
-            onOpenCompare={() => setIsCompareModalOpen(true)}
-            onOpenEdit={() => setIsEditModalOpen(true)}
-          />
-        )}
-      </div>
+              issues={issues}
+              categories={categories}
+              onSelectFix={handleSelectFix}
+              onHowItWorks={() => setIsReportModalOpen(true)}
+            />
+          ) : (
+            <FixDetailView
+              fixId={activeFixId}
+              resume={resume}
+              issues={issues}
+              onBackToHome={handleBackToHome}
+              onApplyFix={handleApplyFix}
+              onHighlightLines={handleHighlightLines}
+              onOpenCompare={() => setIsCompareModalOpen(true)}
+              onOpenEdit={() => setIsEditModalOpen(true)}
+            />
+          )}
+        </div>
 
-      {/* Column 3: Right Authentic ATS Resume Sheet */}
-      <RightDocumentSheet
-        resume={resume}
-        highlightWord={highlightWord}
-        isHighlightActive={isHighlightActive}
-        onOpenRewriter={() => handleSelectFix('rewriter')}
-        onOpenMagicWrite={() => handleSelectFix('magic_write')}
-        onOpenEdit={() => setIsEditModalOpen(true)}
-        onOpenCompare={() => setIsCompareModalOpen(true)}
-      />
+        {/* Column 3: Right Authentic ATS Resume Sheet */}
+        <div className={`${mobileTab === 'sheet' ? 'flex' : 'hidden'} lg:flex flex-[1.2] xl:flex-[1.5] h-full overflow-hidden w-full`}>
+          <RightDocumentSheet
+            resume={resume}
+            highlightWord={highlightWord}
+            isHighlightActive={isHighlightActive}
+            onOpenRewriter={() => handleSelectFix('rewriter')}
+            onOpenMagicWrite={() => handleSelectFix('magic_write')}
+            onOpenEdit={() => setIsEditModalOpen(true)}
+            onOpenCompare={() => setIsCompareModalOpen(true)}
+          />
+        </div>
       </div>
 
       {/* Live Resume Content Editor Modal */}

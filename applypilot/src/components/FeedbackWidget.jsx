@@ -86,7 +86,10 @@ const CSS = `
   .fb-send .spin{animation:fb-spin .8s linear infinite}
   .fb-ok{text-align:center;padding:8px 0 4px;animation:fb-success-pop .42s cubic-bezier(.34,1.56,.64,1) forwards}
   .fb-ok h3{font-size:17px;font-weight:800;color:#0f172a;margin:14px 0 6px}
-  .fb-ok p{font-size:13px;color:#64748b;margin:0;line-height:1.5}
+  @media (max-width: 480px) {
+    .fb-trigger{bottom:16px;right:16px;padding:9px 14px 9px 12px;font-size:12px;gap:6px}
+    .fb-panel{bottom:72px;right:12px;left:12px;width:auto;max-width:calc(100vw - 24px);border-radius:16px}
+  }
 `;
 
 export function FeedbackWidget() {

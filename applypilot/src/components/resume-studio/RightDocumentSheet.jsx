@@ -242,11 +242,11 @@ export default function RightDocumentSheet({
   };
 
   return (
-    <div className="flex-[1.2] xl:flex-[1.5] h-full bg-[#F8FAFC] flex flex-col shrink-0 select-none overflow-hidden border-l border-slate-200/90 z-20">
+    <div className="w-full h-full bg-[#F8FAFC] flex flex-col shrink-0 select-none overflow-hidden border-l border-slate-200/90 z-20">
       {/* Top Executive Light-Theme Toolbar */}
-      <div className="h-14 bg-white px-4 flex items-center justify-between border-b border-slate-200/90 text-[11px] font-bold shrink-0 shadow-2xs">
+      <div className="min-h-12 py-2 bg-white px-3 sm:px-4 flex items-center justify-between gap-2 border-b border-slate-200/90 text-[11px] font-bold shrink-0 shadow-2xs overflow-x-auto no-scrollbar">
         {/* Left: Tools */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {onOpenEdit && (
             <button
               onClick={onOpenEdit}
@@ -310,7 +310,7 @@ export default function RightDocumentSheet({
         </div>
 
         {/* Right: Export Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Export LaTeX */}
           <button
             onClick={handleDownloadLatex}

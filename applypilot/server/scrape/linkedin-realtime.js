@@ -10,9 +10,8 @@ import { enrichJobMetadata } from './metadata-extractor.js';
 import { linkedinSearchDork } from './linkedin-dork.js';
 import { getScraperSearchClusters, } from './RoleExpansionConfig.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const SELENIUM_SCRIPT_PATH = path.join(__dirname, 'linkedin_selenium.py');
+const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+const SELENIUM_SCRIPT_PATH = path.resolve(currentDir, 'linkedin_selenium.py');
 
 /**
  * Executes headless Chrome Selenium to retrieve real-time LinkedIn job postings.

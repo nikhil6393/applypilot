@@ -37,8 +37,8 @@ ENV PORT=3000
 ENV DB_PATH=:memory:
 ENV LOG_FORMAT=json
 
-# Install minimal runtime dependencies (wget for container health check)
-RUN apk add --no-cache wget ca-certificates
+# Install runtime dependencies and build tools for native addons (better-sqlite3)
+RUN apk add --no-cache wget ca-certificates python3 make g++
 
 # Copy root dependency manifests
 COPY package.json package-lock.json ./

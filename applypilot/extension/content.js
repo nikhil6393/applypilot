@@ -1,5 +1,6 @@
 /**
  * ApplyPilot Content Script (Manifest V3)
+ * stub: ATS detection only. Form autofill not implemented.
  * Detects supported ATS systems, enforces anti-hallucination compliance,
  * avoids sensitive fields, and highlights ambiguous questions for user review.
  */

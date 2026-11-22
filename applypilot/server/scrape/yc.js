@@ -90,16 +90,20 @@ export async function yc(req) {
             if (out.length >= max)
                 break;
             const itemResults = await Promise.allSettled(batch.map(async (id) => {
-                const itemCtrl = new AbortController();
-                const itemTimeout = setTimeout(() => itemCtrl.abort(), 2500);
-                const res = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
-                    headers: { 'User-Agent': 'ApplyPilot/2.0' },
-                    signal: itemCtrl.signal,
-                });
-                clearTimeout(itemTimeout);
-                if (!res.ok)
+                try {
+                    const itemCtrl = new AbortController();
+                    const itemTimeout = setTimeout(() => itemCtrl.abort(), 4500);
+                    const res = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+                        headers: { 'User-Agent': 'ApplyPilot/2.0' },
+                        signal: itemCtrl.signal,
+                    });
+                    clearTimeout(itemTimeout);
+                    if (!res.ok)
+                        return null;
+                    return (await res.json());
+                } catch {
                     return null;
-                return (await res.json());
+                }
             }));
             for (const r of itemResults) {
                 if (r.status !== 'fulfilled' || !r.value || !r.value.title)
@@ -181,7 +185,7 @@ export async function yc(req) {
                     postedDate: itemDate.toISOString(),
                     postedRelative: rel,
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
                     sponsorsVisa: meta.sponsorsVisa,
                     eligibleBatches: meta.eligibleBatches,

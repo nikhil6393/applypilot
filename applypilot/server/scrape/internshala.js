@@ -1,128 +1,131 @@
 /**
- * Internshala Real-Time Tech Internship Scraper
+ * Internshala Real-Time Tech Internship Scraper powered by Crawlee
  * High-volume student & fresher internship engine targeting software, web, AI/ML, and mobile roles.
  */
 import { createHash } from 'node:crypto';
-import { load } from 'cheerio';
 import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { isJobLocationMatch } from './geo-resolver.js';
 import { resolveCompanyLogo } from './logo-resolver.js';
-const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-];
-function randomUA() {
-    return UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
-}
+import { runCheerioCrawl } from './crawlee-engine.js';
+
 function stableId(url) {
     return `internshala_${createHash('sha1').update(url).digest('hex').slice(0, 16)}`;
 }
-export async function internshala(req) {
+
+function parseInternshalaDate(text) {
+    const now = Date.now();
+    if (!text) {
+        return { iso: new Date(now - 86400000 * 5).toISOString(), relative: 'Active' };
+    }
+    const clean = text.toLowerCase();
+    if (/just now|moments ago|few seconds/i.test(clean)) {
+        return { iso: new Date(now - 120000).toISOString(), relative: 'Just now' };
+    }
+    if (/few hours ago|today/i.test(clean)) {
+        return { iso: new Date(now - 3600000 * 3).toISOString(), relative: 'Today' };
+    }
+    const hrMatch = clean.match(/(\d+)\s*(?:hours?|hrs?|h)\b/i);
+    if (hrMatch) {
+        const count = parseInt(hrMatch[1], 10);
+        return { iso: new Date(now - count * 3600000).toISOString(), relative: `${count}h ago` };
+    }
+    const dayMatch = clean.match(/(\d+)\s*(?:days?|d)\b/i);
+    if (dayMatch) {
+        const count = parseInt(dayMatch[1], 10);
+        return { iso: new Date(now - count * 86400000).toISOString(), relative: `${count}d ago` };
+    }
+    const wkMatch = clean.match(/(\d+)\s*(?:weeks?|wks?|w)\b/i);
+    if (wkMatch) {
+        const count = parseInt(wkMatch[1], 10);
+        return { iso: new Date(now - count * 7 * 86400000).toISOString(), relative: `${count}w ago` };
+    }
+    const moMatch = clean.match(/(\d+)\s*(?:months?|mo)\b/i);
+    if (moMatch) {
+        const count = parseInt(moMatch[1], 10);
+        return { iso: new Date(now - count * 30 * 86400000).toISOString(), relative: `${count}mo ago` };
+    }
+    const dateMatch = clean.match(/(\d{1,2})\s+([a-z]{3})(?:'|\s+)?(\d{2,4})?/i);
+    if (dateMatch) {
+        const year = dateMatch[3] ? (dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3]) : new Date().getFullYear();
+        const d = new Date(`${dateMatch[2]} ${dateMatch[1]} ${year}`);
+        if (!isNaN(d.getTime())) {
+            const diffDays = Math.max(0, Math.floor((now - d.getTime()) / 86400000));
+            return { iso: d.toISOString(), relative: diffDays === 0 ? 'Today' : `${diffDays}d ago` };
+        }
+    }
+    return { iso: new Date(now - 86400000 * 3).toISOString(), relative: 'Active' };
+}
+
+export function parseInternshalaDateExported(text) {
+    return parseInternshalaDate(text);
+}
+
+export async function internshala(req = {}) {
     const cacheKey = scrapeCache.generateKey('internshala', req);
     const cached = scrapeCache.get(cacheKey);
-    if (cached)
+    if (cached && cached.length > 0)
         return cached;
+
     const max = Math.max(1, Math.min(50, req.maxPerSource ?? 25));
     const rawQuery = (req.query || 'software engineer').toLowerCase().trim();
     const rawLoc = (req.location || 'India').trim();
     const remoteOnly = req.remoteOnly || /remote/i.test(rawLoc);
-    // Map user query to Internshala tech category paths
-    const categorySlugs = [];
-    if (rawQuery.includes('software') ||
-        rawQuery.includes('sde') ||
-        rawQuery.includes('swe') ||
-        rawQuery.includes('engineer')) {
-        categorySlugs.push('computer-science', 'web-development', 'backend-development');
+
+    const querySlug = rawQuery.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'software-engineer';
+    const targetUrls = [
+        `https://internshala.com/internships/keywords-${querySlug}/`,
+        'https://internshala.com/internships/web-development-internship/',
+        'https://internshala.com/internships/front-end-development-internship/',
+        'https://internshala.com/internships/backend-development-internship/',
+    ];
+
+    if (remoteOnly) {
+        targetUrls.unshift(`https://internshala.com/internships/work-from-home-keywords-${querySlug}-internships/`);
     }
-    else if (rawQuery.includes('web') ||
-        rawQuery.includes('frontend') ||
-        rawQuery.includes('fullstack') ||
-        rawQuery.includes('full stack') ||
-        rawQuery.includes('react')) {
-        categorySlugs.push('web-development');
-    }
-    else if (rawQuery.includes('python') || rawQuery.includes('backend') || rawQuery.includes('node')) {
-        categorySlugs.push('backend-development');
-    }
-    else if (rawQuery.includes('ai') || rawQuery.includes('ml') || rawQuery.includes('data') || rawQuery.includes('machine learning')) {
-        categorySlugs.push('data-science');
-    }
-    else if (rawQuery.includes('mobile') || rawQuery.includes('android') || rawQuery.includes('flutter') || rawQuery.includes('react native')) {
-        categorySlugs.push('mobile-app-development');
-    }
-    else {
-        categorySlugs.push('computer-science');
-    }
-    const locSlug = remoteOnly
-        ? 'work-from-home-'
-        : rawLoc.toLowerCase().includes('bangalore') || rawLoc.toLowerCase().includes('bengaluru')
-            ? 'internship-in-bangalore/'
-            : rawLoc.toLowerCase().includes('delhi') || rawLoc.toLowerCase().includes('noida') || rawLoc.toLowerCase().includes('gurgaon')
-                ? 'internship-in-delhi/'
-                : rawLoc.toLowerCase().includes('hyderabad')
-                    ? 'internship-in-hyderabad/'
-                    : rawLoc.toLowerCase().includes('pune')
-                        ? 'internship-in-pune/'
-                        : rawLoc.toLowerCase().includes('mumbai')
-                            ? 'internship-in-mumbai/'
-                            : '';
-    const targetUrls = categorySlugs.map((slug) => remoteOnly
-        ? `https://internshala.com/internships/work-from-home-${slug}-internships/`
-        : locSlug
-            ? `https://internshala.com/internships/${slug}-${locSlug}`
-            : `https://internshala.com/internships/${slug}-internships/`);
+
     const out = [];
     const seen = new Set();
-    const scrapeOneInternshalaUrl = async (url) => {
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 6500);
-            const res = await fetch(url, {
-                headers: {
-                    'User-Agent': randomUA(),
-                    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-IN,en;q=0.9',
-                    Referer: 'https://internshala.com/',
-                },
-                signal: controller.signal,
-            });
-            clearTimeout(timeout);
-            if (res.ok) {
-                const html = await res.text();
-                const $ = load(html);
-                $('.individual_internship, .internship_meta, [data-internship-id]').each((_, el) => {
-                    const titleEl = $(el).find('.job-internship-name, .heading_4_5 a, a.view_detail_button').first();
+
+    try {
+        await runCheerioCrawl({
+            urls: targetUrls.slice(0, 2),
+            maxConcurrency: 2,
+            requestTimeoutSecs: 14,
+            requestHandler: async ({ $, request }) => {
+                $('.individual_internship').each((_, el) => {
+                    if (out.length >= max)
+                        return false;
+                    const titleEl = $(el).find('a[href*="/internship/detail/"]').first();
                     const title = titleEl.text().trim();
-                    const rawHref = titleEl.attr('href') || $(el).find('a[href*="/internship/detail/"]').attr('href') || '';
+                    const rawHref = titleEl.attr('href') || '';
                     if (!title || !rawHref)
                         return;
+
                     const applyUrl = rawHref.startsWith('http') ? rawHref : `https://internshala.com${rawHref}`;
-                    const rawCompany = $(el).find('.company-name, .company_name, [class*="company_name"]').first().text().trim();
+                    const rawCompany = $(el).find('.company_name, .company-name').first().text().trim();
                     const company = rawCompany
                         .replace(/actively\s+hiring/i, '')
                         .replace(/[\r\n\t]+/g, ' ')
                         .replace(/\s{2,}/g, ' ')
                         .trim() || 'Fast Growing Startup';
-                    const cardLoc = $(el).find('.locations, #location_names, [class*="location"]').first().text().trim() ||
+
+                    const cardLoc = $(el).find('.location_link, .locations, #location_names').first().text().trim() ||
                         (remoteOnly ? 'Remote' : 'India');
                     const remote = /work from home|wfh|remote/i.test(cardLoc + ' ' + title);
-                    // Tech-only filter: exclude non-tech, sales, HR, marketing, telecaller, and irrelevant roles
-                    const isTech = /software|developer|engineer|frontend|backend|fullstack|full-stack|data|devops|react|node|cloud|web|ai|ml|python|java|systems?|programmer|programming|tech|sdet|architect|platform|mobile|android|ios|machine\s+learning/i.test(title);
-                    const isIrrelevant = /outreach|counselor|fundraising|graphic|catalog|tailor|clerk|cook|driver|cleaner|sales|marketing|tele|call\s*center|voice|reception|business\s*development|hr\b|human\s*resource|accountant/i.test(title);
-                    if (!isTech || isIrrelevant) {
+
+                    // Clean tech filter
+                    const isTech = /software|developer|engineer|frontend|backend|fullstack|full-stack|data|devops|react|node|cloud|web|ai|ml|python|java|systems?|programmer|tech|sdet|architect|platform|mobile|android|ios/i.test(title);
+                    const isIrrelevant = /outreach|counselor|fundraising|graphic|catalog|tailor|clerk|cook|driver|cleaner|tele|call\s*center|voice|reception/i.test(title);
+                    if (!isTech || isIrrelevant)
                         return;
-                    }
-                    // Location verification
-                    if (req.location && !isJobLocationMatch(cardLoc, remote, req.location, req.remoteOnly)) {
-                        return;
-                    }
-                    const stipend = $(el).find('.stipend, .salary, [class*="stipend"]').first().text().trim() || undefined;
+
                     const id = stableId(applyUrl);
                     if (seen.has(id))
                         return;
                     seen.add(id);
+
+                    const stipend = $(el).find('.stipend, .salary, [class*="stipend"]').first().text().trim() || undefined;
                     const meta = enrichJobMetadata(`${title} ${company} ${cardLoc}`, title);
                     const tags = ['Internship', '🎓 Student Friendly'];
                     if (remote)
@@ -130,19 +133,17 @@ export async function internshala(req) {
                     if (stipend)
                         tags.push(`💰 ${stipend}`);
                     tags.push('⚡ Fresh Drop');
-                    const rawLogo = $(el).find('.internship_logo img, .company-logo img, [class*="logo"] img, img[src*="logo"], img[src*="brand"]').first().attr('src') ||
-                        $(el).find('.internship_logo img, .company-logo img, [class*="logo"] img').first().attr('data-src');
+
+                    const rawLogo = $(el).find('.internship_logo img, .company-logo img').first().attr('src') ||
+                        $(el).find('.internship_logo img, .company-logo img').first().attr('data-src');
                     const cleanLogo = rawLogo
                         ? (rawLogo.startsWith('//') ? `https:${rawLogo}` : (rawLogo.startsWith('http') ? rawLogo : `https://internshala.com${rawLogo}`))
                         : undefined;
                     const finalLogo = resolveCompanyLogo(company, cleanLogo, applyUrl);
-                    const fallbackSkills = /marketing|sales|business/i.test(title)
-                        ? ['Lead Generation', 'Market Research', 'Client Relations', 'CRM']
-                        : /data|analyst|analytics/i.test(title)
-                            ? ['SQL', 'Python', 'Data Analysis', 'Excel']
-                            : /design|ui|ux/i.test(title)
-                                ? ['Figma', 'UI/UX Design', 'Wireframing']
-                                : ['React', 'JavaScript', 'Node.js', 'Web Development'];
+
+                    const rawDateText = $(el).find('.status-container, .posted_by_container, .status-success, .status, .success_and_early_applicant, [class*="status"], .status-inactive').first().text().replace(/[\r\n\t]+/g, ' ').trim();
+                    const parsedDate = parseInternshalaDate(rawDateText);
+
                     out.push({
                         id,
                         title,
@@ -154,30 +155,24 @@ export async function internshala(req) {
                         remote,
                         companyLogo: finalLogo,
                         description: `${title} internship at ${company} in ${cardLoc}. Verified active opportunity on Internshala.`,
-                        postedAt: new Date().toISOString(),
-                        postedDate: new Date().toISOString(),
-                        postedRelative: 'Just now',
+                        postedAt: parsedDate.iso,
+                        postedDate: parsedDate.iso,
+                        postedRelative: parsedDate.relative,
                         fetchedAt: new Date().toISOString(),
                         employmentType: 'internship',
                         isInternship: true,
                         salary: stipend,
-                        eligibleBatches: ['2028', '2027', '2026', '2025', 'All Batches'],
-                        skills: meta.techStack && meta.techStack.length > 0 ? meta.techStack : fallbackSkills,
+                        skills: meta.techStack || [],
                         tags,
                     });
-                    if (out.length >= max)
-                        return false;
                 });
-            }
-        }
-        catch { }
-    };
-    try {
-        await Promise.allSettled(targetUrls.map((u) => scrapeOneInternshalaUrl(u)));
+            },
+        });
     }
-    catch {
-        // Gracefully handled if Internshala network fails
+    catch (e) {
+        console.warn('[internshala-crawlee] Crawl error:', e.message);
     }
+
     const finalJobs = out.slice(0, max);
     if (finalJobs.length > 0) {
         scrapeCache.set(cacheKey, finalJobs, 180);

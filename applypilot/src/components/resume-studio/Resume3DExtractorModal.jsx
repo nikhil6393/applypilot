@@ -19,7 +19,7 @@ export default function Resume3DExtractorModal({
     { title: 'Decoding Document Structure', desc: 'Extracting text streams & PDF binary metadata...', icon: FileText },
     { title: 'Recovering Interactive Hyperlinks', desc: 'Detecting GitHub, LinkedIn, portfolio & email URIs...', icon: Search },
     { title: 'Auditing 20+ Recruiter Checks', desc: 'Analyzing action verbs, repetition, brevity & impact...', icon: Cpu },
-    { title: 'Synthesizing ATS Benchmark', desc: 'Benchmarking against 1M+ top candidate resumes...', icon: Sparkles }
+    { title: 'Synthesizing ATS Benchmark', desc: 'Scoring structure, action verbs, brevity & keyword density...', icon: Sparkles }
   ];
 
   useEffect(() => {

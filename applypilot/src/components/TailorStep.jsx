@@ -15,6 +15,7 @@ import {
     FileCode,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuth } from '../context/AuthContext';
 // Power Action Verbs for ATS (Resume Worded style)
 const POWER_VERBS = [
     'Architected',
@@ -32,6 +33,7 @@ const POWER_VERBS = [
 ];
 export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTailoredDocs, onUpdateResume }) => {
     const { addToast } = useAppStore();
+    const { token } = useAuth();
     const [activeJobId, setActiveJobId] = useState(selectedJobs.length > 0 ? selectedJobs[0].id : '');
     const [selectedBatchJobIds, setSelectedBatchJobIds] = useState(new Set());
     // Split view width
@@ -70,7 +72,7 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
                 ...(raw.domain || []),
             ];
         }
-        return ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Git', 'REST APIs'];
+        return [];
     }, [resume.skills]);
     // Extract Job Skills & Keywords
     const jobKeywords = useMemo(() => {
@@ -388,32 +390,30 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
     }, [resume]);
     const activeBullets = (activeJob && editedBullets[activeJob.id]) || (activeTailored?.tailoredResumeBullets?.[0]?.bullets) || [];
     // ATS Pre-score vs Post-score calculation
-    const preAtsScore = 68;
-    const postAtsScore = activeTailored?.atsScore || 94;
-    const atsGain = postAtsScore - preAtsScore;
+    const keywordOverlap = jobKeywords.all.length ? Math.round(jobKeywords.matched.length / jobKeywords.all.length * 100) : null;
     // Cover note word count
     const coverNoteWordCount = customCoverNote.trim().split(/\s+/).filter(Boolean).length;
     return (<div className="w-full max-w-7xl mx-auto space-y-6 pb-20 font-sans">
       {/* ── 1. HEADER & ACTIONS BAR ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              <Target className="w-3.5 h-3.5 text-blue-600"/>
-              Resume World ATS Optimization Engine
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600"/>
+              Truth-Preserving Alignment
             </span>
 
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <TrendingUp className="w-3 h-3 text-emerald-600"/>
-              +{atsGain}% ATS Match Gain
+              <Target className="w-3 h-3 text-emerald-600"/>
+              Relevance &amp; Clarity Focus
             </span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Resume Keyword Match &amp; Bulk Tailor
+            Truth-Preserving Resume Tailoring
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Matching authentic bullets from your uploaded resume against exact job description requirements using Google's XYZ formula.
+            Reframing your genuine experiences and projects to clearly communicate relevance for target roles without fabricating skills or metrics.
           </p>
         </div>
 
@@ -424,7 +424,7 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
                 runTailoringForJob(activeJob);
         }} disabled={isTailoring} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 shadow-xs cursor-pointer transition-all disabled:opacity-50">
             <RotateCw className={`w-3.5 h-3.5 ${isTailoring ? 'animate-spin' : ''}`}/>
-            <span>Re-scan Requisition</span>
+            <span>Re-analyze Requirements</span>
           </button>
 
           <button onClick={handleBulkTailorAll} disabled={isBulkTailoring} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-slate-900 hover:bg-black shadow-xs cursor-pointer transition-all disabled:opacity-50">
@@ -435,6 +435,17 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
             : `Tailor Selected Roles (${selectedBatchJobIds.size > 0 ? selectedBatchJobIds.size : selectedJobs.length})`}
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* ── TRUTH-PRESERVING POLICY BANNER ── */}
+      <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex items-start gap-3.5 text-xs text-indigo-950">
+        <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <strong className="text-indigo-900 block font-bold">Truth-Preserving Policy for Students:</strong>
+          <p className="leading-relaxed text-indigo-800">
+            ApplyPilot clarifies and reorganizes your genuine accomplishments. It never invents companies, certifications, degrees, or false metrics. Always review the proposed wording to ensure you can confidently speak to every bullet point in an interview.
+          </p>
         </div>
       </div>
 
@@ -565,11 +576,7 @@ export const TailorStep = ({ resume, selectedJobs = [], tailoredDocs, onUpdateTa
                   if (activeBullets && activeBullets.length > 0 && next.experience?.[0]) {
                     next.experience[0].bullets = activeBullets;
                   }
-                  if (jobKeywords.missing.length > 0) {
-                    if (Array.isArray(next.skills)) {
-                      jobKeywords.missing.forEach(m => { if (!next.skills.includes(m)) next.skills.push(m); });
-                    }
-                  }
+                  // Truth-Preserving: Never automatically invent or inject unverified skills
                   onUpdateResume(next);
                   addToast({
                     type: 'success',

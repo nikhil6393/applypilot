@@ -34,6 +34,11 @@ export const AuthModal = () => {
                 const res = await forgotPassword(email);
                 if (res.success) {
                     setSuccessMsg(res.message || 'Password reset instructions have been dispatched.');
+                    if (res.developmentToken) {
+                        setResetToken(res.developmentToken);
+                        setSuccessMsg('Development reset token created. Enter your new password to continue.');
+                        setAuthModalTab('reset');
+                    }
                 }
                 else {
                     setErrorMsg(res.error || 'Failed to request password reset.');
@@ -44,8 +49,8 @@ export const AuthModal = () => {
                     setErrorMsg('Please enter both the reset token and your new password.');
                     return;
                 }
-                if (password.length < 6) {
-                    setErrorMsg('New password should be at least 6 characters.');
+                if (password.length < 8) {
+                    setErrorMsg('New password should be at least 8 characters.');
                     return;
                 }
                 const res = await resetPassword(resetToken, password);
@@ -77,8 +82,8 @@ export const AuthModal = () => {
                     setErrorMsg('Please fill in your name, email, and password.');
                     return;
                 }
-                if (password.length < 6) {
-                    setErrorMsg('Password should be at least 6 characters.');
+                if (password.length < 8) {
+                    setErrorMsg('Password should be at least 8 characters.');
                     return;
                 }
                 const res = await register(name, email, password, roleTitle);
@@ -338,7 +343,7 @@ export const AuthModal = () => {
                                 <option value="AI / ML Engineer">AI / Machine Learning Engineer</option>
                                 <option value="DevOps & Cloud Engineer">DevOps &amp; Cloud Engineer</option>
                                 <option value="Product Manager">Technical Product Manager</option>
-                                <option value="Software Engineering Intern">Software Engineering Intern (2024-2028)</option>
+                                <option value="Software Engineering Intern">Software Engineering Intern</option>
                             </select>
                         </div>
                     )}

@@ -12,7 +12,7 @@ export const NotificationDrawer = () => {
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-[#5B7BE8]"/>
-            <span className="font-bold text-sm text-[#111827]">Live Telemetry &amp; Alerts</span>
+            <span className="font-bold text-sm text-[#111827]">Notifications</span>
           </div>
           <button onClick={() => setIsNotificationDrawerOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer">
             <X className="w-4 h-4"/>

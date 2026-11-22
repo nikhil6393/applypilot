@@ -27,19 +27,17 @@ export default function FixDetailView({
   onOpenEdit,
 }) {
   const [openCard, setOpenCard] = useState('main');
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [fixedCards, setFixedCards] = useState(new Set());
   const [isAllFixed, setIsAllFixed] = useState(false);
+  const [metricInputs, setMetricInputs] = useState({});
 
   // Rewriter tool state
   const [selectedExpIdx, setSelectedExpIdx] = useState(0);
   const [selectedBulletIdx, setSelectedBulletIdx] = useState(0);
-  const [rewriteMode, setRewriteMode] = useState('star');
   const [customRewriteText, setCustomRewriteText] = useState('');
 
   // Magic write state
   const [magicSummary, setMagicSummary] = useState('');
-  const [isGeneratingMagic, setIsGeneratingMagic] = useState(false);
 
   // Normalize fix type
   const normalizedFixType = useMemo(() => {
@@ -103,35 +101,21 @@ export default function FixDetailView({
     return experienceBullets.filter(b => b.hasWeakOpener);
   }, [experienceBullets]);
 
-  // 1-Click: Apply metric to a single bullet
+  // Apply only a measurement supplied and verified by the candidate.
   const handleApplySingleMetric = (item) => {
+    const metric = metricInputs[`${item.expIdx}-${item.bulletIdx}`]?.trim();
+    if (!metric) return;
     const key = `${item.expIdx}-${item.bulletIdx}`;
     const nextSet = new Set(fixedCards);
     nextSet.add(key);
     setFixedCards(nextSet);
 
-    const metricsSample = [
-      'reducing latency by 35% across 10,000+ daily requests',
-      'accelerating delivery speed by 40% with zero downtime',
-      'improving query throughput by 2.5x for 15,000+ active users',
-      'saving 12+ engineering hours weekly through automated CI/CD checks',
-    ];
-    const metric = metricsSample[item.bulletIdx % metricsSample.length];
-    const newText = item.text.replace(/\.$/, '') + `, ${metric}.`;
+    const newText = `${item.text.replace(/[.\s]+$/, '')} (${metric}).`;
 
     if (onApplyFix) {
       onApplyFix('update_bullet', { expIdx: item.expIdx, bulletIdx: item.bulletIdx, newText });
     }
     confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } });
-  };
-
-  // 1-Click: Apply metrics across all unquantified bullets
-  const handleApplyAllMetrics = () => {
-    setIsAllFixed(true);
-    if (onApplyFix) {
-      onApplyFix('metrics');
-    }
-    confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
   };
 
   // 1-Click: Replace weak openers with power verbs
@@ -208,25 +192,17 @@ export default function FixDetailView({
                 {isAllFixed ? '0 ISSUES REMAINING' : `${unquantifiedBullets.length} BULLETS LACK METRICS`}
               </span>
 
-              {!isAllFixed && unquantifiedBullets.length > 0 && (
-                <button
-                  onClick={handleApplyAllMetrics}
-                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Zap className="w-3.5 h-3.5 fill-current" />
-                  <span>Apply All AI Metrics (+15 pts)</span>
-                </button>
-              )}
+              {!isAllFixed && unquantifiedBullets.length > 0 && <span className="text-xs text-slate-500">Add only measurements you can verify.</span>}
             </div>
 
             {unquantifiedBullets.length === 0 || isAllFixed ? (
               <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                 <h3 className="text-sm font-bold text-emerald-900">
-                  All Bullets Successfully Quantified!
+                  No bullets are missing a measurable result.
                 </h3>
                 <p className="text-xs text-emerald-800/80">
-                  Your resume highlights concrete engineering impact with numbers, percentages, and scale.
+                  Metrics are detected in the current experience bullets.
                 </p>
               </div>
             ) : (
@@ -261,13 +237,10 @@ export default function FixDetailView({
                         {item.text}
                       </p>
 
-                      {/* Suggested AI Metric Enhancement */}
-                      <div className="pl-7 pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-slate-100">
-                        <div className="text-[11px] text-indigo-700 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Suggested Metric: <strong>+35% throughput / 10k+ requests</strong></span>
-                        </div>
-
+                      <div className="pl-7 pt-2 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-t border-slate-100">
+                        <label className="flex-1 text-[11px] text-slate-600">Your verified result
+                          <input value={metricInputs[key] || ''} onChange={(e) => setMetricInputs({ ...metricInputs, [key]: e.target.value })} placeholder="e.g. reduced support time by 4 hours per week" className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs" />
+                        </label>
                         <button
                           onClick={() => handleApplySingleMetric(item)}
                           disabled={isFixed}
@@ -278,7 +251,7 @@ export default function FixDetailView({
                           }`}
                         >
                           {isFixed ? <Check className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
-                          <span>{isFixed ? 'Applied' : 'Apply AI Metric'}</span>
+                          <span>{isFixed ? 'Added' : 'Add result'}</span>
                         </button>
                       </div>
                     </div>
@@ -437,7 +410,7 @@ export default function FixDetailView({
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-500" />
-                  <span>AI Bullet Point Enhancer</span>
+                  <span>Bullet editor</span>
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   STAR &amp; Google XYZ Formula
@@ -466,50 +439,17 @@ export default function FixDetailView({
                 </select>
               </div>
 
-              {/* Mode Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: 'star', label: 'STAR Method (Results)' },
-                  { id: 'xyz', label: 'Google XYZ Formula' },
-                  { id: 'executive', label: 'Executive Leadership' },
-                  { id: 'concise', label: 'Concise ATS' },
-                ].map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setRewriteMode(m.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      rewriteMode === m.id
-                        ? 'bg-indigo-600 text-white'
-                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Generated Preview & 1-Click Apply */}
+              {/* Candidate-edited bullet */}
               <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-3">
                 <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                  Enhanced Preview
+                  Review and edit your original bullet
                 </span>
-                <p className="text-xs text-slate-800 leading-relaxed font-medium">
-                  {rewriteMode === 'star' &&
-                    'Architected distributed microservices handling 25,000+ daily requests, decreasing latency by 38% and ensuring 99.95% system uptime.'}
-                  {rewriteMode === 'xyz' &&
-                    'Accomplished 35% reduction in API response times as measured by CloudWatch metrics by implementing Redis caching and asynchronous query batching.'}
-                  {rewriteMode === 'executive' &&
-                    'Spearheaded end-to-end full-stack migration across cross-functional teams, reducing delivery cycles by 3 weeks.'}
-                  {rewriteMode === 'concise' &&
-                    'Engineered scalable REST APIs with React and Node.js, supporting 10,000+ daily active users.'}
-                </p>
+                <textarea value={customRewriteText || resume.experience?.[selectedExpIdx]?.bullets?.[selectedBulletIdx] || ''} onChange={(e) => setCustomRewriteText(e.target.value)} rows={4} className="w-full rounded-xl border border-indigo-200 bg-white p-3 text-xs text-slate-800" aria-label="Edited resume bullet" />
 
                 <div className="flex justify-end">
                   <button
                     onClick={() => {
-                      const sampleText = rewriteMode === 'star'
-                        ? 'Architected distributed microservices handling 25,000+ daily requests, decreasing latency by 38% and ensuring 99.95% system uptime.'
-                        : 'Accomplished 35% reduction in API response times by implementing Redis caching and asynchronous query batching.';
+                      const sampleText = customRewriteText || resume.experience?.[selectedExpIdx]?.bullets?.[selectedBulletIdx] || '';
                       if (onApplyFix) {
                         onApplyFix('update_bullet', { expIdx: selectedExpIdx, bulletIdx: selectedBulletIdx, newText: sampleText });
                       }
@@ -518,7 +458,7 @@ export default function FixDetailView({
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>Apply to Resume</span>
+                    <span>Apply edited bullet</span>
                   </button>
                 </div>
               </div>
@@ -554,7 +494,7 @@ export default function FixDetailView({
                     ? resume.skills
                     : typeof resume.skills === 'object' && resume.skills !== null
                     ? Object.values(resume.skills).flat()
-                    : ['JavaScript', 'React', 'Node.js', 'TypeScript', 'SQL', 'Git']
+                    : []
                   ).map((s, idx) => (
                     <span
                       key={idx}
@@ -581,38 +521,19 @@ export default function FixDetailView({
                 </h3>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Generate a punchy, ATS-optimized 3-sentence summary highlighting your engineering strengths, tech stack, and career impact.
-              </p>
+              <p className="text-xs text-slate-600 leading-relaxed">Edit your existing summary. Add only skills and results you can verify.</p>
 
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">AI Generated Summary Draft:</span>
-                <p className="text-xs text-slate-800 leading-relaxed font-medium">
-                  {magicSummary ||
-                    `${resume.fullName || resume.name || 'Candidate'} is a results-oriented Software Engineer with proven expertise across modern full-stack development, distributed microservices, and database optimization. Demonstrated track record in architecting high-scale systems and delivering user-centric applications.`}
-                </p>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Summary editor
+                  <textarea value={magicSummary || resume.summary || ''} onChange={(e) => setMagicSummary(e.target.value)} rows={5} className="mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-xs font-normal normal-case text-slate-800" />
+                </label>
               </div>
 
               <div className="flex items-center justify-between pt-2">
                 <button
                   onClick={() => {
-                    setIsGeneratingMagic(true);
-                    setTimeout(() => {
-                      setMagicSummary(
-                        `Accomplished Full Stack Engineer with 3+ years experience engineering resilient web applications and high-throughput APIs. Proficient in React, Node.js, TypeScript, and cloud deployments, with a focus on clean architecture and quantifiable engineering outcomes.`
-                      );
-                      setIsGeneratingMagic(false);
-                    }, 400);
-                  }}
-                  className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingMagic ? 'animate-spin' : ''}`} />
-                  <span>Regenerate Variant</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const textToSave = magicSummary || `${resume.fullName || resume.name || 'Candidate'} is a results-oriented Software Engineer with proven expertise across modern full-stack development, distributed microservices, and database optimization.`;
+                    const textToSave = magicSummary || resume.summary || '';
+                    if (!textToSave.trim()) return;
                     if (onApplyFix) {
                       onApplyFix('update_summary', textToSave);
                     }
@@ -621,7 +542,7 @@ export default function FixDetailView({
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>Apply Summary to Resume</span>
+                  <span>Apply edited summary</span>
                 </button>
               </div>
             </div>

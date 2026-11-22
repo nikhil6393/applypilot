@@ -16,5 +16,6 @@
     "*.sqlite*",
     "*.log"
   ],
-  "exec": "tsx server.js"
+  "exec": "tsx --max-old-space-size=4096 server.js"
 }
+

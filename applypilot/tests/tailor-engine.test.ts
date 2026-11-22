@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { tailorResumeForJob } from '../server/profile/tailor-engine.js';
 import type { ParsedResume, JobPosting } from '../src/types.js';
 

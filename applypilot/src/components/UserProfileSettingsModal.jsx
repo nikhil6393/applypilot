@@ -669,8 +669,8 @@ export const UserProfileSettingsModal = () => {
           {/* Tab 3: Automation Rules */}
           {activeTab === 'automation' && (<div className="space-y-5 animate-in fade-in duration-150">
             <div>
-              <h3 className="text-sm font-bold text-white">Auto-Pilot Application Rules</h3>
-              <p className="text-xs text-slate-400">Configure safe pacing, automated bullet tailoring, and threshold filtering.</p>
+              <h3 className="text-sm font-bold text-white">Discovery Preferences</h3>
+              <p className="text-xs text-slate-400">Configure pacing, resume tailoring on export, and filtering thresholds.</p>
             </div>
 
             {/* Sliders */}
@@ -702,8 +702,8 @@ export const UserProfileSettingsModal = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl">
                 <div>
-                  <h4 className="text-xs font-bold text-white">Automatic Machine Learning Resume Tailoring</h4>
-                  <p className="text-[11px] text-slate-400">Dynamically optimizes bullets to match JD keywords before applying.</p>
+                  <h4 className="text-xs font-bold text-white">Pre-tailor Resume Before Export</h4>
+                  <p className="text-[11px] text-slate-400">Optimizes bullets to match JD keywords when you export your resume.</p>
                 </div>
                 <input type="checkbox" checked={formData.automation.autoTailorResume} onChange={(e) => setFormData({
                   ...formData,
@@ -713,8 +713,8 @@ export const UserProfileSettingsModal = () => {
 
               <div className="flex items-center justify-between p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl">
                 <div>
-                  <h4 className="text-xs font-bold text-white">Auto-Generate High-Conversion Cover Notes</h4>
-                  <p className="text-[11px] text-slate-400">Pre-generates recruiter pitch notes tailored to the exact hiring manager.</p>
+                  <h4 className="text-xs font-bold text-white">Include Cover Note in Export</h4>
+                  <p className="text-[11px] text-slate-400">Generates a recruiter pitch note when you export your application package.</p>
                 </div>
                 <input type="checkbox" checked={formData.automation.autoGenerateCoverLetter} onChange={(e) => setFormData({
                   ...formData,
@@ -781,8 +781,8 @@ export const UserProfileSettingsModal = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl">
                 <div>
-                  <h4 className="text-xs font-bold text-white">Real-Time Server-Sent Events (SSE) Desktop Alerts</h4>
-                  <p className="text-[11px] text-slate-400">Pushes toast alerts when jobs are posted &lt;1m ago on LinkedIn / Naukri.</p>
+                  <h4 className="text-xs font-bold text-white">In-App Job Alerts (SSE)</h4>
+                  <p className="text-[11px] text-slate-400">Shows toast alerts when new jobs arrive — browser tab must be open.</p>
                 </div>
                 <input type="checkbox" checked={formData.notifications.sseDesktopAlerts} onChange={(e) => setFormData({
                   ...formData,
@@ -802,12 +802,12 @@ export const UserProfileSettingsModal = () => {
               </div>
 
               <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-white">Custom Webhook Integration (Discord / Telegram / Slack)</label>
+                <label className="text-xs font-bold text-white">Webhook Integration (Discord / Telegram / Slack)</label>
                 <input type="text" value={formData.notifications.webhookUrl || ''} onChange={(e) => setFormData({
                   ...formData,
                   notifications: { ...formData.notifications, webhookUrl: e.target.value }
                 })} placeholder="https://discord.com/api/webhooks/..." className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:border-blue-500 focus:outline-none" />
-                <p className="text-[10px] text-slate-400">Sends JSON payloads with instant apply links directly to your private channels.</p>
+                <p className="text-[10px] text-slate-400">⚠️ Coming soon — webhook delivery is not yet active.</p>
               </div>
             </div>
           </div>)}

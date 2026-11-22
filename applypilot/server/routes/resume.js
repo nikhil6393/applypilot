@@ -32,17 +32,33 @@ function deterministicBulletSuggestion(bullet, keyword) {
 import { getDb } from '../store/db.js';
 import { getSessionUser } from '../security/auth.js';
 
-function syncResumeToProfile(resume, authHeader) {
+function getSavedResume(req) {
+    const userId = req.user?.id;
+    if (userId) {
+        const row = getDb().prepare('SELECT profile_json FROM users WHERE id = ?').get(userId);
+        if (row) {
+            try {
+                const resume = JSON.parse(row.profile_json).savedResume;
+                if (resume) return resume;
+            } catch {}
+        }
+        const candidate = getDb().prepare('SELECT profile_json FROM candidate_profiles WHERE id = ?').get(userId);
+        if (candidate) {
+            try { return JSON.parse(candidate.profile_json); } catch {}
+        }
+        return null;
+    }
+    return process.env.NODE_ENV === 'test' ? getResume() : null;
+}
+
+function syncResumeToProfile(resume, req) {
     if (!resume) return;
     try {
         const db = getDb();
         const now = new Date().toISOString();
-        let userId = 'default';
-        if (authHeader) {
-            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-            const sessionUser = getSessionUser(token);
-            if (sessionUser?.id) {
-                userId = sessionUser.id;
+        const userId = req.user?.id || (process.env.NODE_ENV === 'test' ? 'default' : null);
+        if (!userId) return;
+        if (req.user?.id) {
                 // Update user profile_json
                 const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(userId);
                 if (row) {
@@ -57,7 +73,6 @@ function syncResumeToProfile(resume, authHeader) {
                     if (resume.contact?.portfolio) uProfile.portfolio = resume.contact.portfolio;
                     db.prepare('UPDATE users SET profile_json = ? WHERE id = ?').run(JSON.stringify(uProfile), userId);
                 }
-            }
         }
         // Sync candidate_profiles table
         const candidateRow = db.prepare('SELECT id, profile_json FROM candidate_profiles WHERE id = ?').get(userId);
@@ -77,24 +92,7 @@ function syncResumeToProfile(resume, authHeader) {
 }
 
 resumeRouter.get('/', (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (authHeader) {
-            const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-            const sessionUser = getSessionUser(token);
-            if (sessionUser?.id) {
-                const db = getDb();
-                const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(sessionUser.id);
-                if (row) {
-                    const uProfile = JSON.parse(row.profile_json);
-                    if (uProfile?.savedResume) {
-                        return res.json({ resume: uProfile.savedResume, success: true, data: uProfile.savedResume });
-                    }
-                }
-            }
-        }
-    } catch {}
-    const r = getResume();
+    const r = getSavedResume(req);
     if (!r)
         return res.json({ resume: null, success: true, data: null });
     res.json({ resume: r, success: true, data: r });
@@ -105,8 +103,8 @@ resumeRouter.post('/', (req, res) => {
     if (!r || typeof r !== 'object') {
         return res.status(400).json({ success: false, error: 'Valid resume object required' });
     }
-    setResume(r);
-    syncResumeToProfile(r, req.headers.authorization);
+    if (process.env.NODE_ENV === 'test') setResume(r);
+    syncResumeToProfile(r, req);
     res.json({ success: true, resume: r, data: r });
 });
 
@@ -115,12 +113,12 @@ resumeRouter.put('/', (req, res) => {
     if (!r || typeof r !== 'object') {
         return res.status(400).json({ success: false, error: 'Valid resume object required' });
     }
-    setResume(r);
-    syncResumeToProfile(r, req.headers.authorization);
+    if (process.env.NODE_ENV === 'test') setResume(r);
+    syncResumeToProfile(r, req);
     res.json({ success: true, resume: r, data: r });
 });
-resumeRouter.get('/ats', (_req, res) => {
-    const r = getResume();
+resumeRouter.get('/ats', (req, res) => {
+    const r = getSavedResume(req);
     if (!r)
         return res.status(400).json({ success: false, error: 'No resume uploaded yet' });
     const report = evaluateResumeAts(r);
@@ -143,8 +141,8 @@ resumeRouter.post('/score/full', (req, res) => {
     const report = evaluateResumeAts(resume);
     res.json({ success: true, report, data: report });
 });
-resumeRouter.get('/ats-v2', (_req, res) => {
-    const r = getResume();
+resumeRouter.get('/ats-v2', (req, res) => {
+    const r = getSavedResume(req);
     if (!r)
         return res.status(400).json({ success: false, error: 'No resume uploaded yet' });
     const canonical = {
@@ -439,8 +437,8 @@ resumeRouter.post('/parse', parseRateLimiter, async (req, res) => {
         catch {
             // Non-fatal if scoring fails
         }
-        setResume(parsed);
-        syncResumeToProfile(parsed, req.headers.authorization);
+        if (process.env.NODE_ENV === 'test') setResume(parsed);
+        syncResumeToProfile(parsed, req);
         res.json({
             success: true,
             data: parsed,
@@ -490,7 +488,7 @@ resumeRouter.post('/upload', parseRateLimiter, async (req, res) => {
 // POST /api/resume/export/docx
 resumeRouter.post('/export/docx', async (req, res) => {
     try {
-        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getResume();
+        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getSavedResume(req);
         if (!resume) {
             return res.status(400).json({ success: false, error: 'Resume data required for export' });
         }
@@ -508,7 +506,7 @@ resumeRouter.post('/export/docx', async (req, res) => {
 // POST /api/resume/export/pdf
 resumeRouter.post('/export/pdf', async (req, res) => {
     try {
-        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getResume();
+        const resume = req.body?.resume || (req.body && Object.keys(req.body).length > 0 ? req.body : null) || getSavedResume(req);
         if (!resume) {
             return res.status(400).json({ success: false, error: 'Resume data required for export' });
         }

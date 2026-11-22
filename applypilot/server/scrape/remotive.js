@@ -11,13 +11,20 @@ export async function remotive(req) {
     if (cached)
         return cached;
     const query = (req.query || 'software').replace(/[^A-Za-z0-9 ]/g, '').trim();
-    const url = `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(query)}&limit=50`;
+    const url = `https://remotive.com/api/remote-jobs?search=${encodeURIComponent(query)}&limit=100`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, { headers: { 'User-Agent': 'ApplyPilot/2.0' }, signal: controller.signal });
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let res;
+    try {
+        res = await fetch(url, { headers: { 'User-Agent': 'ApplyPilot/2.0' }, signal: controller.signal });
+    } catch (err) {
+        clearTimeout(timeout);
+        console.warn('[remotive] fetch error:', err.message);
+        return [];
+    }
     clearTimeout(timeout);
     if (!res.ok)
-        throw new Error(`remotive ${res.status}`);
+        return [];
     let data;
     try {
         data = (await res.json());
@@ -38,7 +45,7 @@ export async function remotive(req) {
                         ? 43200
                         : req.postedWithinHours && req.postedWithinHours > 0
                             ? req.postedWithinHours * 60
-                            : 1440;
+                            : 10080; // 7 days default
     const queryLower = (req.query || '').toLowerCase();
     const requireIntern = req.internshipsOnly !== false && (req.internshipsOnly || /intern|co-?op/i.test(queryLower));
     for (const j of jobs) {
@@ -84,15 +91,15 @@ export async function remotive(req) {
             url: j.url,
             applyUrl: j.url,
             companyLogo: resolveCompanyLogo(j.company_name, j.company_logo || j.company_logo_url, j.url),
-            location: j.candidate_required_location || 'Remote',
+            location: j.candidate_required_location || '',
             remote: true,
             description: cleanDesc,
             descriptionHtml: j.description,
-            postedAt: j.publication_date || new Date().toISOString(),
-            postedDate: j.publication_date || new Date().toISOString(),
+            postedAt: j.publication_date || '',
+            postedDate: j.publication_date || undefined,
             postedRelative: rel,
             fetchedAt: new Date().toISOString(),
-            employmentType: isIntern ? 'internship' : 'full-time',
+            employmentType: isIntern ? 'internship' : 'unknown',
             isInternship: isIntern,
             sponsorsVisa: meta.sponsorsVisa,
             eligibleBatches: meta.eligibleBatches,

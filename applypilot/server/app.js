@@ -11,6 +11,7 @@ import { configRouter } from './routes/config.js';
 import { profileRouter } from './routes/profile.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { feedbackRouter } from './routes/feedback.js';
+import { adminRouter } from './routes/admin.js';
 import { authRouter } from './security/auth.js';
 import { requireAuth } from './security/auth.js';
 import { initDb, closeDb } from './store/db.js';
@@ -63,11 +64,6 @@ export function createApp() {
             req.path.startsWith('/config') ||
             req.path.startsWith('/jobs') ||
             req.path.startsWith('/monitor') ||
-            req.path.startsWith('/dashboard') ||
-            req.path.startsWith('/tracker') ||
-            req.path.startsWith('/tailor') ||
-            req.path.startsWith('/resume') ||
-            req.path.startsWith('/scoring') ||
             req.path.startsWith('/feedback')) {
             return next();
         }
@@ -86,6 +82,7 @@ export function createApp() {
     app.use('/api/dashboard', dashboardRouter);
     app.use('/api/monitor', monitorRouter);
     app.use('/api/feedback', feedbackRouter);
+    app.use('/api/admin', adminRouter);
     app.use((err, _req, res, _next) => {
         const isProd = process.env.NODE_ENV === 'production';
         console.error('[error]', err);

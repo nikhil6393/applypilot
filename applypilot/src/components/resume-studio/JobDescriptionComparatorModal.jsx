@@ -3,31 +3,7 @@ import {
   X, Sparkles, CheckCircle2, AlertTriangle, ArrowRight,
   Download, Printer, Zap, RefreshCw, Briefcase, FileText
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
-const SAMPLE_FALLBACK_JOBS = [
-  {
-    id: 'rec-msft',
-    company: 'Microsoft',
-    title: 'Senior Software Engineer - Cloud Platforms',
-    description: 'Looking for a Senior Software Engineer with strong background in TypeScript, React, Node.js, Distributed Systems, Docker, Kubernetes, CI/CD, and Azure / AWS cloud infrastructure. Experience optimizing database queries and latency critical pipelines.',
-    skills: ['TypeScript', 'React', 'Node.js', 'Docker', 'Kubernetes', 'CI/CD', 'AWS', 'Distributed Systems'],
-  },
-  {
-    id: 'rec-amzn',
-    company: 'Amazon',
-    title: 'Full Stack SDE II',
-    description: 'Seeking a Full Stack Engineer proficient in React, Node.js, PostgreSQL, Redis, GraphQL, Microservices, and Automated Testing. Candidates should have demonstrated ability to build high-scale, resilient distributed web applications.',
-    skills: ['React', 'Node.js', 'PostgreSQL', 'Redis', 'GraphQL', 'Microservices', 'Automated Testing'],
-  },
-  {
-    id: 'rec-goog',
-    company: 'Google',
-    title: 'Software Engineer III - Frontend Infrastructure',
-    description: 'Google is hiring a Software Engineer to work on next-gen developer tooling. Requirements include deep knowledge of JavaScript/TypeScript, Web Performance, HTML5, CSS3, Testing frameworks, REST APIs, and System Design.',
-    skills: ['JavaScript', 'TypeScript', 'Web Performance', 'REST APIs', 'System Design', 'Docker'],
-  },
-];
 
 export default function JobDescriptionComparatorModal({
   resume,
@@ -42,28 +18,26 @@ export default function JobDescriptionComparatorModal({
 }) {
   const [selectedJobId, setSelectedJobId] = useState('custom');
   const [customJdText, setCustomJdText] = useState('');
-  const [isFixing, setIsFixing] = useState(false);
-  const [fixedSuccess, setFixedSuccess] = useState(false);
 
   const availableJobs = useMemo(() => {
     if (discoveredJobs && discoveredJobs.length > 0) {
       return discoveredJobs.map(j => ({
         id: j.id || j.title,
-        company: j.company || 'Tech Corp',
-        title: j.title || 'Software Engineer',
-        description: j.description || j.rawJob?.description || `${j.title} at ${j.company}. Requires key technical proficiencies and strong problem-solving skills.`,
-        skills: j.skills || j.tags || ['JavaScript', 'React', 'Node.js', 'Docker', 'SQL'],
+        company: j.company || 'Company not listed',
+        title: j.title || 'Untitled role',
+        description: j.description || j.rawJob?.description || '',
+        skills: j.skills || j.tags || extractKeywordsFromText(j.description || j.rawJob?.description || ''),
       }));
     }
-    return SAMPLE_FALLBACK_JOBS;
+    return [];
   }, [discoveredJobs]);
 
   const activeJob = useMemo(() => {
     if (selectedJobId === 'custom') {
       return {
-        company: 'Target Company',
-        title: 'Target Role',
-        description: customJdText || 'Paste a job description to analyze your fit score.',
+        company: 'Custom job description',
+        title: 'Custom role',
+        description: customJdText,
         skills: extractKeywordsFromText(customJdText),
       };
     }
@@ -85,7 +59,6 @@ export default function JobDescriptionComparatorModal({
 
   const handleSelectJob = (jobId) => {
     setSelectedJobId(jobId);
-    setFixedSuccess(false);
     if (onSelectTargetJob) {
       const match = availableJobs.find(j => j.id === jobId);
       if (match) onSelectTargetJob(match);
@@ -117,9 +90,7 @@ export default function JobDescriptionComparatorModal({
 
   // Compute Skill Gap & Fit Score
   const analysis = useMemo(() => {
-    const requiredSkills = activeJob.skills && activeJob.skills.length > 0
-      ? activeJob.skills
-      : ['JavaScript', 'React', 'Node.js', 'PostgreSQL', 'Docker', 'AWS', 'CI/CD'];
+    const requiredSkills = activeJob.skills || [];
 
     const matched = [];
     const missing = [];
@@ -133,9 +104,8 @@ export default function JobDescriptionComparatorModal({
       }
     });
 
-    const total = requiredSkills.length || 1;
-    const baseRatio = matched.length / total;
-    const score = Math.min(96, Math.max(48, Math.round(baseRatio * 50 + 46)));
+    const total = requiredSkills.length;
+    const score = total ? Math.round((matched.length / total) * 100) : null;
 
     return {
       score,
@@ -146,56 +116,6 @@ export default function JobDescriptionComparatorModal({
   }, [activeJob, resumeSkillsList, resumeFullText]);
 
   if (!isOpen) return null;
-
-  // 1-Click Fix: Bridge Skill Gap
-  const handleApplyFix = () => {
-    if (!resume) return;
-    setIsFixing(true);
-    setTimeout(() => {
-      const next = JSON.parse(JSON.stringify(resume));
-
-      // 1. Add missing skills to resume skills
-      if (Array.isArray(next.skills)) {
-        const existingLower = next.skills.map(s => String(s).toLowerCase());
-        analysis.missing.forEach(m => {
-          if (!existingLower.includes(m.toLowerCase())) {
-            next.skills.push(m);
-          }
-        });
-      } else if (typeof next.skills === 'object' && next.skills !== null) {
-        if (!next.skills.tools) next.skills.tools = [];
-        const existingLower = Object.values(next.skills).flat().map(s => String(s).toLowerCase());
-        analysis.missing.forEach(m => {
-          if (!existingLower.includes(m.toLowerCase())) {
-            next.skills.tools.push(m);
-          }
-        });
-      } else {
-        next.skills = Array.from(new Set([...resumeSkillsList, ...analysis.missing]));
-      }
-
-      // 2. Enhance bullets with targeted keywords and strong action verbs
-      if (next.experience && next.experience.length > 0) {
-        const missingToAdd = [...analysis.missing];
-        next.experience.forEach((exp) => {
-          if (exp.bullets && exp.bullets.length > 0 && missingToAdd.length > 0) {
-            const keyword = missingToAdd.shift();
-            // Augment the last bullet
-            const lastIdx = exp.bullets.length - 1;
-            const original = exp.bullets[lastIdx];
-            if (!original.toLowerCase().includes(keyword.toLowerCase())) {
-              exp.bullets[lastIdx] = original.replace(/\.$/, '') + ` utilizing ${keyword} for accelerated delivery.`;
-            }
-          }
-        });
-      }
-
-      onUpdateResume(next);
-      setIsFixing(false);
-      setFixedSuccess(true);
-      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-    }, 400);
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4 select-text">
@@ -296,8 +216,8 @@ export default function JobDescriptionComparatorModal({
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                   <path
-                    className={fixedSuccess ? "text-emerald-500" : (analysis.score >= 80 ? "text-emerald-500" : analysis.score >= 65 ? "text-amber-500" : "text-rose-500")}
-                    strokeDasharray={`${fixedSuccess ? 94 : analysis.score}, 100`}
+                    className={analysis.score >= 80 ? "text-emerald-500" : analysis.score >= 65 ? "text-amber-500" : "text-rose-500"}
+                    strokeDasharray={`${analysis.score ?? 0}, 100`}
                     strokeWidth="3.5"
                     strokeLinecap="round"
                     stroke="currentColor"
@@ -307,7 +227,7 @@ export default function JobDescriptionComparatorModal({
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-xl font-black text-slate-900 dark:text-white leading-none">
-                    {fixedSuccess ? '94%' : `${analysis.score}%`}
+                    {analysis.score === null ? '—' : `${analysis.score}%`}
                   </span>
                   <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">FIT SCORE</span>
                 </div>
@@ -318,22 +238,20 @@ export default function JobDescriptionComparatorModal({
             <div className="sm:col-span-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {fixedSuccess ? 'Skill Gaps Bridged Successfully!' : `Matching Candidate Relevancy`}
+                  Candidate skill matches
                 </span>
                 <span className="text-[11px] font-bold text-slate-500">
-                  {fixedSuccess ? `${analysis.total}/${analysis.total} Skills` : `${analysis.matched.length}/${analysis.total} Matched`}
+                  {analysis.matched.length}/{analysis.total} Matched
                 </span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 ${fixedSuccess ? 'bg-emerald-500 w-[94%]' : 'bg-indigo-600'}`}
-                  style={{ width: fixedSuccess ? '94%' : `${(analysis.matched.length / analysis.total) * 100}%` }}
+                  className="h-full bg-indigo-600 transition-all duration-500"
+                  style={{ width: `${analysis.total ? (analysis.matched.length / analysis.total) * 100 : 0}%` }}
                 />
               </div>
               <p className="text-[11px] text-slate-500">
-                {fixedSuccess
-                  ? 'Your resume now matches all essential keywords for this position. Ready for export.'
-                  : `${analysis.missing.length} missing skill requirements detected in job specification.`}
+                {analysis.total ? `${analysis.missing.length} listed skills were not found in the resume text.` : 'Add a job description with recognizable skills to compare.'}
               </p>
             </div>
           </div>
@@ -342,10 +260,10 @@ export default function JobDescriptionComparatorModal({
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Matched Skills in Resume ({fixedSuccess ? analysis.total : analysis.matched.length})</span>
+              <span>Matched Skills in Resume ({analysis.matched.length})</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {(fixedSuccess ? [...analysis.matched, ...analysis.missing] : analysis.matched).map((skill, idx) => (
+              {analysis.matched.map((skill, idx) => (
                 <span
                   key={idx}
                   className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold flex items-center gap-1"
@@ -354,14 +272,14 @@ export default function JobDescriptionComparatorModal({
                   <span>{skill}</span>
                 </span>
               ))}
-              {analysis.matched.length === 0 && !fixedSuccess && (
+              {analysis.matched.length === 0 && (
                 <span className="text-slate-400 italic">No direct matches identified yet.</span>
               )}
             </div>
           </div>
 
           {/* Missing Skills Gap */}
-          {!fixedSuccess && analysis.missing.length > 0 && (
+          {analysis.missing.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="w-4 h-4" />
@@ -380,20 +298,6 @@ export default function JobDescriptionComparatorModal({
             </div>
           )}
 
-          {/* Fixed Success Banner */}
-          {fixedSuccess && (
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <div>
-                  <div className="font-bold text-xs">Resume Auto-Enhanced!</div>
-                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                    Missing skills and targeted keywords have been integrated into your live canvas and saved to your account.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}
@@ -406,17 +310,7 @@ export default function JobDescriptionComparatorModal({
           </button>
 
           <div className="flex items-center gap-2">
-            {!fixedSuccess && analysis.missing.length > 0 ? (
-              <button
-                onClick={handleApplyFix}
-                disabled={isFixing}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>{isFixing ? 'Enhancing Resume...' : '⚡ Fix Resume & Bridge Skill Gap'}</span>
-              </button>
-            ) : (
-              <>
+            <>
                 <button
                   onClick={() => { if (onDownloadPdf) onDownloadPdf(); onClose(); }}
                   className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
@@ -429,10 +323,9 @@ export default function JobDescriptionComparatorModal({
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Word (.docx)</span>
+                  <span>Download Word (.doc)</span>
                 </button>
-              </>
-            )}
+            </>
           </div>
         </div>
       </div>
@@ -441,7 +334,7 @@ export default function JobDescriptionComparatorModal({
 }
 
 function extractKeywordsFromText(text) {
-  if (!text) return ['JavaScript', 'React', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'];
+  if (!text) return [];
   const COMMON_SKILLS = [
     'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'React', 'Node.js', 'Vue', 'Angular',
     'Next.js', 'Express', 'Django', 'Flask', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis',
@@ -450,5 +343,5 @@ function extractKeywordsFromText(text) {
   ];
   const lower = text.toLowerCase();
   const found = COMMON_SKILLS.filter(s => lower.includes(s.toLowerCase()));
-  return found.length > 0 ? found : ['React', 'Node.js', 'TypeScript', 'SQL', 'Docker'];
+  return found;
 }

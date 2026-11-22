@@ -4,7 +4,7 @@ import { SECTIONS_SUB } from './weights.js';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /[\d\s\-\+\(\)]{7,}/;
 
-const ATS_HEADINGS = new Set([
+export const ATS_HEADINGS = new Set([
   'experience', 'work experience', 'professional experience', 'employment history',
   'education', 'academic background',
   'skills', 'technical skills', 'core competencies',

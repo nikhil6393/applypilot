@@ -25,6 +25,7 @@ const TailorStep = lazy(() => import('./components/TailorStep').then(m => ({ def
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
 const UserProfileSettingsModal = lazy(() => import('./components/UserProfileSettingsModal').then(m => ({ default: m.UserProfileSettingsModal })));
 const SkillGapExact = lazy(() => import('./components/SkillGapExact').then(m => ({ default: m.SkillGapExact })));
+const PastScrapedScreen = lazy(() => import('./components/PastScrapedScreen').then(m => ({ default: m.PastScrapedScreen })));
 
 const ScreenSuspenseFallback = () => (
   <div className="flex flex-col items-center justify-center min-h-[360px] gap-3 py-16">
@@ -68,10 +69,32 @@ const DEFAULT_SETTINGS = {
 };
 
 function MainApp() {
-  const { isAuthenticated, isTransitioning, user, setIsAuthModalOpen, updateProfile } = useAuth();
-  const { appMode, setAppMode, clientScreen, setClientScreen, selectedJob, setSelectedJob, toasts, removeToast } = useAppStore();
+  const { isAuthenticated, isTransitioning, user, token, setIsAuthModalOpen, updateProfile } = useAuth();
+  const { appMode, setAppMode, clientScreen, setClientScreen, selectedJob, setSelectedJob, toasts, removeToast, setSearchParams, setAppliedJobIds, setBookmarkedJobIds } = useAppStore();
   const [resume, setResume] = useState(null);
-  const [discoveredJobs, setDiscoveredJobs] = useState([]);
+  const [discoveredJobs, setDiscoveredJobs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('applypilot_discovered_jobs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [savedTrackerJobs, setSavedTrackerJobs] = useState([]);
+
+  const handleJobsDiscovered = (newJobs) => {
+    setDiscoveredJobs((prev) => {
+      const updated = typeof newJobs === 'function' ? newJobs(prev) : newJobs;
+      try {
+        if (Array.isArray(updated) && updated.length > 0) {
+          localStorage.setItem('applypilot_discovered_jobs', JSON.stringify(updated.slice(0, 250)));
+        }
+      } catch (e) {
+        console.warn('Could not persist discovered jobs:', e);
+      }
+      return updated;
+    });
+  };
   const [fitResults, setFitResults] = useState({});
   const [selectedJobsForTailoring, setSelectedJobsForTailoring] = useState([]);
   const [tailoredDocs, setTailoredDocs] = useState({});
@@ -81,11 +104,44 @@ function MainApp() {
   const [isLinkedInModalOpen, setIsLinkedInModalOpen] = useState(false);
   const [discoverySearchTerm, setDiscoverySearchTerm] = useState('');
 
+  useEffect(() => {
+    if (!isAuthenticated || !token) return;
+    fetch('/api/tracker?status=applied', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load tracked applications');
+        setAppliedJobIds((data.items || []).map((item) => item.jobId));
+      })
+      .catch((error) => console.warn('Could not load tracked applications:', error.message));
+    fetch('/api/tracker?status=saved', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load saved jobs');
+        setSavedTrackerJobs(data.items || []);
+        setBookmarkedJobIds((data.items || []).map((item) => item.jobId));
+      })
+      .catch((error) => console.warn('Could not load saved jobs:', error.message));
+  }, [isAuthenticated, token, setAppliedJobIds, setBookmarkedJobIds]);
+
   // Initialize from LocalStorage and active session
+  useEffect(() => {
+    if (discoveredJobs.length === 0) {
+      fetch('/api/jobs?limit=250')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.items) && data.items.length > 0) {
+            handleJobsDiscovered(data.items);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     try {
       const savedSettings = localStorage.getItem('applypilot_settings');
       if (savedSettings) {
+
         setSettings(JSON.parse(savedSettings));
       }
       const savedLinkedIn = localStorage.getItem('applypilot_linkedin_profile');
@@ -132,36 +188,6 @@ function MainApp() {
     }
   }, [user]);
 
-  // Automatically load past verified jobs into global discoveredJobs so Dashboard & Feed are immediately populated
-  useEffect(() => {
-    const loadInitialPastJobs = async () => {
-      try {
-        const res = await fetch('/api/jobs?limit=500');
-        const data = await res.json();
-        if (data && Array.isArray(data.items) && data.items.length > 0) {
-          const tagged = data.items.map((j) => ({ ...j, isQueue: true, isLive: false }));
-          setDiscoveredJobs((prev) => {
-            if (!prev || prev.length === 0) return tagged;
-            const map = new Map();
-            for (const item of prev) {
-              const k = item.id || item.applyUrl || item.title;
-              map.set(k, item);
-            }
-            for (const item of tagged) {
-              const k = item.id || item.applyUrl || item.title;
-              if (!map.has(k)) map.set(k, item);
-            }
-            return Array.from(map.values());
-          });
-        }
-      } catch (err) {
-        console.warn('Initial jobs preloader error:', err);
-      }
-    };
-    loadInitialPastJobs();
-  }, [user]);
-
-
   const handleUpdateLinkedInProfile = (profile) => {
     setLinkedInProfile(profile);
     if (profile) {
@@ -174,19 +200,19 @@ function MainApp() {
   const handleFindLinkedInInternships = async (profile) => {
     setClientScreen('discovery');
     try {
-      const res = await fetch('/api/linkedin/find-internships', {
+      const skills = Array.isArray(profile.skills) ? profile.skills : [];
+      const res = await fetch('/api/jobs/scrape-linkedin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          batch: profile.headline || '2028',
-          skills: profile.skills || ['React', 'TypeScript', 'Node.js'],
+          query: [profile.headline, ...skills].filter(Boolean).join(' ') || 'software engineering internship',
           location: profile.location || 'India',
+          internshipsOnly: true,
         }),
       });
       const data = await res.json();
-      if (data.jobs && data.jobs.length > 0) {
-        setDiscoveredJobs(data.jobs);
-      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Internship search failed');
+      setDiscoveredJobs(data.jobs || []);
     } catch (err) {
       console.error('Failed to trigger LinkedIn batch scrape:', err);
     }
@@ -267,6 +293,7 @@ function MainApp() {
       onSelectScreen={(step) => setClientScreen(step)}
       onSearch={(term) => {
         setDiscoverySearchTerm(term);
+        if (setSearchParams) setSearchParams(term, '');
         setClientScreen('discovery');
       }}
       jobCount={discoveredJobs.length}
@@ -281,14 +308,14 @@ function MainApp() {
 
             {/* Screen 1: Landing */}
             {clientScreen === 'landing' && (
-              <motion.div key="landing" className="p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="landing" className="p-4 sm:p-6" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <LandingPage onLaunchApp={() => setClientScreen('discovery')} />
               </motion.div>
             )}
 
             {/* Screen 2: Dashboard — New PRO UI */}
             {clientScreen === 'analytics' && (
-              <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ height: '100%' }}>
+              <motion.div key="analytics" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="w-full">
                 <DashboardHome
                   resume={resume}
                   discoveredJobs={discoveredJobs}
@@ -301,11 +328,11 @@ function MainApp() {
 
             {/* Screen 3: Job Discovery Feed */}
             {clientScreen === 'discovery' && (
-              <motion.div key="discovery" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ width: '100%' }}>
+              <motion.div key="discovery" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="w-full">
                 <DiscoveryStep
                   resume={resume || createEmptyResume(user)}
                   discoveredJobs={discoveredJobs}
-                  onJobsDiscovered={setDiscoveredJobs}
+                  onJobsDiscovered={handleJobsDiscovered}
                   onProceedToScoring={handleProceedToScoring}
                   onSelectJobForDetail={(job) => { setSelectedJob(job); setClientScreen('job_detail'); }}
                   onSelectJobForTailoring={(job) => { setSelectedJobsForTailoring([job]); setClientScreen('resume'); }}
@@ -316,9 +343,23 @@ function MainApp() {
               </motion.div>
             )}
 
+            {/* Screen: Past Scraped Database Archive (SQLite, zero localStorage) */}
+            {clientScreen === 'past_scraped' && (
+              <motion.div key="past_scraped" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="w-full">
+                <PastScrapedScreen
+                  resume={resume}
+                  isAdmin={user?.role === 'admin'}
+                  token={token}
+                  onNavigateToFeed={() => setClientScreen('discovery')}
+                  onNavigateToResume={() => setClientScreen('resume')}
+                  onUpdateResume={handleUpdateResume}
+                />
+              </motion.div>
+            )}
+
             {/* Screen 4: Job Detail Split-Pane */}
             {clientScreen === 'job_detail' && (
-              <motion.div key="job_detail" className="p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="job_detail" className="w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <JobDetailSplitPane
                   jobs={discoveredJobs}
                   selectedJob={selectedJob}
@@ -332,7 +373,7 @@ function MainApp() {
 
             {/* Screen 5: Resume Studio (Merged with Job Tailoring) */}
             {(clientScreen === 'resume' || clientScreen === 'tailor') && (
-              <motion.div key="resume" className="p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="resume" className="w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <ResumeStep
                   resume={resume}
                   onUpdateResume={handleUpdateResume}
@@ -348,21 +389,23 @@ function MainApp() {
 
             {/* Screen 6: Skill Gap Analysis — Exact Template */}
             {clientScreen === 'scoring' && (
-              <motion.div key="scoring" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ width: '100%' }}>
+              <motion.div key="scoring" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="w-full">
                 <SkillGapExact
                   onNavigateToFeed={(companyName) => {
                     setDiscoverySearchTerm(companyName || '');
                     setClientScreen('discovery');
                   }}
+                  resume={resume}
                 />
               </motion.div>
             )}
 
             {/* Screen 7: Saved Jobs */}
             {clientScreen === 'saved_jobs' && (
-              <motion.div key="saved_jobs" className="p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="saved_jobs" className="w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <SavedJobsScreen
-                  jobs={discoveredJobs}
+                  jobs={[...discoveredJobs, ...savedTrackerJobs.map((record) => ({ id: record.jobId, title: record.jobTitle, company: record.company, applyUrl: record.applyUrl, source: 'Saved tracker', trackerId: record.id }))].filter((job, index, all) => all.findIndex((item) => String(item.id) === String(job.id)) === index)}
+                  token={token}
                   onSelectJobForDetail={(j) => { setSelectedJob(j); setClientScreen('job_detail'); }}
                   onSelectJobForTailoring={(j) => { setSelectedJobsForTailoring([j]); setClientScreen('resume'); }}
                 />
@@ -371,7 +414,7 @@ function MainApp() {
 
             {/* Screen 9: Profile & Guardrail Settings */}
             {(clientScreen === 'profile_settings' || clientScreen === 'settings') && (
-              <motion.div key="profile_settings" className="p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="profile_settings" className="w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <ProfileSettingsScreen
                   resume={resume}
                   onUpdateResume={handleUpdateResume}
@@ -383,7 +426,7 @@ function MainApp() {
 
             {/* Screen 10: Scraper Status Panel */}
             {clientScreen === 'scraper_status' && (
-              <motion.div key="scraper_status" className="p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div key="scraper_status" className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
                 <ScraperStatusPanel />
               </motion.div>
             )}

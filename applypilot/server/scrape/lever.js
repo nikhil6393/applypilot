@@ -20,7 +20,7 @@ export async function lever(req) {
     const cached = scrapeCache.get(cacheKey);
     if (cached)
         return cached;
-    const max = Math.max(1, Math.min(100, req.maxPerSource ?? 25));
+    const max = Math.max(1, Math.min(300, req.maxPerSource ?? 80));
     const out = [];
     const queryLower = (req.query || '').toLowerCase();
     const requireIntern = req.internshipsOnly !== false &&
@@ -40,7 +40,7 @@ export async function lever(req) {
     const fetchCompany = async (c) => {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 2500);
+            const timeout = setTimeout(() => controller.abort(), 4500);
             const res = await fetch(`https://api.lever.co/v0/postings/${c}?mode=json`, {
                 headers: { 'User-Agent': 'ApplyPilot/2.0' },
                 signal: controller.signal,
@@ -120,7 +120,7 @@ export async function lever(req) {
                     source: 'lever',
                     url: apply,
                     applyUrl: apply,
-                    location: j.categories?.location || 'Worldwide',
+                    location: j.categories?.location || '',
                     remote,
                     description: desc,
                     descriptionHtml: combinedHtml,
@@ -133,7 +133,7 @@ export async function lever(req) {
                     postedDate: new Date(createdMs).toISOString(),
                     postedRelative: rel,
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
                     sponsorsVisa: meta.sponsorsVisa,
                     eligibleBatches: meta.eligibleBatches,
@@ -151,20 +151,19 @@ export async function lever(req) {
             return [];
         }
     };
-    // High-speed parallel batch execution
-    const batches = chunkArray(LEVER_COMPANIES.slice(0, 24), 12);
-    for (const batch of batches) {
-        const results = await Promise.allSettled(batch.map((c) => fetchCompany(c)));
-        for (const r of results) {
-            if (r.status === 'fulfilled' && r.value.length > 0) {
-                out.push(...r.value);
-                if (out.length >= max)
-                    break;
-            }
+    // Run ALL Lever companies in a single parallel wave — no sequential batching, no early exit
+    const results = await Promise.allSettled(LEVER_COMPANIES.map((c) => fetchCompany(c)));
+    for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.length > 0) {
+            out.push(...r.value);
         }
-        if (out.length >= max)
-            break;
     }
+    // Sort by recency — most recent first
+    out.sort((a, b) => {
+        const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+        const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+        return tb - ta;
+    });
     const finalJobs = out.slice(0, max);
     scrapeCache.set(cacheKey, finalJobs);
     return finalJobs;

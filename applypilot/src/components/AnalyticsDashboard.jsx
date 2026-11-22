@@ -170,10 +170,10 @@ export const AnalyticsDashboard = ({
 
   // ── 3D WORKING DISCOVERY & SALARY TELEMETRY ENGINE ──
   const telemetryData = useMemo(() => {
-    const totalJobs = Math.max(localJobs.length, 36);
-    const linkedinJobs = localJobs.filter((j) => (j.source || '').toLowerCase().includes('linkedin')).length || 18;
-    const atsJobs = localJobs.filter((j) => ['greenhouse', 'ashby', 'lever'].some((s) => (j.source || '').toLowerCase().includes(s))).length || 12;
-    const remoteJobs = localJobs.filter((j) => ['remoteok', 'weworkremotely', 'himalayas', 'jobicy', 'yc'].some((s) => (j.source || '').toLowerCase().includes(s))).length || 8;
+    const totalJobs = localJobs.length;
+    const linkedinJobs = localJobs.filter((j) => (j.source || '').toLowerCase().includes('linkedin')).length;
+    const atsJobs = localJobs.filter((j) => ['greenhouse', 'ashby', 'lever'].some((s) => (j.source || '').toLowerCase().includes(s))).length;
+    const remoteJobs = localJobs.filter((j) => ['remoteok', 'weworkremotely', 'himalayas', 'jobicy', 'yc'].some((s) => (j.source || '').toLowerCase().includes(s))).length;
 
     const isEntryOrIntern = /intern|apprentice|junior|fresh|entry|2028|2027/i.test(userRole + ' ' + userBatch);
     const baseTarget = isEntryOrIntern ? 15 : 28;

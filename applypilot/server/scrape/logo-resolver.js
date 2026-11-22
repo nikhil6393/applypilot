@@ -316,11 +316,6 @@ export function resolveCompanyLogo(companyName, scrapedLogo = null, jobUrl = '')
         return scrapedLogo;
     }
 
-    // 3. Official Clearbit / Domain CDN
-    const domain = getDomainFromCompany(companyName, jobUrl);
-    if (domain && domain !== 'company.com') {
-        return `https://logo.clearbit.com/${domain}`;
-    }
-
+    // 3. Fallback to clean undefined if not verified
     return undefined;
 }

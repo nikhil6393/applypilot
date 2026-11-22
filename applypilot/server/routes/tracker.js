@@ -1,19 +1,11 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { listTracker, getTracker, addTracker, updateTracker, deleteTracker, } from '../store/tracker.js';
-import { getSessionUser } from '../security/auth.js';
 
 export const trackerRouter = Router();
 
 function getTrackerUserId(req) {
-    if (req.user?.id) return req.user.id;
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        const user = getSessionUser(token);
-        if (user?.id) return user.id;
-    }
-    return 'default';
+    return req.user?.id || (process.env.NODE_ENV === 'test' ? 'default' : null);
 }
 
 const validStatuses = [

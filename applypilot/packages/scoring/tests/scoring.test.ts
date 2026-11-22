@@ -4,10 +4,10 @@ import {
   normalizeCanonicalUrl,
   resolveSkill,
   normalizeSkillList,
+  extractKnownSkills,
   compareSkills,
   checkDuplicate,
   mergeJobs,
-  diceCoefficient,
   computeDescriptionHash,
   defaultFitEngine,
 } from '../src/index.js';
@@ -59,6 +59,13 @@ describe('Phase 5 — Search, Dedupe, and Fit Engine (@applypilot/scoring)', () 
       expect(normalized).toHaveLength(2);
       expect(normalized).toContain('React');
       expect(normalized).toContain('TypeScript');
+    });
+
+    it('extracts known skills from job text without matching short words', () => {
+      expect(extractKnownSkills('Build with React, TypeScript, Node.js, and Go to market.')).toEqual(
+        expect.arrayContaining(['React', 'TypeScript', 'Node.js']),
+      );
+      expect(extractKnownSkills('We will go to market.')).not.toContain('Go');
     });
 
     it('compares target and candidate skills with taxonomy matching', () => {
@@ -179,6 +186,7 @@ describe('Phase 5 — Search, Dedupe, and Fit Engine (@applypilot/scoring)', () 
       fullName: 'Jordan Coder',
       email: 'jordan@example.com',
       skills: [{ name: 'TypeScript' }, { name: 'React' }, { name: 'PostgreSQL' }],
+      targetRoles: ['Frontend Engineer'],
       experience: [
         {
           company: 'TechFlow',
@@ -236,6 +244,46 @@ describe('Phase 5 — Search, Dedupe, and Fit Engine (@applypilot/scoring)', () 
       const report = defaultFitEngine.evaluateFit(mockResume, jobWithMissingRequirement);
       expect(report.warnings.some((w) => w.includes('Rust'))).toBe(true);
       expect(report.fitScore).toBeLessThan(80);
+    });
+
+    it('does not change fit when only the posting date changes', () => {
+      const recentJob = { ...mockJob, postedAt: new Date().toISOString() };
+      const oldJob = { ...mockJob, postedAt: '2020-01-01T00:00:00.000Z' };
+
+      expect(defaultFitEngine.evaluateFit(mockResume, recentJob).fitScore).toBe(
+        defaultFitEngine.evaluateFit(mockResume, oldJob).fitScore,
+      );
+    });
+
+    it('returns no score when neither candidate nor job has comparable evidence', () => {
+      const emptyResume: CanonicalResume = {
+        ...mockResume,
+        skills: [],
+        targetRoles: [],
+        experience: [],
+      };
+      const titleOnlyJob = { ...mockJob, skills: [], requirements: [] };
+
+      const report = defaultFitEngine.evaluateFit(emptyResume, titleOnlyJob);
+
+      expect(report.fitScore).toBeNull();
+      expect(report.availableEvidence).toEqual([]);
+    });
+
+    it('includes explicit workplace preferences but not posting freshness', () => {
+      const report = defaultFitEngine.evaluateFit(mockResume, mockJob, {
+        preferredRemote: true,
+        preferredEmploymentTypes: ['full-time'],
+      });
+      const preferenceMismatch = defaultFitEngine.evaluateFit(
+        mockResume,
+        { ...mockJob, remoteType: 'on-site' },
+        { preferredRemote: true, preferredEmploymentTypes: ['full-time'] },
+      );
+
+      expect(report.availableEvidence).toContain('preference');
+      expect(report.fitScore).toBe(90);
+      expect(report.fitScore).toBeGreaterThan(preferenceMismatch.fitScore);
     });
   });
 });

@@ -79,80 +79,37 @@ export async function tailorResumeForJob(resume, job, options = {}) {
         })
     ));
 
-    const activeAtsKeywords = matchedKeywords.length >= 2
-        ? matchedKeywords
-        : ['TypeScript', 'JavaScript', 'React', 'Node.js', 'REST APIs', 'Git']
-            .filter((k) => candidateSkillsList.some((cs) => cs.toLowerCase().includes(k.toLowerCase())));
+    const activeAtsKeywords = matchedKeywords;
 
     const missingKeywords = allJobSkills
         .filter((k) => !candidateSkillsList.some((cs) => cs.toLowerCase() === k.toLowerCase()))
         .slice(0, 6);
 
-    const keywordMatchRate = Math.min(98, Math.max(72, 75 + activeAtsKeywords.length * 4));
-    const formattingScore = 100;
-    const impactScore = resume.experience && resume.experience.length > 0 ? 94 : 88;
-    const sectionCompleteness = 98;
-    const overallAtsScore = Math.round(
-        keywordMatchRate * 0.45 + formattingScore * 0.25 + impactScore * 0.2 + sectionCompleteness * 0.1
-    );
+    const keywordMatchRate = Math.min(100, Math.round((activeAtsKeywords.length / Math.max(allJobSkills.length, 1)) * 100));
+    const overallAtsScore = keywordMatchRate;
 
     const atsScoreBreakdown = {
         overallScore: overallAtsScore,
         keywordMatchRate,
-        formattingScore,
-        impactScore,
-        sectionCompleteness,
         matchedKeywords: activeAtsKeywords,
         missingKeywords,
-        atsTips: [
-            'Single-column structure parsed with 100% ATS compatibility (Greenhouse/Lever compliant).',
-            'Quantified Google XYZ accomplishment formula enforced across experience bullets.',
-            'High target keyword density with authentic skill grounding — zero hallucination.',
-        ],
+        atsTips: ['This is a text keyword overlap estimate, not an ATS pass prediction.'],
     };
 
-    // Power verbs to upgrade passive bullet openings
-    const POWER_ACTION_VERBS = [
-        'Architected', 'Engineered', 'Optimized', 'Spearheaded',
-        'Scaled', 'Implemented', 'Streamlined', 'Automated',
-        'Orchestrated', 'Refactored', 'Deployed'
-    ];
-    const WEAK_OPENERS_REGEX = /^(responsible for|worked on|helped with|assisted in|duties included|participated in)\s*/i;
-
-    // Tailor experience bullets with power verbs and skill alignment
+    // Preserve original claims and show keyword suggestions separately.
     const tailoredBulletsMap = (resume.experience || []).map((exp, idx) => {
         const rawBullets = exp.bullets || [];
-        const enhanced = rawBullets.map((b, bIdx) => {
-            let text = b.trim();
-            if (WEAK_OPENERS_REGEX.test(text)) {
-                const verb = POWER_ACTION_VERBS[(idx + bIdx) % POWER_ACTION_VERBS.length];
-                text = `${verb} ${text.replace(WEAK_OPENERS_REGEX, '')}`;
-            }
-            return text;
-        });
         return {
             experienceId: exp.id || `exp_${idx}`,
-            bullets: enhanced.length > 0 ? enhanced : [
-                `Engineered robust features using ${activeAtsKeywords.slice(0, 2).join(' and ') || 'modern engineering stack'}, optimizing performance and system stability.`,
-                `Collaborated across development cycles to deploy high-availability services and RESTful APIs.`
-            ],
+            bullets: rawBullets.map((bullet) => String(bullet).trim()).filter(Boolean),
         };
     });
 
     // Build tailored summary from authentic resume data
     const topSkills = activeAtsKeywords.slice(0, 3).join(', ');
     const candidateName = resume.fullName || resume.name || 'Candidate';
-    const tailoredSummary = resume.summary
-        ? resume.summary
-        : `${candidateName} is an impact-driven Software Engineer with demonstrated proficiency in ${topSkills || 'full-stack software development'}, targeted to accelerate engineering delivery and technical excellence for the ${job.title} role at ${job.company}.`;
-
-    const tailoredCoverNote = [
-        `Dear Hiring Team at ${job.company},`,
-        `\n\nI am writing to express my enthusiastic interest in the ${job.title} opportunity. Having reviewed your requisition, my hands-on background in ${topSkills || 'modern software engineering'} directly maps to your requirements.`,
-        `\n\nIn my previous roles, I have consistently focused on building scalable, maintainable architectures and delivering measurable engineering outcomes. I would welcome the opportunity to discuss how my skill set can support ${job.company}'s upcoming milestones.`,
-        `\n\nThank you for your time and consideration.`,
-        `\n\nSincerely,\n${candidateName}`,
-    ].join('');
+    const tailoredSummary = typeof resume.summary === 'string' ? resume.summary : '';
+    const tailoredCoverNote = '';
 
     const tailored = {
         tailoredSummary,
@@ -164,12 +121,7 @@ export async function tailorResumeForJob(resume, job, options = {}) {
 
     // Truth validation gate
     const validation = validateTruth(resume, tailored);
-    if (!validation.valid) {
-        console.warn(
-            `[TruthValidator] Rejected tailoring for ${job.title} at ${job.company}:`,
-            validation.violations
-        );
-    }
+    if (!validation.valid) throw new Error(`Resume output failed factual-content validation: ${validation.violations.join('; ')}`);
 
     const primaryBullets = tailored.tailoredResumeBullets?.[0]?.bullets || [];
     const latexSource = renderTailoredLatex(resume, job, primaryBullets);

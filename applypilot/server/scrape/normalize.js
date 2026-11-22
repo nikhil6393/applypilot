@@ -170,7 +170,7 @@ export function matchesScrapeRequest(job, req) {
             const isIndiaAlias = (wanted.includes('bangalore') && jobLoc.includes('bengaluru')) ||
                 (wanted.includes('bengaluru') && jobLoc.includes('bangalore'));
             if (!jobLoc.includes(wanted) && !isIndiaAlias) {
-                if (!['linkedin', 'naukari'].includes(job.source)) {
+                if (!['linkedin', 'naukri', 'naukari'].includes(job.source)) {
                     return false;
                 }
             }
@@ -248,7 +248,7 @@ export function matchesScrapeRequest(job, req) {
         // If it's from a major job board (LinkedIn, Naukri), we generally trust their internal relevancy algorithm.
         // We just want to make sure it's not complete junk. 1 matching keyword is enough.
         // Specially for "intern", if the user searched "intern" and the job has "intern", it's highly relevant even if "Software Engineer" became "SDE".
-        if (['linkedin', 'naukari'].includes(job.source)) {
+        if (['linkedin', 'naukri', 'naukari'].includes(job.source)) {
             return matches >= 1;
         }
         // For raw scrapers, use the stricter 2-word heuristic
@@ -292,7 +292,23 @@ export function filterJobsForRequest(input, req) {
             scored.sort((a, b) => (b.job.salaryMax ?? 0) - (a.job.salaryMax ?? 0));
         }
         else if (sortBy === 'applicants') {
-            scored.sort((a, b) => (b.job.applicantCount ?? 0) - (a.job.applicantCount ?? 0));
+            scored.sort((a, b) => {
+                const countA = a.job.applicantCount;
+                const countB = b.job.applicantCount;
+                const knownA = typeof countA === 'number' && Number.isFinite(countA) && countA >= 0;
+                const knownB = typeof countB === 'number' && Number.isFinite(countB) && countB >= 0;
+                if (knownA !== knownB)
+                    return knownA ? -1 : 1;
+                if (knownA && countA !== countB)
+                    return countA - countB;
+                const postedA = Date.parse(a.job.postedAt || '');
+                const postedB = Date.parse(b.job.postedAt || '');
+                const timestampA = Number.isFinite(postedA) ? postedA : Number.NEGATIVE_INFINITY;
+                const timestampB = Number.isFinite(postedB) ? postedB : Number.NEGATIVE_INFINITY;
+                if (timestampA === timestampB)
+                    return 0;
+                return timestampB > timestampA ? 1 : -1;
+            });
         }
         else if (sortBy === 'newest') {
             scored.sort((a, b) => Date.parse(b.job.postedAt) - Date.parse(a.job.postedAt));

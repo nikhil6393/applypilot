@@ -180,7 +180,7 @@ export function evaluateResumeWorded(resume, targetJdText = '') {
             `${verb1} ${remainderClean}`,
             `${verb2} ${remainderClean}`
           ],
-          suggestedMetricFix: `${verb1} ${remainderClean}, achieving a 25% boost in throughput and reliability.`
+          metricPrompt: 'Add a result or metric you can verify, if one applies.'
         });
       }
 
@@ -198,10 +198,7 @@ export function evaluateResumeWorded(resume, targetJdText = '') {
           why: 'Top candidate resumes include numbers, scale multipliers, or percentages in at least 40% of their bullet points to prove business impact.',
           location: { type: 'bullet', expIndex: expIdx, bulletIndex: bIdx, company: exp.company, role: exp.title, text: cleanBullet },
           flaggedToken: cleanBullet.slice(0, 30) + '...',
-          suggestedFixes: [
-            `${cleanBullet.replace(/\.$/, '')}, reducing processing time by 30%.`,
-            `${cleanBullet.replace(/\.$/, '')} across 10+ production services.`
-          ]
+          metricPrompt: 'Add a result or metric you can verify, if one applies.'
         });
       }
 

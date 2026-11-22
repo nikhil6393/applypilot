@@ -20,6 +20,7 @@ import { internshala } from './internshala.js';
 import { unstop } from './unstop.js';
 import { simplifyJobs } from './simplify-jobs.js';
 import { linkedinSearchDork } from './linkedin-dork.js';
+import { naukri } from './naukri.js';
 import { config } from '../config.js';
 import { filterJobsForRequest } from './normalize.js';
 import { scrapeCache } from './cache.js';
@@ -40,10 +41,7 @@ const ALL_SCRAPERS = {
     internshala,
     unstop,
     simplify_jobs: simplifyJobs,
-    naukari: async (req) => {
-        const jobs = await linkedinRealtime({ ...req, query: (req?.query || 'software engineer') + ' India' });
-        return jobs.map(j => ({ ...j, id: 'naukri_' + j.id, source: 'naukari' }));
-    },
+    naukri,
     linkedin_dork: linkedinSearchDork,
     manual: async () => [],
 };
@@ -60,7 +58,9 @@ const DEFAULT_SOURCES = [
     'internshala',
     'unstop',
     'simplify_jobs',
-    'naukari',
+    'naukri',
+    'arbeitnow',
+    'jobicy',
 ];
 class ScrapeOrchestrator extends EventEmitter {
     timer = null;

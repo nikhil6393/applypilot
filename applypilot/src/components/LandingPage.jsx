@@ -9,11 +9,6 @@ const PIPELINE_JOBS = [
   { id: "vercel-platform", company: "Vercel", companyColor: "#000000", role: "Platform Systems Engineer", location: "Remote / Global", salary: "\$180k-\$230k", matchScore: 92, tags: ["Next.js", "Rust", "Edge Runtime"], matchedKeywords: ["Next.js", "Node.js", "Edge Computing"], missingKeywords: ["Rust Async"], rawBullet: "Managed web deployments and improved build pipeline scripts for developer teams.", tailoredBullet: "Optimized edge-middleware build pipelines across global CDN nodes, reducing cold-start execution overhead from 180ms to 24ms." },
   { id: "datadog-fullstack", company: "Datadog", companyColor: "#632CA6", role: "Full Stack Observability Engineer", location: "New York / Hybrid", salary: "\$175k-\$220k", matchScore: 89, tags: ["React", "Python", "PostgreSQL"], matchedKeywords: ["PostgreSQL", "React", "REST APIs"], missingKeywords: ["OpenTelemetry"], rawBullet: "Created telemetry dashboards and wrote SQL queries for monitoring database performance.", tailoredBullet: "Constructed real-time telemetry analytics dashboards in React & PostgreSQL, surfacing index anomalies across 400+ production database instances." },
 ];
-const TESTIMONIALS = [
-  { quote: "Went from 0 callbacks in 3 weeks to 4 technical screens in 5 days. The ATS match scoring is genuinely accurate.", name: "Arjun M.", title: "Software Engineer -> Stripe", avatar: "AM", accent: "#6772E5" },
-  { quote: "ApplyPilot is different - it never puts words in my mouth, just makes my actual experience shine.", name: "Priya K.", title: "Senior SWE -> Google Cloud", avatar: "PK", accent: "#4285F4" },
-  { quote: "The 60-second polling caught a Vercel opening before it hit 50 applicants. Got the role.", name: "Siddharth R.", title: "Platform Engineer -> Vercel", avatar: "SR", accent: "#7C3AED" },
-];
 const ROTATING_WORDS = ["at Stripe", "at Google", "at Vercel", "at Datadog", "at OpenAI", "at Figma"];
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -49,21 +44,21 @@ const FloatingChip = ({ company, role, score, color, className, domain }) => {
   const [imgError, setImgError] = React.useState(false);
   const logoUrl = domain ? `https://logo.clearbit.com/${domain}` : null;
   return (
-    <div className={className} style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderRadius: "16px", padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", minWidth: "220px", boxShadow: "0 8px 32px rgba(13,13,18,0.14), 0 2px 8px rgba(13,13,18,0.08)", border: "1px solid rgba(255,255,255,0.95)" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', background: color + '18', border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <div className={className} style={{ background: "rgba(255,255,255,0.94)", backdropFilter: "blur(20px)", borderRadius: "12px", padding: "7px 12px", display: "flex", alignItems: "center", gap: "10px", minWidth: "195px", boxShadow: "0 4px 18px rgba(13,13,18,0.08), 0 1px 3px rgba(13,13,18,0.05)", border: "1px solid rgba(255,255,255,0.95)" }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', background: color + '18', border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         {logoUrl && !imgError ? (
-          <img src={logoUrl} alt={company} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+          <img src={logoUrl} alt={company} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 2 }} />
         ) : (
-          <span style={{ fontSize: 13, fontWeight: 900, color }}>{company[0]}</span>
+          <span style={{ fontSize: 11, fontWeight: 900, color }}>{company[0]}</span>
         )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#0D0D12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company}</div>
-        <div style={{ fontSize: 10, color: "#6B7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role}</div>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: "#0D0D12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company}</div>
+        <div style={{ fontSize: 9.5, color: "#6B7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{role}</div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-        <div style={{ fontSize: 12, fontWeight: 900, color: score >= 95 ? "#059669" : "#2563EB" }}>{score}%</div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: score >= 95 ? "#059669" : "#2563EB", background: score >= 95 ? "#ECFDF5" : "#EFF6FF", padding: "1px 5px", borderRadius: 4 }}>ATS Match</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 900, color: score >= 95 ? "#059669" : "#2563EB" }}>{score}%</div>
+        <div style={{ fontSize: 8.5, fontWeight: 600, color: score >= 95 ? "#059669" : "#2563EB", background: score >= 95 ? "#ECFDF5" : "#EFF6FF", padding: "1px 4px", borderRadius: 3 }}>ATS Match</div>
       </div>
     </div>
   );
@@ -119,13 +114,11 @@ const FadeIn = ({ children, delay = 0, className = "" }) => {
 };
 // Main export
 export const LandingPage = ({ onLaunchApp }) => {
-  const { user, loginWithDemo, setIsAuthModalOpen, setAuthModalTab } = useAuth();
+  const { user, setIsAuthModalOpen, setAuthModalTab } = useAuth();
   const [selectedJob, setSelectedJob] = useState(PIPELINE_JOBS[0]);
   const [activeDiffMode, setActiveDiffMode] = useState("tailored");
   const [activeFaq, setActiveFaq] = useState(null);
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [adminContent, setAdminContent] = useState(null);
   useEffect(() => {
     fetch('/api/admin/content/words')
@@ -143,8 +136,6 @@ export const LandingPage = ({ onLaunchApp }) => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   useEffect(() => {
-    const t = setInterval(() => setActiveTestimonial(p => (p + 1) % TESTIMONIALS.length), 4800);
-    return () => clearInterval(t);
   }, []);
   const handleLaunch = () => {
     if (user && onLaunchApp)
@@ -154,37 +145,23 @@ export const LandingPage = ({ onLaunchApp }) => {
       setIsAuthModalOpen(true);
     }
   };
-  const handleInstantDemo = async () => {
-    setIsDemoLoading(true);
-    try {
-      await loginWithDemo("swe");
-      if (onLaunchApp)
-        onLaunchApp();
-    }
-    catch (e) {
-      console.error(e);
-    }
-    finally {
-      setIsDemoLoading(false);
-    }
-  };
   const faqs = [
-    { q: "How does ApplyPilot guarantee zero hallucinations?", a: "ApplyPilot uses a constrained transformation model. It reframes your authentic accomplishments using high-impact verbs and ATS keywords - but never invents employers, credentials, or technologies you haven\\'t used." },
-    { q: "Will automated applying trigger spam flags?", a: "No. ApplyPilot enforces strict guardrails: minimum 75% ATS match thresholds, polite polling intervals, and custom-tailored bullets matched to each requisition." },
-    { q: "Can I edit the tailored resume before submission?", a: "Always. You have a dedicated Bulk Approval Bar and Version Preview Drawer to inspect every tailored line and edit bullets in real time." },
-    { q: "What ATS systems and job boards are supported?", a: "We support LinkedIn, Naukri, Greenhouse, Lever, and Ashby. We also provide one-click export to LaTeX or single-column ATS-compliant PDF." },
+    { q: "Does ApplyPilot guarantee resume or hiring outcomes?", a: "No. Scores are heuristic estimates based on the resume and job description you provide. They do not predict an employer's ATS decision, interview, or offer." },
+    { q: "Does ApplyPilot submit applications automatically?", a: "No. ApplyPilot helps you discover roles and prepare materials. You review the materials and submit each application on the employer's site." },
+    { q: "Can I edit the tailored resume before using it?", a: "Yes. Suggestions are editable and should be reviewed for accuracy before you export or use them." },
+    { q: "What job sources are available?", a: "The job feed queries configured public job sources and supported company ATS listings. Availability and freshness depend on each source; verify every posting on the employer site." },
   ];
   const ARCH_PILLARS = [
-    { num: "01", icon: <RefreshCw className="w-5 h-5" />, title: "Headless Polling Daemons", desc: "Background processes query LinkedIn and Naukri every 60 seconds. New requisitions are indexed before applicant counts surge past the first 50.", stat: "120ms avg", statSub: "latency", cardClass: "feature-card-blue", iconBg: "#DBEAFE", iconColor: "#1D4ED8" },
-    { num: "02", icon: <Cpu className="w-5 h-5" />, title: "Deterministic ATS Parser", desc: "Emulates exact parsing grammars for Workday, Greenhouse, Taleo, and Lever. Eliminates keyword rejection before submission.", stat: "8 ATS", statSub: "engines", cardClass: "feature-card-violet", iconBg: "#EDE9FE", iconColor: "#6D28D9" },
-    { num: "03", icon: <ShieldCheck className="w-5 h-5" />, title: "Zero-Hallucination Guard", desc: "Semantic guardrails prevent fabricating companies, degrees, or skills you have not used. Your real experience, elevated.", stat: "100%", statSub: "genuine", cardClass: "feature-card-emerald", iconBg: "#D1FAE5", iconColor: "#047857" },
-    { num: "04", icon: <Layers className="w-5 h-5" />, title: "Direct-API Bridge", desc: "Connects directly to Easy Apply and company submission forms. Generates clean single-column LaTeX resumes. Syncs to your Kanban board.", stat: "Live", statSub: "sync", cardClass: "feature-card-amber", iconBg: "#FEF3C7", iconColor: "#B45309" },
+    { num: "01", icon: <RefreshCw className="w-5 h-5" />, title: "Job discovery", desc: "Search supported public job feeds and company ATS listings. Results can be incomplete or out of date, so confirm details with the employer.", stat: "Search", statSub: "available", cardClass: "feature-card-blue", iconBg: "#DBEAFE", iconColor: "#1D4ED8" },
+    { num: "02", icon: <Cpu className="w-5 h-5" />, title: "Resume scoring", desc: "Rule-based checks summarize resume structure and keyword overlap. Scores are guidance, not a prediction of an ATS decision.", stat: "Rules", statSub: "explained", cardClass: "feature-card-violet", iconBg: "#EDE9FE", iconColor: "#6D28D9" },
+    { num: "03", icon: <ShieldCheck className="w-5 h-5" />, title: "Truth-first editing", desc: "Review and edit suggestions yourself. Keep only details that accurately describe your work and experience.", stat: "You", statSub: "stay in control", cardClass: "feature-card-emerald", iconBg: "#D1FAE5", iconColor: "#047857" },
+    { num: "04", icon: <Layers className="w-5 h-5" />, title: "Application tracking", desc: "Save roles and record application statuses in your account. ApplyPilot does not submit applications to employers.", stat: "Track", statSub: "your activity", cardClass: "feature-card-amber", iconBg: "#FEF3C7", iconColor: "#B45309" },
   ];
   return (<div className="relative min-h-screen overflow-x-hidden" style={{ background: "var(--bg)", color: "var(--ink)" }}>
 
     {/* NAVBAR */}
     <header className={"sticky top-0 z-50 transition-all duration-300 " + (scrolled ? "bg-white/90 backdrop-blur-2xl border-b border-gray-200/80 shadow-sm" : "bg-transparent border-b border-transparent")}>
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 h-14 flex items-center justify-between">
         <motion.div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
           <div className="w-8 h-8 rounded-[10px] bg-gradient-to-b from-[#161D2C] to-[#080C14] border-t border-white/20 border-x border-[#1E293B] border-b border-black/80 flex items-center justify-center shadow-xs">
             <svg viewBox="0 0 32 32" className="w-5 h-5" fill="none">
@@ -210,8 +187,8 @@ export const LandingPage = ({ onLaunchApp }) => {
           </a>))}
         </nav>
         <div className="flex items-center gap-2">
-          <button onClick={() => { setAuthModalTab("login"); setIsAuthModalOpen(true); }} className="px-3.5 py-2 text-[13px] font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer">Sign in</button>
-          <motion.button onClick={handleLaunch} className="btn-primary text-[13px]" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <button onClick={() => { setAuthModalTab("login"); setIsAuthModalOpen(true); }} className="px-3.5 py-1.5 text-[13px] font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer">Sign in</button>
+          <motion.button onClick={handleLaunch} className="btn-primary text-[13px] py-1.5 px-3.5" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             Open Workspace <ArrowRight className="w-3.5 h-3.5" />
           </motion.button>
         </div>
@@ -219,27 +196,27 @@ export const LandingPage = ({ onLaunchApp }) => {
     </header>
 
     {/* HERO */}
-    <section className="relative pt-24 pb-32 px-5 sm:px-8 max-w-7xl mx-auto overflow-hidden">
+    <section className="relative min-h-[calc(100vh-3.5rem)] flex flex-col justify-center py-2 sm:py-3 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="aurora-blob aurora-blob-1" style={{ top: "-10%", left: "-5%" }} />
         <div className="aurora-blob aurora-blob-2" style={{ top: "20%", right: "-10%" }} />
         <div className="aurora-blob aurora-blob-3" style={{ bottom: "10%", left: "30%" }} />
         <div className="dot-grid absolute inset-0 opacity-40" />
       </div>
-      <div className="relative z-10 text-center">
-        {adminContent?.bannerAlert && adminContent?.bannerAlertEnabled !== false && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center mb-4">
-          <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+      <div className="relative z-10 text-center my-auto w-full max-w-5xl mx-auto">
+        {adminContent?.bannerAlert && adminContent?.bannerAlertEnabled !== false && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center mb-2">
+          <span className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
             {adminContent.bannerAlert}
           </span>
         </motion.div>)}
 
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="flex justify-center mb-8">
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold" style={{ background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", boxShadow: "0 2px 8px rgba(37,99,235,0.12)" }}>
-            <Rocket className="w-3.5 h-3.5" /> {adminContent?.liveIndexBadgeText || "Precision ATS tailoring - not a mass-apply bot"}
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="flex justify-center mb-2 sm:mb-2.5">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", boxShadow: "0 2px 8px rgba(37,99,235,0.12)" }}>
+            <Rocket className="w-3 h-3" /> {adminContent?.liveIndexBadgeText || "Precision ATS tailoring — not a mass-apply bot"}
           </span>
         </motion.div>
 
-        <h1 className="font-display font-extrabold max-w-4xl mx-auto mb-2" style={{ fontSize: "clamp(44px, 7vw, 80px)", lineHeight: 1.05, letterSpacing: "-0.04em" }}>
+        <h1 className="font-display font-extrabold max-w-4xl mx-auto mb-1.5" style={{ fontSize: "clamp(24px, 3.4vw, 42px)", lineHeight: 1.12, letterSpacing: "-0.03em" }}>
           {["Your", "resume,", "rewritten"].map((word, i) => (<AnimatedWord key={word} word={word} delay={i * 0.08} />))}
           <br />
           <AnimatedWord word="for every job," delay={0.3} />
@@ -247,38 +224,45 @@ export const LandingPage = ({ onLaunchApp }) => {
           <RotatingWord />
         </h1>
 
-        <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.45 }} className="mt-6 text-xl leading-relaxed max-w-2xl mx-auto text-gray-500">
-          {adminContent?.heroSubtitle || "Real-time job discovery. ATS match scoring. Zero-hallucination LaTeX tailoring. From discovery to submission in under 60 seconds."}
+        <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.45 }} className="mt-2 text-xs sm:text-sm md:text-base leading-snug max-w-2xl mx-auto text-gray-500">
+          {adminContent?.heroSubtitle || "Find job listings, compare their requirements with your resume, and prepare application materials you can review and submit yourself."}
         </motion.p>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.55 }} className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <motion.button onClick={handleLaunch} className="btn-violet w-full sm:w-auto" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-            <Rocket className="w-4 h-4" /> Launch Free Workspace <ArrowRight className="w-4 h-4" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.55 }} className="mt-3.5 sm:mt-4 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <motion.button onClick={handleLaunch} className="btn-violet py-2 px-5 text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-2" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Rocket className="w-3.5 h-3.5" /> Launch Workspace <ArrowRight className="w-3.5 h-3.5" />
           </motion.button>
-          <a href="#demo" className="btn-secondary w-full sm:w-auto">See live demo <ChevronDown className="w-4 h-4 text-gray-400" /></a>
+          <button onClick={handleLaunch} className="btn-secondary py-2 px-4 text-xs sm:text-sm w-full sm:w-auto">
+            Sign In / Register
+          </button>
+          <a href="#demo" className="px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 transition-colors flex items-center justify-center gap-1.5">
+            See sample <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+          </a>
         </motion.div>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.75 }} className="mt-4 text-xs font-medium text-gray-400">No credit card * Instant sandbox * Free tier included</motion.p>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.75 }} className="mt-1.5 text-[11px] font-medium text-gray-400">
+          No credit card required • Free tier included
+        </motion.p>
 
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.65 }} className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.65 }} className="mt-3.5 sm:mt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5 max-w-3xl mx-auto w-full">
           {[
-            { value: "94.8%", label: "ATS pass rate", color: "#059669" },
-            { value: "< 48s", label: "Discovery to tailor", color: "#2563EB" },
-            { value: "3.4x", label: "Interview lift", color: "#7C3AED" },
-            { value: "0%", label: "Hallucinated content", color: "#D97706" },
-          ].map((s, i) => (<motion.div key={i} whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(13,13,18,0.12)" }} className="text-center py-5 px-4 rounded-2xl bg-white border border-gray-200 shadow-sm cursor-default">
-            <div className="font-display font-extrabold text-4xl mb-1" style={{ color: s.color, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.value}</div>
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{s.label}</div>
+            { value: "Discover", label: "Job listings", color: "#059669" },
+            { value: "Compare", label: "Role requirements", color: "#2563EB" },
+            { value: "Review", label: "Resume suggestions", color: "#7C3AED" },
+            { value: "Decide", label: "You submit applications", color: "#D97706" },
+          ].map((s, i) => (<motion.div key={i} whileHover={{ y: -2, boxShadow: "0 8px 20px rgba(13,13,18,0.08)" }} className="text-center py-2 px-2.5 rounded-xl bg-white border border-gray-200/90 shadow-2xs cursor-default">
+            <div className="font-display font-extrabold text-lg sm:text-xl mb-0" style={{ color: s.color, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{s.value}</div>
+            <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{s.label}</div>
           </motion.div>))}
         </motion.div>
 
-        <div className="mt-16 relative h-40 hidden lg:block">
-          <motion.div className="absolute left-[5%] top-4 float-card" initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.6 }}>
+        <div className="mt-3 sm:mt-4 relative h-12 w-full max-w-3xl mx-auto hidden lg:block">
+          <motion.div className="absolute left-0 top-0 float-card" initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.6 }}>
             <FloatingChip company="Stripe" role="Staff Frontend Engineer" score={97} color="#6772E5" domain="stripe.com" />
           </motion.div>
-          <motion.div className="absolute left-[50%] top-0 -translate-x-1/2 float-card-2" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.05, duration: 0.6 }}>
+          <motion.div className="absolute left-1/2 -translate-x-1/2 top-0 float-card-2" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.05, duration: 0.6 }}>
             <FloatingChip company="Google" role="Senior SWE, Cloud AI" score={94} color="#4285F4" domain="google.com" />
           </motion.div>
-          <motion.div className="absolute right-[5%] top-8 float-card-3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.2, duration: 0.6 }}>
+          <motion.div className="absolute right-0 top-0 float-card-3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.2, duration: 0.6 }}>
             <FloatingChip company="Vercel" role="Platform Systems Eng" score={92} color="#0D0D12" domain="vercel.com" />
           </motion.div>
         </div>
@@ -288,7 +272,7 @@ export const LandingPage = ({ onLaunchApp }) => {
     {/* COMPANY LOGOS MARQUEE — Premium dual-row scrolling */}
     <section className="py-14 border-y border-gray-200/80 overflow-hidden" style={{ background: "linear-gradient(180deg, #F8FAFF 0%, #EFF6FF 100%)" }}>
       <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-blue-400 mb-8">
-        Candidates landing roles at dream companies
+        Company names shown in illustrative examples
       </p>
       {/* Row 1 — scrolls left */}
       <div className="relative overflow-hidden mb-3">
@@ -350,17 +334,17 @@ export const LandingPage = ({ onLaunchApp }) => {
 
     {/* PRODUCT DEMO */}
     <section id="demo" className="py-32 px-5 sm:px-8 lg:px-12 max-w-7xl mx-auto scroll-mt-20">
-      <SectionHeading tag="Interactive Demo" tagColor="#7C3AED" title="The full pipeline, live." subtitle="Select a role to see real-time ATS analysis and AI-powered bullet transformation in action." />
+      <SectionHeading tag="Illustrative Demo" tagColor="#7C3AED" title="Explore a sample workflow." subtitle="This uses fictional sample listings and r?sum? text. It is not live job data or a customer result." />
       <FadeIn delay={0.1} className="mt-14">
         <div className="rounded-3xl overflow-hidden bg-white border border-gray-200" style={{ boxShadow: "0 24px 64px rgba(13,13,18,0.12), 0 4px 16px rgba(13,13,18,0.06)" }}>
           <div className="px-5 py-3.5 flex items-center justify-between gap-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-rose-500" /><span className="w-3 h-3 rounded-full bg-amber-400" /><span className="w-3 h-3 rounded-full bg-emerald-500" />
               <div className="ml-3 w-px h-4 bg-gray-300" />
-              <span className="text-[12px] font-semibold flex items-center gap-1.5 text-gray-600"><Terminal className="w-3.5 h-3.5 text-blue-600" />ApplyPilot Studio - Live Parser</span>
+              <span className="text-[12px] font-semibold flex items-center gap-1.5 text-gray-600"><Terminal className="w-3.5 h-3.5 text-blue-600" />Sample workflow</span>
             </div>
             <span className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-[11px]" style={{ background: "#ECFDF5", color: "#047857", border: "1px solid #6EE7B7" }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Live 60s Polling
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />Sample data
             </span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
@@ -406,8 +390,8 @@ export const LandingPage = ({ onLaunchApp }) => {
                   <div className="flex flex-wrap gap-1.5">{selectedJob.matchedKeywords.map((kw, i) => <span key={i} className="kw-hit">{kw}</span>)}</div>
                 </div>
                 <div className="p-3.5 rounded-2xl feature-card-amber">
-                  <span className="text-[11px] font-bold flex items-center gap-1 mb-2.5 text-amber-700"><Flame className="w-3.5 h-3.5" />Gaps Bridged</span>
-                  <div className="flex flex-wrap gap-1.5">{selectedJob.missingKeywords.map((kw, i) => <span key={i} className="kw-miss">{kw} (synthesized)</span>)}</div>
+                  <span className="text-[11px] font-bold flex items-center gap-1 mb-2.5 text-amber-700"><Flame className="w-3.5 h-3.5" />Missing keywords in this sample</span>
+                  <div className="flex flex-wrap gap-1.5">{selectedJob.missingKeywords.map((kw, i) => <span key={i} className="kw-miss">{kw}</span>)}</div>
                 </div>
               </div>
               <div>
@@ -421,14 +405,14 @@ export const LandingPage = ({ onLaunchApp }) => {
                   <motion.div key={activeDiffMode + selectedJob.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="p-4 rounded-2xl text-[13px] leading-relaxed" style={{ background: activeDiffMode === "tailored" ? "#EFF6FF" : "#F9FAFB", border: "1px solid " + (activeDiffMode === "tailored" ? "#BFDBFE" : "#E5E7EB"), color: activeDiffMode === "tailored" ? "#1E3A8A" : "#6B7280", fontWeight: activeDiffMode === "tailored" ? 500 : 400, minHeight: 88 }}>"{activeDiffMode === "original" ? selectedJob.rawBullet : selectedJob.tailoredBullet}"</motion.div>
                 </AnimatePresence>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
-                  <span className="flex items-center gap-1.5 font-semibold text-emerald-600"><ShieldCheck className="w-3.5 h-3.5" />0% Hallucination Policy</span>
-                  <span>100% your accomplishments, elevated</span>
+                  <span className="flex items-center gap-1.5 font-semibold text-emerald-600"><ShieldCheck className="w-3.5 h-3.5" />Illustrative sample output</span>
+                  <span>Review suggestions before using them</span>
                 </div>
               </div>
               <div className="pt-4 flex items-center justify-between gap-3 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-[11px] font-medium text-gray-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Direct Greenhouse / Lever submission</div>
+                <div className="flex items-center gap-2 text-[11px] font-medium text-gray-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />You submit on the employer site</div>
                 <motion.button onClick={handleLaunch} className="btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ fontSize: "12px", padding: "9px 18px" }}>
-                  <Send className="w-3.5 h-3.5" />Tailor & Apply
+                  <Send className="w-3.5 h-3.5" />Open workspace
                 </motion.button>
               </div>
             </div>
@@ -437,30 +421,10 @@ export const LandingPage = ({ onLaunchApp }) => {
       </FadeIn>
     </section>
 
-    {/* TESTIMONIALS */}
-    <section className="py-28 border-y border-gray-200" style={{ background: "#F5F3FF" }}>
+    {/* Sample content disclosure */}
+    <section className="py-20 border-y border-gray-200" style={{ background: "#F5F3FF" }}>
       <div className="max-w-4xl mx-auto px-5 sm:px-8">
-        <SectionHeading tag="Real Results" tagColor="#7C3AED" title="Heard from people who got hired." />
-        <FadeIn delay={0.1} className="mt-14">
-          <div className="flex justify-center gap-2 mb-10">
-            {TESTIMONIALS.map((_, i) => <button key={i} onClick={() => setActiveTestimonial(i)} className="h-2 rounded-full transition-all cursor-pointer" style={{ background: i === activeTestimonial ? "#7C3AED" : "#C4B5FD", width: i === activeTestimonial ? 28 : 8 }} />)}
-          </div>
-          <AnimatePresence mode="wait">
-            <motion.div key={activeTestimonial} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="text-center">
-              <div className="flex justify-center gap-1 mb-6">{[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />)}</div>
-              <blockquote className="font-display font-semibold text-gray-900 text-xl sm:text-2xl leading-relaxed max-w-2xl mx-auto" style={{ letterSpacing: "-0.02em" }}>
-                &ldquo;{TESTIMONIALS[activeTestimonial].quote}&rdquo;
-              </blockquote>
-              <div className="mt-8 flex items-center justify-center gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-black text-white shadow-md" style={{ background: TESTIMONIALS[activeTestimonial].accent }}>{TESTIMONIALS[activeTestimonial].avatar}</div>
-                <div className="text-left">
-                  <p className="text-[14px] font-bold text-gray-900">{TESTIMONIALS[activeTestimonial].name}</p>
-                  <p className="text-[12px] font-medium text-gray-500">{TESTIMONIALS[activeTestimonial].title}</p>
-                </div>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </FadeIn>
+        <SectionHeading tag="Sample content" tagColor="#7C3AED" title="Examples are illustrative." subtitle="Company names, job details, scores, and r?sum? bullets in this demo are fictional examples, not verified postings or user outcomes." />
       </div>
     </section>
 
@@ -489,21 +453,14 @@ export const LandingPage = ({ onLaunchApp }) => {
     {/* COMPARISON TABLE */}
     <section id="benchmarks" className="py-28 border-y border-gray-200" style={{ background: "#ECFDF5" }}>
       <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-12">
-        <SectionHeading tag="Objective Benchmarks" tagColor="#059669" title="Why ApplyPilot wins." subtitle="Measured head-to-head against mass-apply bots and generic AI resume tools." />
+        <SectionHeading tag="How to read scores" tagColor="#059669" title="Use scores as guidance." subtitle="ApplyPilot has no independently validated hiring or ATS benchmark results to report." />
         <FadeIn delay={0.1} className="mt-14">
           <div className="rounded-3xl overflow-hidden bg-white border border-gray-200 shadow-lg">
-            <div className="grid grid-cols-4 px-8 py-5 bg-gray-50 border-b border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-500">
-              <div>Metric</div>
-              <div className="text-center" style={{ color: "#1D4ED8" }}>ApplyPilot</div>
-              <div className="text-center">Mass-Apply Bots</div>
-              <div className="text-center">Generic AI Tools</div>
+            <div className="p-8 space-y-4 text-sm text-gray-600">
+              <p><strong className="text-gray-900">Resume score:</strong> heuristic checks for details such as contact information, skills, and measurable statements.</p>
+              <p><strong className="text-gray-900">Job match:</strong> text overlap between resume data and the selected job description.</p>
+              <p>Neither score measures an employer's actual ATS behavior or predicts hiring outcomes. Always check generated suggestions for accuracy.</p>
             </div>
-            {[["ATS Pass Rate", "94.8%", "23%", "61%"], ["Hallucination Rate", "0%", "N/A", "34%"], ["Interview Lift", "3.4x", "-0.2x", "1.1x"], ["First-50 Applicant Rate", "78%", "4%", "N/A"], ["Resume Authenticity", "100%", "N/A", "Variable"], ["Shadowban Risk", "None", "High", "Low"]].map((row, i) => (<motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.06, duration: 0.4 }} className="grid grid-cols-4 px-8 py-4 border-b border-gray-100 last:border-b-0 items-center text-sm" style={{ background: i % 2 === 0 ? "white" : "#F9FAFB" }}>
-              <div className="font-semibold text-gray-800">{row[0]}</div>
-              <div className="text-center font-black text-blue-700">{row[1]}</div>
-              <div className="text-center text-gray-400">{row[2]}</div>
-              <div className="text-center text-gray-400">{row[3]}</div>
-            </motion.div>))}
           </div>
         </FadeIn>
       </div>
@@ -539,18 +496,15 @@ export const LandingPage = ({ onLaunchApp }) => {
       <div className="relative z-10 max-w-3xl mx-auto text-center">
         <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
           <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-8" style={{ background: "rgba(255,255,255,0.15)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.25)" }}>
-            <Rocket className="w-4 h-4" />Free to start - no credit card
+            <Rocket className="w-4 h-4" />Free to start
           </span>
           <h2 className="font-display font-extrabold text-white mb-6" style={{ fontSize: "clamp(36px, 5.5vw, 60px)", letterSpacing: "-0.04em", lineHeight: 1.05 }}>
-            Your dream job is 60 seconds<br />and one click away.
+            Prepare your next application<br />with clearer information.
           </h2>
-          <p className="text-blue-200 text-xl leading-relaxed mb-12 max-w-xl mx-auto">ApplyPilot discovers, scores, tailors, and submits - while you focus on what matters.</p>
+          <p className="text-blue-200 text-xl leading-relaxed mb-12 max-w-xl mx-auto">Explore listings, compare job requirements with your resume, and prepare materials to review before you apply.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <motion.button onClick={handleLaunch} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="px-9 py-5 rounded-2xl font-bold text-[16px] bg-white text-blue-700 cursor-pointer" style={{ boxShadow: "0 4px 0 rgba(255,255,255,0.3), 0 8px 32px rgba(13,13,18,0.2)", letterSpacing: "-0.02em" }}>
               <span className="flex items-center gap-3"><Rocket className="w-5 h-5" />Launch Free Workspace<ArrowRight className="w-5 h-5" /></span>
-            </motion.button>
-            <motion.button onClick={handleInstantDemo} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} className="px-9 py-5 rounded-2xl font-semibold text-[15px] text-white cursor-pointer" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.3)" }} disabled={isDemoLoading}>
-              {isDemoLoading ? "Loading demo..." : "Try instant demo"}
             </motion.button>
           </div>
         </motion.div>
@@ -575,9 +529,9 @@ export const LandingPage = ({ onLaunchApp }) => {
         </div>
         <p className="text-sm text-gray-400">2026 ApplyPilot. Built for ambitious engineers.</p>
         <div className="flex items-center gap-6 text-sm text-gray-400">
-          <a href="#" className="hover:text-gray-700 transition-colors">Privacy</a>
-          <a href="#" className="hover:text-gray-700 transition-colors">Terms</a>
-          <a href="#" className="hover:text-gray-700 transition-colors">Contact</a>
+          <span className="cursor-default">Privacy</span>
+          <span className="cursor-default">Terms</span>
+          <span className="cursor-default">Contact</span>
         </div>
       </div>
     </footer>

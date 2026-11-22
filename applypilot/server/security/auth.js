@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { getDb } from '../store/db.js';
+import { supabase } from '../store/supabase.js';
 /**
  * Initialize SQLite tables for robust, persistent authentication
  */
@@ -16,7 +17,7 @@ export function initAuthTables() {
       password_hash TEXT NOT NULL,
       salt TEXT NOT NULL,
       role_title TEXT NOT NULL DEFAULT 'Software Engineer',
-      tier TEXT NOT NULL DEFAULT 'pro',
+      tier TEXT NOT NULL DEFAULT 'free',
       role TEXT NOT NULL DEFAULT 'candidate',
       avatar TEXT,
       profile_json TEXT NOT NULL,
@@ -122,8 +123,7 @@ function createDefaultProfile(id, name, email, roleTitle, avatar, role = 'candid
         name,
         email,
         role,
-        avatar: avatar ||
-            `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`,
+          avatar: avatar || '',
         roleTitle: roleTitle || 'Software Engineer',
         bio: '',
         phone: '',
@@ -132,7 +132,7 @@ function createDefaultProfile(id, name, email, roleTitle, avatar, role = 'candid
         github: '',
         portfolio: '',
         twitter: '',
-        tier: 'pro',
+          tier: 'free',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
         preferences: {
@@ -166,25 +166,27 @@ function createDefaultProfile(id, name, email, roleTitle, avatar, role = 'candid
     };
 }
 /**
- * Seed verified administrator account for nikhil900285@gmail.com on all environments
+ * Seed a local development administrator, or an explicitly configured production administrator.
  */
 export function seedAdminAccount() {
     try {
         const db = getDb();
-        const adminEmail = 'nikhil900285@gmail.com';
-        const adminPass = 'nikhil123';
+        const production = process.env.NODE_ENV === 'production';
+        const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase() || (production ? '' : 'nikhil900285@gmail.com');
+        const adminPass = process.env.ADMIN_PASSWORD || (production ? '' : 'nikhil123');
+        if (!adminEmail || !adminPass) return;
         const existing = db.prepare('SELECT id, role FROM users WHERE email = ?').get(adminEmail.toLowerCase());
         const { hash, salt } = hashPassword(adminPass);
         if (!existing) {
-            const profile = createDefaultProfile('usr_nikhil_singh', 'Nikhil Singh', adminEmail, 'Senior Full Stack Engineer', null, 'admin', false);
+            const adminId = `usr_admin_${crypto.createHash('sha256').update(adminEmail).digest('hex').slice(0, 12)}`;
+            const adminName = production ? 'Administrator' : 'Nikhil Singh';
+            const profile = createDefaultProfile(adminId, adminName, adminEmail, 'Administrator', null, 'admin', false);
             db.prepare(`
                 INSERT INTO users (id, name, email, password_hash, salt, role_title, tier, role, avatar, profile_json, created_at, last_login)
-                VALUES (?, ?, ?, ?, ?, ?, 'pro', 'admin', ?, ?, datetime('now'), datetime('now'))
-            `).run('usr_nikhil_singh', 'Nikhil Singh', adminEmail.toLowerCase(), hash, salt, 'Senior Full Stack Engineer', null, JSON.stringify(profile));
-        } else {
-            try {
-                db.prepare(`UPDATE users SET password_hash = ?, salt = ?, role = 'admin' WHERE email = ?`).run(hash, salt, adminEmail.toLowerCase());
-            } catch {}
+                VALUES (?, ?, ?, ?, ?, ?, 'free', 'admin', ?, ?, datetime('now'), datetime('now'))
+            `).run(adminId, adminName, adminEmail, hash, salt, 'Administrator', null, JSON.stringify(profile));
+        } else if (existing.role !== 'admin') {
+            db.prepare(`UPDATE users SET role = 'admin' WHERE email = ?`).run(adminEmail);
         }
     } catch (e) {
         console.warn('[AUTH] seedAdminAccount error:', e?.message);
@@ -243,7 +245,7 @@ function seedDemoAccounts() {
             const profile = createDefaultProfile(demo.id, demo.name, demo.email, demo.roleTitle, demo.avatar, role, true);
             db.prepare(`
         INSERT INTO users (id, name, email, password_hash, salt, role_title, tier, role, avatar, profile_json, created_at, last_login)
-        VALUES (?, ?, ?, ?, ?, ?, 'pro', ?, ?, ?, datetime('now'), datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, 'free', ?, ?, ?, datetime('now'), datetime('now'))
       `).run(demo.id, demo.name, demo.email.toLowerCase(), hash, salt, demo.roleTitle, role, demo.avatar, JSON.stringify(profile));
         }
         else {
@@ -359,8 +361,8 @@ authRouter.post('/register', authActionLimiter, (req, res) => {
         if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
             return res.status(400).json({ error: 'Please provide a valid email address.' });
         }
-        if (!password || typeof password !== 'string' || password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+        if (!password || typeof password !== 'string' || password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters.' });
         }
         if (password.length > 4096) {
             return res.status(400).json({ error: 'Password exceeds maximum allowed length.' });
@@ -396,6 +398,33 @@ authRouter.post('/register', authActionLimiter, (req, res) => {
       `).run(userId, JSON.stringify(profile), cleanRole);
         }
         catch { }
+
+        if (supabase.isConfigured()) {
+            supabase.from('users').upsert({
+                id: userId,
+                name: cleanName,
+                email: cleanEmail,
+                password_hash: hash,
+                salt: salt,
+                role_title: cleanRole,
+                tier: 'free',
+                role: 'candidate',
+                avatar: profile.avatar || null,
+                profile_json: JSON.stringify(profile),
+                created_at: new Date().toISOString(),
+                last_login: new Date().toISOString()
+            }).catch(e => console.warn('[Supabase User Sync]:', e.message));
+
+            supabase.from('candidate_profiles').upsert({
+                id: userId,
+                raw_text: '',
+                profile_json: JSON.stringify(profile),
+                target_role: cleanRole,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).catch(e => console.warn('[Supabase Profile Sync]:', e.message));
+        }
+
         return res.status(201).json({
             success: true,
             token,
@@ -495,32 +524,50 @@ authRouter.post('/logout', (req, res) => {
     }
     return res.json({ success: true });
 });
+authRouter.post('/change-password', requireAuth, authActionLimiter, (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 4096) {
+        return res.status(400).json({ success: false, error: 'Current password and a new password of at least 8 characters are required.' });
+    }
+    const db = getDb();
+    const account = db.prepare('SELECT password_hash, salt FROM users WHERE id = ?').get(req.user.id);
+    if (!account || !verifyPassword(currentPassword, account.password_hash, account.salt)) {
+        return res.status(400).json({ success: false, error: 'Current password is incorrect.' });
+    }
+    const { hash, salt } = hashPassword(newPassword);
+    db.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').run(hash, salt, req.user.id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.user.id, req.sessionToken);
+    return res.json({ success: true, message: 'Password updated. Other signed-in sessions were revoked.' });
+});
 // POST /api/auth/update-profile
 authRouter.post('/update-profile', requireAuth, (req, res) => {
     try {
         const currentUser = req.user;
-        const updated = req.body || {};
-        const effectiveRole = updated.roleTitle || updated.targetRole || currentUser.roleTitle || currentUser.targetRole || 'Software Engineer';
+        const { id: _id, email: _email, role: _role, password: _pw, password_hash: _pwh, created_at: _ca, isAdmin: _adm, ...safeUpdates } = req.body || {};
+        const effectiveRole = safeUpdates.roleTitle || safeUpdates.targetRole || currentUser.roleTitle || currentUser.targetRole || 'Software Engineer';
         const merged = {
             ...currentUser,
-            ...updated,
+            ...safeUpdates,
+            id: currentUser.id,
+            email: currentUser.email,
+            role: currentUser.role || 'candidate',
             roleTitle: effectiveRole,
             targetRole: effectiveRole,
             preferences: {
                 ...(currentUser.preferences || {}),
-                ...(updated.preferences || {}),
+                ...(safeUpdates.preferences || {}),
             },
             automation: {
                 ...(currentUser.automation || {}),
-                ...(updated.automation || {}),
+                ...(safeUpdates.automation || {}),
             },
             notifications: {
                 ...(currentUser.notifications || {}),
-                ...(updated.notifications || {}),
+                ...(safeUpdates.notifications || {}),
             },
             security: {
                 ...(currentUser.security || {}),
-                ...(updated.security || {}),
+                ...(safeUpdates.security || {}),
             },
         };
         const db = getDb();
@@ -557,6 +604,9 @@ authRouter.post('/update-profile', requireAuth, (req, res) => {
 // POST /api/auth/forgot-password (Generate reset token with enumeration protection)
 authRouter.post('/forgot-password', authActionLimiter, (req, res) => {
     try {
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(503).json({ success: false, error: 'Password reset email delivery is not configured.' });
+        }
         const { email } = req.body || {};
         if (!email || typeof email !== 'string') {
             return res.status(400).json({ error: 'Please provide a valid email address.' });
@@ -564,6 +614,7 @@ authRouter.post('/forgot-password', authActionLimiter, (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         const db = getDb();
         const user = db.prepare('SELECT id, name FROM users WHERE email = ?').get(cleanEmail);
+        let developmentToken;
         if (user) {
             const resetId = `rst_${crypto.randomBytes(8).toString('hex')}`;
             const token = crypto.randomBytes(32).toString('hex');
@@ -572,12 +623,13 @@ authRouter.post('/forgot-password', authActionLimiter, (req, res) => {
         INSERT INTO password_resets (id, user_id, token, expires_at)
         VALUES (?, ?, ?, ?)
       `).run(resetId, user.id, token, expiresAt);
-            console.log(`[AUTH] Password reset requested for user ${user.id}`);
+            developmentToken = token;
         }
         // Always return uniform message to prevent user enumeration
         return res.json({
             success: true,
             message: 'If an account exists for this email address, password reset instructions have been sent.',
+            ...(developmentToken ? { developmentToken } : {}),
         });
     }
     catch (err) {
@@ -592,8 +644,8 @@ authRouter.post('/reset-password', authActionLimiter, (req, res) => {
         if (!token || typeof token !== 'string') {
             return res.status(400).json({ error: 'Password reset token is required.' });
         }
-        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-            return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 4096) {
+            return res.status(400).json({ error: 'New password must be between 8 and 4096 characters.' });
         }
         const db = getDb();
         const record = db.prepare(`
@@ -679,8 +731,7 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
         }
         const cleanEmail = googleEmail.trim().toLowerCase();
         const cleanName = (googleName || cleanEmail.split('@')[0] || 'Google User').trim();
-        const cleanAvatar = googleAvatar ||
-            `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`;
+        const cleanAvatar = googleAvatar || '';
         const db = getDb();
         const existing = db
             .prepare(`
@@ -728,7 +779,7 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
             };
             db.prepare(`
         INSERT INTO users (id, name, email, password_hash, salt, role_title, tier, avatar, profile_json, created_at, last_login)
-        VALUES (?, ?, ?, ?, ?, ?, 'pro', ?, ?, datetime('now'), datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, 'free', ?, ?, datetime('now'), datetime('now'))
       `).run(userId, cleanName, cleanEmail, hash, salt, 'Software Engineer', cleanAvatar, JSON.stringify(userProfile));
         }
         // Issue cryptographic session token
@@ -754,4 +805,17 @@ authRouter.post('/google', authActionLimiter, async (req, res) => {
             .status(500)
             .json({ error: 'Google authentication encountered an error. Please try again.' });
     }
+});
+
+// ─── LinkedIn OAuth stubs (integration not wired) ───────────────────────────
+authRouter.get('/linkedin/url', (_req, res) => {
+    res.json({ configured: false, url: null, redirectUri: null, message: 'LinkedIn sign-in is unavailable because the OAuth callback and account sync are not implemented.' });
+});
+
+authRouter.post('/linkedin/sync-resume', (_req, res) => {
+    res.status(501).json({ success: false, error: 'LinkedIn profile sync is not implemented yet. Export your LinkedIn profile as PDF and upload it via Resume Studio instead.' });
+});
+
+authRouter.post('/linkedin/disconnect', requireAuth, (_req, res) => {
+    res.json({ success: true, message: 'LinkedIn profile disconnected from this browser.' });
 });

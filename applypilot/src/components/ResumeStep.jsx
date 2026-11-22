@@ -265,84 +265,6 @@ export function getSummaryIssueAndFix(summary) {
   return null;
 }
 
-const SAMPLE_RESUMES = {
-  swe: {
-    name: 'Nikhil Singh',
-    title: 'Senior Full Stack Engineer',
-    email: 'nikhil900285@gmail.com',
-    phone: '+1 (512) 555-0199',
-    location: 'Austin, TX (Remote)',
-    summary: 'Senior Full Stack Engineer with 5+ years of experience engineering high-throughput microservices and responsive web platforms. Proven track record reducing API latency by 40% and scaling systems to 100,000+ daily active users.',
-    contact: {
-      email: 'nikhil900285@gmail.com',
-      phone: '+1 (512) 555-0199',
-      location: 'Austin, TX (Remote)',
-      linkedin: 'https://linkedin.com/in/nikhilsingh',
-      github: 'https://github.com/nikhil6393',
-      portfolio: 'https://nikhilportfolio.dev',
-    },
-    skills: {
-      languages: ['TypeScript', 'JavaScript', 'Python', 'Go', 'SQL'],
-      frameworks: ['React', 'Next.js', 'Node.js', 'Express', 'Tailwind CSS'],
-      databases: ['PostgreSQL', 'Redis', 'MongoDB', 'SQLite'],
-      cloud: ['AWS (ECS, S3, RDS)', 'Docker', 'Kubernetes', 'Cloudflare'],
-      tools: ['Git', 'GitHub Actions', 'Vite', 'Vitest', 'Playwright'],
-      soft: ['System Design', 'Agile Leadership', 'Cross-Functional Mentorship'],
-    },
-    experience: [
-      {
-        company: 'ApplyPilot Technologies',
-        role: 'Lead Full Stack Engineer',
-        title: 'Lead Full Stack Engineer',
-        location: 'Remote',
-        dates: '2022 - Present',
-        bullets: [
-          'Architected an automated multi-tenant job telemetry platform processing 50,000+ daily listings with 99.98% uptime.',
-          'Engineered an intelligent offline ATS resume scoring engine evaluating 16 compliance metrics in under 15ms.',
-          'Optimized PostgreSQL query indexing and Redis caching, cutting average API latency from 240ms to 42ms.',
-          'Mentored a squad of 4 junior developers and established automated CI/CD pipelines using GitHub Actions.',
-        ],
-      },
-      {
-        company: 'CloudScale Solutions',
-        role: 'Full Stack Software Engineer',
-        title: 'Full Stack Software Engineer',
-        location: 'San Francisco, CA',
-        dates: '2020 - 2022',
-        bullets: [
-          'Built customer-facing React analytics dashboards displaying real-time WebSocket telemetry for 25,000 users.',
-          'Migrated legacy monolithic endpoints to Node.js microservices deployed on AWS ECS with Docker containers.',
-          'Refactored authentication workflows with PBKDF2/scrypt cryptographic verification, eliminating session security flaws.',
-        ],
-      },
-    ],
-    education: [
-      {
-        school: 'University of Texas at Austin',
-        degree: 'Bachelor of Science',
-        field: 'Computer Science',
-        graduationDate: '2020',
-        gpa: '3.8',
-      },
-    ],
-    projects: [
-      {
-        name: 'Distributed Scraper Engine',
-        tech: ['Node.js', 'Playwright', 'Redis', 'Docker'],
-        link: 'https://github.com/nikhil6393/scraper-engine',
-        description: 'High-concurrency headless browser automation tool capable of indexing 500+ job portals concurrently.',
-        bullets: [
-          'Engineered stealth automation algorithms bypassing anti-bot challenge scripts with 94% success rate.',
-          'Implemented Redis queue workers handling dynamic rate limiting and exponential backoff retries.',
-        ],
-      },
-    ],
-    certifications: [
-      { name: 'AWS Certified Solutions Architect – Associate', issuer: 'Amazon Web Services', date: '2023' },
-    ],
-  },
-};
-
 export const ResumeStep = ({
   resume,
   onUpdateResume,
@@ -548,7 +470,7 @@ export const ResumeStep = ({
     try {
       const res = await fetch('/api/resume/magic-write', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(localStorage.getItem('applypilot_token') ? { Authorization: `Bearer ${localStorage.getItem('applypilot_token')}` } : {}) },
         body: JSON.stringify({ resume, bullet: currentBullet }),
       });
       const data = await res.json();
@@ -563,12 +485,7 @@ export const ResumeStep = ({
         });
       }
     } catch {
-      // Deterministic fallback
-      const words = currentBullet.split(' ');
-      const improved = `Engineered ${words.slice(1).join(' ')} boosting performance by 25%.`;
-      const next = JSON.parse(JSON.stringify(resume));
-      next.experience[expIdx].bullets[bIdx] = improved;
-      onUpdateResume(next);
+      addToast({ title: 'Could not improve bullet', message: 'The resume service is unavailable. Your original bullet was kept unchanged.', type: 'error' });
     }
   };
 
@@ -584,7 +501,7 @@ export const ResumeStep = ({
         a.href = url;
         a.download = `${(resume?.name || 'Resume').replace(/\s+/g, '_')}_ATS_Jake.tex`;
         a.click();
-      } else if (exportFormat === 'docx') {
+      } else if (exportFormat === 'doc') {
         const content = generateWordDocument(resume);
         const blob = new Blob(['\ufeff', content], { type: 'application/msword;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -1032,21 +949,6 @@ export const ResumeStep = ({
                     className="px-2.5 py-1.5 rounded-xl border border-slate-300 text-slate-700 text-[11px] font-semibold hover:bg-slate-50 cursor-pointer"
                   >
                     {uploadMode === 'text' ? 'File Mode' : 'Paste Text'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      onUpdateResume(SAMPLE_RESUMES.swe);
-                      confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
-                      addToast({
-                        title: 'Sample Resume Loaded',
-                        message: 'Loaded Senior Full Stack Engineer profile with 90+ ATS readiness.',
-                        type: 'success',
-                      });
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-[11px] font-semibold hover:bg-emerald-100 cursor-pointer"
-                    title="Load pre-calibrated sample resume"
-                  >
-                    Load Sample
                   </button>
                 </div>
 
@@ -2266,7 +2168,7 @@ export const ResumeStep = ({
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { id: 'latex', label: 'LaTeX (Jake)', sub: 'Overleaf / PDF build' },
-                      { id: 'docx', label: 'Plain Text / DOCX', sub: 'Standard ATS text' },
+                      { id: 'doc', label: 'Word-compatible .doc', sub: 'HTML-based Word document' },
                       { id: 'json', label: 'JSON Resume', sub: 'Machine standard' },
                       { id: 'html', label: 'HTML Document', sub: 'Semantic markup' },
                     ].map((fmt) => (

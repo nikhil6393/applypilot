@@ -19,23 +19,11 @@ const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize
 
 export const profileRouter = Router();
 function getProfileId(req) {
-    if (req.user?.id) {
-        return req.user.id;
-    }
-    const authHeader = req.headers.authorization;
-    const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
-    if (token) {
-        try {
-            const user = getSessionUser(token);
-            if (user && user.id) {
-                return user.id;
-            }
-        }
-        catch { }
-    }
-    return 'default';
+    if (req.user?.id) return req.user.id;
+    return process.env.NODE_ENV === 'test' ? 'default' : null;
 }
 profileRouter.get('/', (req, res) => {
+    if (!getProfileId(req)) return res.status(401).json({ success: false, error: 'Authentication required.' });
     const db = getDb();
     const profile = db
         .prepare('SELECT * FROM candidate_profiles WHERE id = ?')
@@ -127,7 +115,7 @@ profileRouter.post('/upload', upload.single('resume'), async (req, res) => {
         }
 
         // Set master in resumeStore for immediate Resume Studio sync
-        setResume(parsed);
+        if (process.env.NODE_ENV === 'test') setResume(parsed);
 
         // Save it to resume_versions as the master version
         const versionId = uuidv4();
@@ -519,7 +507,7 @@ profileRouter.post('/parse-resume', async (req, res) => {
       VALUES (?, ?, ?, ?, ?)
     `).run(eventId, profileId, 'resume_parsed', JSON.stringify({ versionId, score: atsReport.score }), now);
         // Set master in resumeStore for immediate Resume Studio sync
-        setResume(parsed);
+        if (process.env.NODE_ENV === 'test') setResume(parsed);
         const authHeader = req.headers.authorization;
         if (authHeader) {
             const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -796,7 +784,7 @@ profileRouter.post('/bulk-tailor', (req, res) => {
 profileRouter.get('/bulk-tailor/:jobId', (req, res) => {
     const db = getDb();
     const { jobId } = req.params;
-    const job = db.prepare('SELECT * FROM bulk_tailoring_jobs WHERE id = ?').get(jobId);
+    const job = db.prepare('SELECT * FROM bulk_tailoring_jobs WHERE id = ? AND profile_id = ?').get(jobId, getProfileId(req));
     if (!job) {
         return res.status(404).json({ success: false, error: 'Job not found' });
     }
@@ -827,7 +815,7 @@ profileRouter.get('/bulk-tailor', (req, res) => {
 profileRouter.get('/export/latex/:versionId', (req, res) => {
     const db = getDb();
     const { versionId } = req.params;
-    const version = db.prepare('SELECT * FROM resume_versions WHERE id = ?').get(versionId);
+    const version = db.prepare('SELECT * FROM resume_versions WHERE id = ? AND profile_id = ?').get(versionId, getProfileId(req));
     if (!version || !version.latex_source) {
         return res
             .status(404)
@@ -840,7 +828,7 @@ profileRouter.get('/export/latex/:versionId', (req, res) => {
 profileRouter.get('/export/html/:versionId', (req, res) => {
     const db = getDb();
     const { versionId } = req.params;
-    const version = db.prepare('SELECT * FROM resume_versions WHERE id = ?').get(versionId);
+    const version = db.prepare('SELECT * FROM resume_versions WHERE id = ? AND profile_id = ?').get(versionId, getProfileId(req));
     if (!version || !version.html_resume) {
         return res
             .status(404)

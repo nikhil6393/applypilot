@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertCircle, ArrowRight, RotateCw, } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ArrowRight, RotateCw, HelpCircle } from 'lucide-react';
 import { CompanyAvatar } from './ui/CompanyAvatar';
 import { useAppStore } from '../store/appStore';
+import { analyzeEvidence } from '../utils/opportunityEvidence.js';
+
 export const ScoringStep = ({ resume, jobs = [], fitResults = {}, onUpdateFitResults, onProceedToTailoring, }) => {
     const { addToast } = useAppStore();
     const [activeJobId, setActiveJobId] = useState(jobs.length > 0 ? jobs[0].id : '');
@@ -31,7 +33,6 @@ export const ScoringStep = ({ resume, jobs = [], fitResults = {}, onUpdateFitRes
                 }
             }
             else {
-                // Fallback local real calculation based on candidate skills and job descriptions
                 synthesizeLocalFitResults();
             }
         }
@@ -43,39 +44,25 @@ export const ScoringStep = ({ resume, jobs = [], fitResults = {}, onUpdateFitRes
         }
     };
     const synthesizeLocalFitResults = () => {
-        const candidateSkills = [
-            ...(resume.skills.languages || []),
-            ...(resume.skills.frameworks || []),
-            ...(resume.skills.tools || []),
-        ].map((s) => s.toLowerCase());
         const newResults = {};
         jobs.forEach((job) => {
-            const jobText = `${job.title} ${job.description} ${(job.tags || []).join(' ')}`.toLowerCase();
-            const matched = [];
-            const missing = [];
-            candidateSkills.forEach((skill) => {
-                if (jobText.includes(skill))
-                    matched.push(skill);
-            });
-            // Expected target keywords
-            const commonKeywords = ['react', 'typescript', 'node.js', 'docker', 'graphql', 'python', 'aws', 'sql'];
-            commonKeywords.forEach((kw) => {
-                if (jobText.includes(kw) && !matched.includes(kw)) {
-                    missing.push(kw);
-                }
-            });
-            const fitScore = Math.min(98, Math.max(54, Math.round((matched.length / Math.max(1, matched.length + missing.length)) * 60 + 38)));
+            const ev = analyzeEvidence(resume, job);
+            const direct = ev.directEvidence.map((d) => d.requirement);
+            const partial = ev.partialEvidence.map((p) => p.requirement);
+            const matched = [...direct, ...partial];
+            const missing = ev.unmentioned.map((u) => u.requirement);
+            const fitScore = Math.min(96, Math.max(50, Math.round((matched.length / Math.max(1, matched.length + missing.length)) * 50 + 46)));
             newResults[job.id] = {
                 jobId: job.id,
                 fitScore,
-                oneLineWhy: `Matches ${matched.length} verified technical competencies with strong alignment.`,
+                oneLineWhy: `Demonstrated ${direct.length} direct project/work competencies and ${partial.length} foundational skills.`,
                 matchingKeywords: matched.slice(0, 8),
                 missingKeywords: missing.slice(0, 5),
-                strengths: ['Relevant core tech stack', 'Eligible experience requirement'],
+                evidence: ev,
             };
         });
         onUpdateFitResults(newResults);
-        addToast({ type: 'success', title: 'Fit Matrix Generated', message: `Calibrated ${jobs.length} jobs with candidate resume.` });
+        addToast({ type: 'success', title: 'Evidence Matrix Generated', message: `Mapped resume evidence across ${jobs.length} roles.` });
     };
     useEffect(() => {
         if (jobs.length > 0 && Object.keys(fitResults).length === 0) {
@@ -267,13 +254,21 @@ export const ScoringStep = ({ resume, jobs = [], fitResults = {}, onUpdateFitRes
                   <div className="pt-3 border-t border-[#E5E7EB]">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-[#712B13] mb-2">
                       <AlertCircle className="w-4 h-4 text-[#D85A30]"/>
-                      <span>Missing / High-Value Target Keywords ({activeFitResult?.missingKeywords?.length || 0})</span>
+                      <span>Unmentioned in Current Resume ({activeFitResult?.missingKeywords?.length || 0})</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {activeFitResult?.missingKeywords && activeFitResult.missingKeywords.length > 0 ? (activeFitResult.missingKeywords.map((kw, idx) => (<motion.span key={kw} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: idx * 0.03, type: 'spring', stiffness: 300 }} className="pill-badge pill-coral">
                             + {kw}
                           </motion.span>))) : (<span className="text-xs text-gray-400">All target keywords satisfied.</span>)}
                     </div>
+                  </div>
+
+                  <div className="text-[11px] text-gray-600 bg-amber-50/70 border border-amber-200/70 rounded-xl p-2.5 space-y-0.5">
+                    <strong className="text-amber-900 block font-semibold flex items-center gap-1">
+                      <HelpCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      Evidence Tip for Students:
+                    </strong>
+                    <span>Unmentioned keywords do not disqualify you. If you have coursework or personal projects using them, consider adding verifiable examples before applying.</span>
                   </div>
 
                   {/* One-Line Why */}

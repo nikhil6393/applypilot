@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 
-const currentDir = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? dirname(fileURLToPath(import.meta.url)) : process.cwd());
+const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 const projectEnvPath = resolve(currentDir, '../.env');
 if (fs.existsSync(projectEnvPath)) {
     loadDotenv({ path: projectEnvPath, override: true });
@@ -12,6 +12,7 @@ if (fs.existsSync(projectEnvPath)) {
 }
 
 function validateDbPath(p, nodeEnv) {
+    if (p === ':memory:') return ':memory:';
     const resolved = resolve(p);
     const safeDir = resolve(process.cwd(), 'data');
     if (!resolved.startsWith(safeDir)) {

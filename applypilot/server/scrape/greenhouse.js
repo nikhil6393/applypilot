@@ -63,7 +63,7 @@ export async function greenhouse(req) {
     const cached = scrapeCache.get(cacheKey);
     if (cached)
         return cached;
-    const max = Math.max(1, Math.min(100, req.maxPerSource ?? 30));
+    const max = Math.max(1, Math.min(300, req.maxPerSource ?? 100));
     const out = [];
     const queryLower = (req.query || '').toLowerCase();
     const requireIntern = req.internshipsOnly !== false &&
@@ -84,7 +84,7 @@ export async function greenhouse(req) {
         try {
             const url = `https://boards-api.greenhouse.io/v1/boards/${company}/jobs?content=true`;
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 2500);
+            const timeout = setTimeout(() => controller.abort(), 4500);
             const res = await fetch(url, {
                 headers: { 'User-Agent': 'ApplyPilot/2.0' },
                 signal: controller.signal,
@@ -101,11 +101,12 @@ export async function greenhouse(req) {
                 const isSenior = /\b(senior|sr\.|lead|principal|staff|director|vp|head\s+of|manager)\b/i.test(titleLower);
                 if (requireIntern && (!isIntern || isSenior))
                     continue;
-                // Strict tech role filter: reject food/service/retail and non-tech titles
-                const isTech = /\b(software|developer|engineer|engineering|fullstack|full-stack|frontend|front-end|backend|back-end|web|mobile|ios|android|ai|machine\s+learning|data|cloud|devops|security|qa|testing|sde|swe|architect|programmer|systems|firmware)\b/i.test(titleLower);
-                const isNonTech = /\b(barista|line cook|cook|chef|dishwasher|server|waiter|waitress|bartender|cashier|janitor|cleaner|custodian|driver|courier|nurse|dentist|dental|doctor|pharmacist|receptionist|store associate|retail|clerk|attendant|sales representative)\b/i.test(titleLower);
-                if (isNonTech || (!isTech && !isIntern))
+                // Strict tech role filter: reject non-tech roles
+                const isTech = /\b(software|developer|engineer|engineering|fullstack|full-stack|frontend|front-end|backend|back-end|web|mobile|ios|android|ai|machine\s+learning|data\s+engineer|data\s+scientist|cloud|devops|security|qa|testing|sde|swe|architect|programmer|systems|firmware)\b/i.test(titleLower);
+                const isNonTech = /\b(account executive|account manager|sales|business development|bdr|sdr|marketing|recruiter|talent acquisition|barista|line cook|cook|chef|dishwasher|server|waiter|waitress|bartender|cashier|janitor|cleaner|custodian|driver|courier|nurse|dentist|dental|doctor|pharmacist|receptionist|store associate|retail|clerk|attendant|sales representative|communications|creative|hr|social media|legal|counsel)\b/i.test(titleLower);
+                if (isNonTech || !isTech)
                     continue;
+
                 const jobLoc = (j.location?.name || '').trim();
                 const remote = /remote/i.test(jobLoc) || /remote/i.test(j.title);
                 // Hierarchical location resolution
@@ -115,11 +116,22 @@ export async function greenhouse(req) {
                 const rawContent = j.content || '';
                 const cleanMarkdown = htmlToCleanMarkdown(rawContent);
                 const desc = cleanMarkdown || j.title;
+
+                // Keyword relevance matching if specific terms requested
+                if (queryLower) {
+                    const qTerms = queryLower.split(/\s+/).filter((t) => !/^(intern|internship|jobs?|engineer|developer|role)$/i.test(t));
+                    if (qTerms.length > 0) {
+                        const searchTarget = `${titleLower} ${desc.toLowerCase()}`;
+                        const matchesAny = qTerms.some((t) => searchTarget.includes(t));
+                        if (!matchesAny) continue;
+                    }
+                }
+
                 const sections = extractStructuredSections(cleanMarkdown);
                 // Compute relative time
-                const updatedMs = j.updated_at ? new Date(j.updated_at).getTime() : Date.now();
+                const updatedMs = j.updated_at ? new Date(j.updated_at).getTime() : (Date.now() - 86400000 * 14);
                 const diffMin = Math.max(0, Math.floor((Date.now() - updatedMs) / 60000));
-                let rel = 'Just now';
+                let rel = 'Active Opening';
                 if (diffMin < 60)
                     rel = `${diffMin}m ago`;
                 else if (diffMin < 1440)
@@ -154,7 +166,7 @@ export async function greenhouse(req) {
                     source: 'greenhouse',
                     url: j.absolute_url,
                     applyUrl: j.absolute_url,
-                    location: j.location?.name || 'Worldwide',
+                    location: j.location?.name || '',
                     remote,
                     description: desc,
                     descriptionHtml: j.content,
@@ -163,11 +175,11 @@ export async function greenhouse(req) {
                     requirements: sections.requirements,
                     preferred: sections.preferred,
                     benefits: sections.benefits,
-                    postedAt: j.updated_at || new Date().toISOString(),
-                    postedDate: j.updated_at || new Date().toISOString(),
+                    postedAt: j.updated_at || '',
+                    postedDate: j.updated_at || undefined,
                     postedRelative: rel,
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
                     sponsorsVisa: meta.sponsorsVisa,
                     eligibleBatches: meta.eligibleBatches,
@@ -185,21 +197,30 @@ export async function greenhouse(req) {
             return [];
         }
     };
-    // High-throughput parallel execution on prioritized tech & unicorn boards
-    const boardsToScan = GREENHOUSE_BOARDS.slice(0, 30);
-    const batches = chunkArray(boardsToScan, 15);
-    for (const batch of batches) {
-        const results = await Promise.allSettled(batch.map((b) => fetchBoard(b)));
-        for (const r of results) {
-            if (r.status === 'fulfilled' && r.value.length > 0) {
-                out.push(...r.value);
-                if (out.length >= max)
-                    break;
-            }
+    // Prioritized tech & unicorn boards — merged with full directory, deduplicated
+    const prioritizedBoards = [
+        'stripe', 'vercel', 'cloudflare', 'datadog', 'mongodb', 'elastic', 'gitlab', 'databricks',
+        'twilio', 'figma', 'canva', 'openai', 'anthropic', 'cohere', 'scaleai', 'perplexity',
+        'supabase', 'linear', 'sentry', 'retool', 'discord', 'doordash', 'reddit', 'instacart',
+        'swiggy', 'zomato', 'cred', 'phonepe', 'meesho', 'groww', 'postman', 'browserstack',
+        'hasura', 'yellowai', 'juspay', 'darwinbox', 'clevertap', 'chargebee', 'moengage',
+        ...GREENHOUSE_BOARDS,
+    ];
+    const allBoards = [...new Set(prioritizedBoards)];
+    // Run ALL boards in a single parallel wave — no sequential batching, no early exit
+    // Promise.allSettled bounds total time to the slowest single board (~4.5s)
+    const results = await Promise.allSettled(allBoards.map((b) => fetchBoard(b)));
+    for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.length > 0) {
+            out.push(...r.value);
         }
-        if (out.length >= max)
-            break;
     }
+    // Sort by recency — most recent first
+    out.sort((a, b) => {
+        const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+        const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+        return tb - ta;
+    });
     const finalJobs = out.slice(0, max);
     scrapeCache.set(cacheKey, finalJobs);
     return finalJobs;

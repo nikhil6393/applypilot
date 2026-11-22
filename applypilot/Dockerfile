@@ -15,7 +15,6 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/scraping/package.json ./packages/scraping/
 COPY packages/db/package.json ./packages/db/
 COPY packages/scoring/package.json ./packages/scoring/
-COPY packages/ai-local/package.json ./packages/ai-local/
 COPY packages/parsing/package.json ./packages/parsing/
 COPY packages/security/package.json ./packages/security/
 
@@ -35,13 +34,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_PATH=/app/data/applypilot.db
+ENV DB_PATH=:memory:
 ENV LOG_FORMAT=json
-ENV CHROMIUM_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-# Install minimal runtime dependencies and Chromium for PDF resume generation
-RUN apk add --no-cache wget python3 make g++ chromium nss freetype harfbuzz ca-certificates ttf-freefont
+# Install minimal runtime dependencies (wget for container health check)
+RUN apk add --no-cache wget ca-certificates
 
 # Copy root dependency manifests
 COPY package.json package-lock.json ./
@@ -50,7 +47,6 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/scraping/package.json ./packages/scraping/
 COPY packages/db/package.json ./packages/db/
 COPY packages/scoring/package.json ./packages/scoring/
-COPY packages/ai-local/package.json ./packages/ai-local/
 COPY packages/parsing/package.json ./packages/parsing/
 COPY packages/security/package.json ./packages/security/
 

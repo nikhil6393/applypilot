@@ -1,0 +1,999 @@
+/* ==========================================================================
+   SHEKUNJ-INSPIRED VIBRANT & PREMIUM DRIBBBLE LIGHT THEME
+   Vibrant Sunset Orange (#FF6B35), Electric Violet (#7C3AED), Fresh Emerald (#10B981),
+   Warm Gold (#F59E0B), airy canvas, soft diffused shadows, fluid micro-motion.
+   ========================================================================== */
+
+.dribbble-dashboard {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-bottom: 60px;
+}
+
+.dribbble-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+@media (max-width: 768px) {
+  .dribbble-container {
+    padding: 16px;
+    gap: 20px;
+  }
+}
+
+/* ── Hero Welcome Header (SheKunj Vibrant Accent) ── */
+.dribbble-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #fffbf8 50%, #fdf9ff 100%);
+  border: 1px solid rgba(254, 215, 170, 0.45);
+  border-radius: 24px;
+  padding: 28px 36px;
+  box-shadow: 0 8px 30px -4px rgba(255, 107, 53, 0.06), 0 2px 8px -1px rgba(15, 23, 42, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.dribbble-hero::before {
+  content: "";
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.12) 0%, rgba(139, 92, 246, 0.08) 50%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dribbble-hero::after {
+  content: "";
+  position: absolute;
+  bottom: -60px;
+  left: 20%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dribbble-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  position: relative;
+  z-index: 1;
+}
+
+.dribbble-hero-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dribbble-hero-avatar {
+  width: 66px;
+  height: 66px;
+  border-radius: 22px;
+  object-fit: cover;
+  box-shadow: 0 10px 22px -4px rgba(255, 107, 53, 0.28);
+  border: 3px solid #ffffff;
+  outline: 2px solid #ffedd5;
+}
+
+.dribbble-hero-avatar-fallback {
+  width: 66px;
+  height: 66px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ff6b35 0%, #7c3aed 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px -4px rgba(255, 107, 53, 0.3);
+  border: 3px solid #ffffff;
+}
+
+.dribbble-hero-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+}
+
+.dribbble-hero-titles h1 {
+  font-size: 27px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dribbble-hero-titles p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 5px 0 0;
+  font-weight: 500;
+}
+
+.dribbble-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+/* SheKunj Signature Sunset Orange Button */
+.dribbble-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff6b35 0%, #ea580c 100%);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 11px 22px;
+  border-radius: 15px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 6px 18px -2px rgba(255, 107, 53, 0.42);
+}
+
+.dribbble-btn-primary:hover {
+  background: linear-gradient(135deg, #ff7a45 0%, #d9480f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -2px rgba(255, 107, 53, 0.52);
+}
+
+.dribbble-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 14px;
+  border: 1px solid #fed7aa;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dribbble-btn-secondary:hover {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+  transform: translateY(-1px);
+}
+
+/* ── Top Metric Cards Grid (SheKunj Vibrant Multi-Color Theming) ── */
+.dribbble-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .dribbble-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dribbble-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dribbble-stat-card {
+  border-radius: 24px;
+  padding: 24px 26px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Card 1: SheKunj Sunset Orange */
+.dribbble-stat-card.theme-orange {
+  background: linear-gradient(145deg, #ffffff 0%, #fff7ed 100%);
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 20px -2px rgba(255, 107, 53, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.dribbble-stat-card.theme-orange:hover {
+  transform: translateY(-4px);
+  border-color: #fb923c;
+  box-shadow: 0 16px 32px -6px rgba(255, 107, 53, 0.2);
+}
+
+.dribbble-stat-card.theme-orange .dribbble-stat-icon-wrap {
+  background: linear-gradient(135deg, #ff6b35 0%, #ea580c 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 14px -2px rgba(234, 88, 12, 0.4);
+}
+
+.dribbble-stat-card.theme-orange .dribbble-stat-pill {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+/* Card 2: SheKunj Electric Violet */
+.dribbble-stat-card.theme-violet {
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 100%);
+  border: 1px solid #e9d5ff;
+  box-shadow: 0 4px 20px -2px rgba(139, 92, 246, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.dribbble-stat-card.theme-violet:hover {
+  transform: translateY(-4px);
+  border-color: #c084fc;
+  box-shadow: 0 16px 32px -6px rgba(139, 92, 246, 0.2);
+}
+
+.dribbble-stat-card.theme-violet .dribbble-stat-icon-wrap {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 14px -2px rgba(109, 40, 217, 0.4);
+}
+
+.dribbble-stat-card.theme-violet .dribbble-stat-pill {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+/* Card 3: SheKunj Fresh Mint Teal */
+.dribbble-stat-card.theme-emerald {
+  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1px solid #bbf7d0;
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.dribbble-stat-card.theme-emerald:hover {
+  transform: translateY(-4px);
+  border-color: #4ade80;
+  box-shadow: 0 16px 32px -6px rgba(16, 185, 129, 0.2);
+}
+
+.dribbble-stat-card.theme-emerald .dribbble-stat-icon-wrap {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 14px -2px rgba(5, 150, 105, 0.4);
+}
+
+.dribbble-stat-card.theme-emerald .dribbble-stat-pill {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+/* Card 4: SheKunj Warm Golden Amber */
+.dribbble-stat-card.theme-amber {
+  background: linear-gradient(145deg, #ffffff 0%, #fffbeb 100%);
+  border: 1px solid #fde68a;
+  box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+}
+
+.dribbble-stat-card.theme-amber:hover {
+  transform: translateY(-4px);
+  border-color: #facc15;
+  box-shadow: 0 16px 32px -6px rgba(245, 158, 11, 0.2);
+}
+
+.dribbble-stat-card.theme-amber .dribbble-stat-icon-wrap {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 14px -2px rgba(217, 119, 6, 0.4);
+}
+
+.dribbble-stat-card.theme-amber .dribbble-stat-pill {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.dribbble-stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.dribbble-stat-icon-wrap {
+  width: 50px;
+  height: 50px;
+  border-radius: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.dribbble-stat-card:hover .dribbble-stat-icon-wrap {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.dribbble-stat-pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dribbble-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dribbble-stat-number {
+  font-size: 34px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.dribbble-stat-label {
+  font-size: 13.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* ── Main Two-Column Layout ── */
+.dribbble-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(340px, 1.1fr);
+  gap: 24px;
+}
+
+@media (max-width: 1100px) {
+  .dribbble-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dribbble-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dribbble-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Generic Dribbble Card with SheKunj Soft Accents ── */
+.dribbble-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 24px;
+  padding: 26px 28px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dribbble-card:hover {
+  border-color: #cbd5e1;
+}
+
+.dribbble-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.dribbble-card-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dribbble-card-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 3px 0 0;
+  font-weight: 500;
+}
+
+.dribbble-card-action-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff6b35;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: gap 0.15s ease, color 0.15s ease;
+}
+
+.dribbble-card-action-link:hover {
+  color: #ea580c;
+  gap: 7px;
+}
+
+/* ── Activity Chart Component (SheKunj Sunset Gradient) ── */
+.dribbble-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dribbble-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.dribbble-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dribbble-bar-group {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 165px;
+  padding-top: 10px;
+  gap: 14px;
+}
+
+.dribbble-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.dribbble-bar-track {
+  width: 100%;
+  max-width: 34px;
+  height: 100%;
+  background: #f1f5f9;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.dribbble-bar-col:hover .dribbble-bar-track {
+  background: #fed7aa;
+}
+
+.dribbble-bar-fill {
+  width: 100%;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #c084fc 0%, #818cf8 100%);
+  transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+}
+
+.dribbble-bar-col:hover .dribbble-bar-fill {
+  background: linear-gradient(180deg, #ff8e53 0%, #ff6b35 100%);
+}
+
+.dribbble-bar-col.is-active .dribbble-bar-fill {
+  background: linear-gradient(180deg, #ff7a45 0%, #ea580c 100%);
+  box-shadow: 0 4px 14px rgba(255, 107, 53, 0.45);
+}
+
+.dribbble-bar-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  transition: color 0.15s ease;
+}
+
+.dribbble-bar-col.is-active .dribbble-bar-label,
+.dribbble-bar-col:hover .dribbble-bar-label {
+  color: #ff6b35;
+}
+
+/* ── Application Pipeline Boxes (SheKunj Multi-Color Identity) ── */
+.dribbble-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  .dribbble-pipeline-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dribbble-pipeline-box {
+  border-radius: 18px;
+  padding: 16px 14px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.dribbble-pipeline-box.pipe-submitted {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.dribbble-pipeline-box.pipe-submitted .dribbble-pipeline-num {
+  color: #1d4ed8;
+}
+
+.dribbble-pipeline-box.pipe-review {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+.dribbble-pipeline-box.pipe-review .dribbble-pipeline-num {
+  color: #ea580c;
+}
+
+.dribbble-pipeline-box.pipe-interviews {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+}
+.dribbble-pipeline-box.pipe-interviews .dribbble-pipeline-num {
+  color: #7c3aed;
+}
+
+.dribbble-pipeline-box.pipe-offers {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+.dribbble-pipeline-box.pipe-offers .dribbble-pipeline-num {
+  color: #059669;
+}
+
+.dribbble-pipeline-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.06);
+}
+
+.dribbble-pipeline-num {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.dribbble-pipeline-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+/* ── Recommended Jobs Cards ── */
+.dribbble-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dribbble-job-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #eef2f6;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+}
+
+.dribbble-job-item:hover {
+  background: #fffbf8;
+  border-color: #fdba74;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(255, 107, 53, 0.12);
+}
+
+.dribbble-job-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dribbble-company-logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 18px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Multi-colored company avatar pills */
+.dribbble-company-logo.logo-orange {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid #fed7aa;
+}
+.dribbble-company-logo.logo-violet {
+  background: #faf5ff;
+  color: #7c3aed;
+  border: 1px solid #e9d5ff;
+}
+.dribbble-company-logo.logo-emerald {
+  background: #f0fdf4;
+  color: #059669;
+  border: 1px solid #bbf7d0;
+}
+.dribbble-company-logo.logo-blue {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.dribbble-job-info h4 {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dribbble-job-info p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 3px 0 0;
+  font-weight: 500;
+}
+
+.dribbble-job-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.dribbble-job-tag {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3.5px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.dribbble-job-tag.tag-salary {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+  font-weight: 700;
+}
+
+.dribbble-job-tag.tag-workplace {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+
+.dribbble-job-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.dribbble-btn-apply {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dribbble-btn-apply:hover {
+  background: linear-gradient(135deg, #ff6b35 0%, #ea580c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(255, 107, 53, 0.35);
+}
+
+.dribbble-btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dribbble-btn-icon:hover {
+  color: #ea580c;
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+/* ── Right Rail Profile & Schedules ── */
+.dribbble-profile-card {
+  text-align: center;
+  padding: 32px 26px;
+  background: linear-gradient(145deg, #ffffff 0%, #fffbf8 100%);
+  border: 1px solid #fed7aa;
+}
+
+.dribbble-profile-avatar-lg {
+  width: 84px;
+  height: 84px;
+  border-radius: 28px;
+  margin: 0 auto 16px;
+  object-fit: cover;
+  box-shadow: 0 10px 24px -4px rgba(255, 107, 53, 0.28);
+  border: 3px solid #ffffff;
+  outline: 2px solid #fed7aa;
+}
+
+.dribbble-profile-avatar-fallback-lg {
+  width: 84px;
+  height: 84px;
+  border-radius: 28px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #ff6b35 0%, #7c3aed 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  box-shadow: 0 10px 24px -4px rgba(255, 107, 53, 0.35);
+  border: 3px solid #ffffff;
+}
+
+.dribbble-profile-name {
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.dribbble-profile-role {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 4px 0 18px;
+  font-weight: 500;
+}
+
+.dribbble-profile-progress-wrap {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  padding: 16px 18px;
+  text-align: left;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.05);
+}
+
+.dribbble-profile-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.dribbble-progress-track {
+  width: 100%;
+  height: 9px;
+  background: #fed7aa;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.dribbble-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b35 0%, #8b5cf6 50%, #10b981 100%);
+  border-radius: 9999px;
+  transition: width 0.8s ease;
+}
+
+/* ── Schedule Timeline (SheKunj Multi-Color Date Pills) ── */
+.dribbble-schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dribbble-schedule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 15px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  transition: all 0.2s ease;
+}
+
+.dribbble-schedule-item:hover {
+  background: #ffffff;
+  border-color: #fdba74;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px -2px rgba(255, 107, 53, 0.08);
+}
+
+.dribbble-schedule-date {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+}
+
+.dribbble-schedule-date.date-orange {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+}
+
+.dribbble-schedule-date.date-violet {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #7c3aed;
+}
+
+.dribbble-schedule-date.date-emerald {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #059669;
+}
+
+.dribbble-schedule-date .day {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dribbble-schedule-date .month {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dribbble-schedule-content h5 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.dribbble-schedule-content p {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 2px 0 0;
+  font-weight: 500;
+}
+
+/* ── Verified Skill Badges (Multi-Color SheKunj Chips) ── */
+.dribbble-skill-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dribbble-skill-pill {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 13px;
+  border-radius: 11px;
+  transition: all 0.18s ease;
+  cursor: default;
+}
+
+.dribbble-skill-pill:hover {
+  transform: translateY(-2px);
+}
+
+.dribbble-skill-pill.chip-orange {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.dribbble-skill-pill.chip-violet {
+  background: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+.dribbble-skill-pill.chip-cyan {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.dribbble-skill-pill.chip-blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.dribbble-skill-pill.chip-emerald {
+  background: #f0fdf4;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.dribbble-skill-pill.chip-amber {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}

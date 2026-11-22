@@ -134,14 +134,15 @@ describe('Advanced Filters — filterJobsForRequest', () => {
         const result = filterJobsForRequest(jobs, req);
         expect(result[0].salaryMax).toBeGreaterThan(result[1].salaryMax);
     });
-    it('sorts by applicants descending when sortBy is applicants', () => {
+    it('sorts by fewest applicants first when sortBy is applicants, with unknown counts last', () => {
         const jobs = [
-            makeJob({ id: '1', applicantCount: 5 }),
-            makeJob({ id: '2', applicantCount: 100 }),
+            makeJob({ id: '1', applicantCount: 100 }),
+            makeJob({ id: '2', applicantCount: 5 }),
+            makeJob({ id: '3', applicantCount: undefined }),
         ];
         const req = { advanceMode: true, sortBy: 'applicants' };
         const result = filterJobsForRequest(jobs, req);
-        expect(result[0].applicantCount).toBeGreaterThan(result[1].applicantCount);
+        expect(result.map((job) => job.id)).toEqual(['2', '1', '3']);
     });
     it('sorts by newest when sortBy is newest', () => {
         const older = new Date('2026-09-01T12:00:00.000Z').toISOString();

@@ -290,7 +290,9 @@ export function evaluateResumeAts(resume) {
             status = 'can_improve';
             suggestion =
                 'Convert to Google XYZ format: "Accomplished [X] as measured by [Y], by doing [Z]".';
-            suggestedRewrite = `Spearheaded ${bullet.charAt(0).toLowerCase() + bullet.slice(1)}, improving operational throughput by 25% via automated pipelines.`;
+            // Keep generated edits anchored to the supplied bullet. Metrics and
+            // outcomes must come from the candidate, never from a template.
+            suggestedRewrite = `Engineered ${bullet.charAt(0).toLowerCase() + bullet.slice(1)}`;
         }
         else if (!hasAction) {
             status = 'can_improve';
@@ -302,7 +304,9 @@ export function evaluateResumeAts(resume) {
             status = 'can_improve';
             suggestion =
                 'Add quantifiable metrics (e.g. latency, scale, user count, %, or hours saved) to prove real-world business impact.';
-            suggestedRewrite = `${bullet.replace(/\.?$/, '')}, achieving a 30% reduction in processing latency.`;
+            // Do not append an unverified outcome. The UI can ask the candidate
+            // to add a result they can substantiate.
+            suggestedRewrite = undefined;
         }
         bulletFeedback.push({
             bullet,
@@ -508,7 +512,7 @@ export function evaluateResumeAts(resume) {
                         : 'needs_work',
                 feedback: quantScore >= RULES.quantifiable.statusThresholds.excellent
                     ? 'Strong inclusion of percentages, scale, and performance metrics.'
-                    : 'Include numbers, percentages, and scale metrics to maximize callback rates.',
+                    : 'Quantify accomplishments with numbers, percentages, or scale metrics where truthful.',
             },
             skills: {
                 score: skillsScore,
@@ -562,6 +566,7 @@ export function evaluateResumeAts(resume) {
         content: quantScore,
         structure: impactScore,
         details: { overallScore, rating, ratingLabel },
+        disclaimer: 'Evaluates structural formatting and readability hygiene. Does not predict or guarantee hiring outcomes.',
     };
     return result;
 }

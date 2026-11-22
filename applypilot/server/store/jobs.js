@@ -1,6 +1,32 @@
 import { createHash } from 'node:crypto';
 import { getDb, withDbRetry } from './db.js';
-import { normalizeCanonicalUrl } from '@applypilot/scoring';
+import { supabase } from './supabase.js';
+
+export function normalizeCanonicalUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return '';
+    try {
+        const parsed = new URL(rawUrl.trim());
+        parsed.protocol = parsed.protocol.toLowerCase();
+        parsed.hostname = parsed.hostname.toLowerCase();
+        if ((parsed.protocol === 'http:' && parsed.port === '80') || (parsed.protocol === 'https:' && parsed.port === '443')) {
+            parsed.port = '';
+        }
+        let pathname = parsed.pathname.replace(/\/+/g, '/').toLowerCase();
+        if (pathname.length > 1 && pathname.endsWith('/')) {
+            pathname = pathname.slice(0, -1);
+        }
+        parsed.pathname = pathname;
+        const dropParams = new Set(['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'refid', 'trk', 'trackingid', 'gh_src', 'lever-source', 'ashby_jid', 'src']);
+        for (const key of Array.from(parsed.searchParams.keys())) {
+            if (dropParams.has(key.toLowerCase()) || key.toLowerCase().startsWith('utm_')) {
+                parsed.searchParams.delete(key);
+            }
+        }
+        return parsed.toString();
+    } catch {
+        return rawUrl.trim();
+    }
+}
 import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 import { identifyQueryCluster, semanticMatchJob } from '../../shared/roleTaxonomy.js';
 import { extractEligibleBatches, formatEligibleBatchText } from '../scrape/metadata-extractor.js';
@@ -103,6 +129,32 @@ export function upsertJob(job) {
         raw: job.raw ? JSON.stringify(job.raw) : null,
     });
     clearJobListCache();
+
+    if (supabase.isConfigured()) {
+        supabase.from('jobs').upsert({
+            id: String(targetId),
+            title: job.title || 'Untitled',
+            company: job.company || 'Unknown',
+            source: toJobSource(job.source),
+            url: job.url || '',
+            apply_url: job.applyUrl || job.url || '',
+            location: job.location || 'Remote',
+            remote: job.remote ? 1 : 0,
+            description: job.description || '',
+            description_html: job.descriptionHtml ?? null,
+            posted_at: job.postedAt || null,
+            fetched_at: job.fetchedAt || null,
+            employment_type: toEmploymentType(job.employmentType),
+            salary_min: job.salaryMin != null ? Number(job.salaryMin) : null,
+            salary_max: job.salaryMax != null ? Number(job.salaryMax) : null,
+            salary_currency: job.salaryCurrency || null,
+            skills: JSON.stringify(job.skills || []),
+            company_logo: finalLogo ?? null,
+            hash,
+            raw: job.raw ? (typeof job.raw === 'string' ? job.raw : JSON.stringify(job.raw)) : null
+        }).catch(e => console.warn('[Supabase Job Sync]:', e.message));
+    }
+
     return { inserted: !existing && res.changes >= 1 };
 }
 
@@ -194,8 +246,13 @@ export function listJobs(opts = {}) {
     const where = [];
     const params = {};
     if (opts.source) {
-        where.push('source = @source');
-        params.source = opts.source;
+        const s = String(opts.source).toLowerCase().trim();
+        if (s === 'naukri' || s === 'naukari') {
+            where.push("source IN ('naukri', 'naukari')");
+        } else {
+            where.push('source = @source');
+            params.source = opts.source;
+        }
     }
     if (opts.remoteOnly) {
         where.push('remote = 1');
@@ -416,3 +473,46 @@ export function pruneExpiredJobs(daysOld = 60) {
         return { prunedCount: 0 };
     }
 }
+
+export function deleteJob(id) {
+    try {
+        const db = getDb();
+        const res = db.prepare('DELETE FROM jobs WHERE id = ?').run(id);
+        clearJobListCache();
+        return { deleted: res.changes > 0 };
+    } catch (err) {
+        console.warn('[jobs] Delete job error:', err.message);
+        return { deleted: false, error: err.message };
+    }
+}
+
+export function getJobsDatabaseStats() {
+    try {
+        const db = getDb();
+        const totalRow = db.prepare('SELECT COUNT(*) as count FROM jobs').get();
+        const sourcesRows = db.prepare('SELECT source, COUNT(*) as count FROM jobs GROUP BY source ORDER BY count DESC').all();
+        const latestRow = db.prepare('SELECT posted_at, fetched_at FROM jobs ORDER BY COALESCE(fetched_at, posted_at) DESC LIMIT 1').get();
+        const companiesCountRow = db.prepare('SELECT COUNT(DISTINCT company) as count FROM jobs').get();
+
+        const sources = {};
+        for (const row of sourcesRows) {
+            sources[row.source || 'unknown'] = row.count;
+        }
+
+        return {
+            totalJobs: totalRow ? totalRow.count : 0,
+            totalCompanies: companiesCountRow ? companiesCountRow.count : 0,
+            sources,
+            latestScraped: latestRow ? (latestRow.fetched_at || latestRow.posted_at) : null,
+        };
+    } catch (err) {
+        console.warn('[jobs] Database stats error:', err.message);
+        return {
+            totalJobs: 0,
+            totalCompanies: 0,
+            sources: {},
+            latestScraped: null,
+        };
+    }
+}
+

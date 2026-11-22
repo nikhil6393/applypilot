@@ -426,12 +426,13 @@ export function semanticMatchJob(job, rawQuery) {
     return { matched: true, score: 95, tier: 'company', badge: 'Company Match' };
   }
 
-  // Strict non-tech exclusion (guard against non-engineering roles)
-  if (STRICT_NON_TECH_REGEX.test(titleRaw) && !TECH_TOKEN_WHITELIST.test(titleRaw)) {
+  const queryMatchesExcluded = STRICT_NON_TECH_REGEX.test(qNorm);
+  // Strict non-tech exclusion only if query isn't explicitly looking for it
+  if (!queryMatchesExcluded && STRICT_NON_TECH_REGEX.test(titleRaw) && !TECH_TOKEN_WHITELIST.test(titleRaw)) {
     return { matched: false, score: 0, tier: 'non_tech' };
   }
 
-  // 1. Exact or contiguous substring match in title
+  // 1. Exact or contiguous substring match in title, skills, tags or company
   if (titleNorm.includes(qNorm) || qNorm.includes(titleNorm)) {
     return { matched: true, score: 100, tier: 'exact', badge: 'Exact Match' };
   }

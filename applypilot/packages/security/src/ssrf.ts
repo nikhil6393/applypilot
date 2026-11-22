@@ -19,7 +19,7 @@ export function isPrivateOrReservedIp(ip: string): boolean {
       return true; // Invalid format treated as unsafe
     }
 
-    const [a, b, c, d] = parts;
+    const [a, b] = parts;
 
     // 0.0.0.0/8 (Current network)
     if (a === 0) return true;

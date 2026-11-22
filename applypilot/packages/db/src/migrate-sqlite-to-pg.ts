@@ -1,4 +1,3 @@
-import type { CanonicalJob } from '@applypilot/domain';
 
 export interface MigrationStats {
   jobsMigrated: number;
@@ -45,6 +44,7 @@ export class SqliteToPgMigrator {
         applicantCount: j.applicantCount ?? null,
         internship: Boolean(j.internship),
         contentHash: j.contentHash || 'legacy',
+        skills: skillsArray,
         status: 'active',
         postedAt: j.postedAt ? new Date(j.postedAt) : null,
       };

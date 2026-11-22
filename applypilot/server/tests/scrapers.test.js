@@ -235,6 +235,7 @@ describe('Scrape Orchestrator Background Status', () => {
         expect(status.activeSources).toContain('weworkremotely');
         expect(status.activeSources).toContain('yc');
         expect(status.activeSources).toContain('greenhouse');
+        expect(status.activeSources).toContain('naukri');
         expect(status.cacheStats).toBeDefined();
     });
 });

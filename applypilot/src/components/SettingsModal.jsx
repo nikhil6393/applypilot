@@ -29,10 +29,10 @@ export const SettingsModal = ({ isOpen, onClose, settings, onUpdateSettings, }) 
           <div className="space-y-1.5">
             <div className="flex justify-between">
               <span className="font-bold text-slate-800 dark:text-slate-200">
-                Max Positions Processed Per Run
+                Max Jobs to Track per Session
               </span>
               <span className="font-bold text-blue-600 dark:text-blue-400">
-                {settings.maxAutoApplyPerBatch} positions
+                {settings.maxAutoApplyPerBatch} jobs
               </span>
             </div>
             <input type="range" min="5" max="20" step="1" value={settings.maxAutoApplyPerBatch} onChange={(e) => onUpdateSettings({ ...settings, maxAutoApplyPerBatch: Number(e.target.value) })} className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"/>

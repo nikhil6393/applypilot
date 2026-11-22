@@ -13,6 +13,12 @@ const clearLocalAuthData = () => {
         'applypilot_linkedin_profile',
         'applypilot_current_job_id',
         'applypilot_draft_resume',
+        'applypilot_bookmarked_ids',
+        'applypilot_applied_ids',
+        'applypilot_discovered_jobs',
+        'applypilot_settings',
+        'applypilot_search_role',
+        'applypilot_search_location',
     ];
     for (const key of keysToRemove) {
         try {
@@ -236,7 +242,7 @@ export const AuthProvider = ({ children }) => {
             if (!res.ok || !data.success) {
                 return { success: false, error: data.error || 'Failed to request password reset.' };
             }
-            return { success: true, message: data.message };
+            return { success: true, message: data.message, developmentToken: data.developmentToken };
         }
         catch (err) {
             return { success: false, error: err.message || 'Connection error.' };
@@ -249,7 +255,7 @@ export const AuthProvider = ({ children }) => {
             const res = await fetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: resetToken, password: newPassword }),
+                body: JSON.stringify({ token: resetToken, newPassword }),
             });
             const data = await res.json();
             setIsLoading(false);
@@ -291,21 +297,10 @@ export const AuthProvider = ({ children }) => {
     // Update profile via backend
     const updateProfile = async (updated) => {
         if (!user)
-            return;
-        const updatedUser = { ...user, ...updated };
-        setUser(updatedUser);
-        try {
-            localStorage.setItem('applypilot_user', JSON.stringify(updatedUser));
-        }
-        catch { }
-        if (updated.savedResume) {
-            try {
-                localStorage.setItem('applypilot_resume', JSON.stringify(updated.savedResume));
-            }
-            catch { }
-        }
+            throw new Error('Sign in to update your profile.');
         if (!token)
-            return;
+            throw new Error('Your session is not valid. Please sign in again.');
+        const updatedUser = { ...user, ...updated };
         try {
             const res = await fetch('/api/auth/update-profile', {
                 method: 'POST',
@@ -315,17 +310,16 @@ export const AuthProvider = ({ children }) => {
                 },
                 body: JSON.stringify(updated),
             });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.user) {
-                    const merged = { ...updatedUser, ...data.user };
-                    setUser(merged);
-                    localStorage.setItem('applypilot_user', JSON.stringify(merged));
-                }
-            }
+            const data = await res.json();
+            if (!res.ok || !data.success || !data.user) throw new Error(data.error || 'Profile update failed.');
+            const merged = { ...updatedUser, ...data.user };
+            setUser(merged);
+            localStorage.setItem('applypilot_user', JSON.stringify(merged));
+            if (updated.savedResume) localStorage.setItem('applypilot_resume', JSON.stringify(updated.savedResume));
+            return merged;
         }
         catch (err) {
-            console.error('Failed to sync profile update with server:', err);
+            throw new Error(err.message || 'Failed to sync profile update with server.');
         }
     };
     return (<AuthContext.Provider value={{

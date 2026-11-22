@@ -48,46 +48,18 @@ function generateArmorForBullet(bulletText, sourceName) {
   const lower = bulletText.toLowerCase();
 
   let trapQuestion = 'How exactly did you isolate this improvement from confounding variables? Walk me through your baseline measurements and what broke during initial rollout.';
-  let situation = 'Legacy architecture lacked isolation and had unmonitored bottlenecks causing unpredictable latency and degraded developer velocity under production load.';
-  let task = 'Establish deterministic SLOs, implement targeted architectural optimizations, and verify resiliency with synthetic load tests.';
-  let action = 'Engineered a modular optimization pipeline, profiled hot code paths, and added automated circuit breakers with telemetry.';
+  const situation = 'Describe the real context for this work.';
+  const task = 'Describe your actual responsibility.';
+  const action = 'List only the actions you personally took.';
   let result = bulletText;
-  let technicalTradeoffs = [
-    'Benchmarked asynchronous queues vs synchronous processing to avoid connection pool starvation.',
-    'Chose optimistic locking over pessimistic transactions to maximize read concurrency.',
-    'Implemented graceful fallback mechanisms to prevent cascading microservice outages.',
-  ];
+  const technicalTradeoffs = [];
 
   if (lower.includes('latency') || lower.includes('ms') || lower.includes('cache') || lower.includes('redis')) {
     trapQuestion = 'How did you baseline p95 vs p99 latencies? What was your cache eviction policy, and how did you prevent cache stampedes (thundering herd)?';
-    situation = 'Database queries on hot paths experienced extreme p99 tail latency spikes during peak traffic, degrading response times to over 800ms.';
-    task = 'Reduce average latency below 200ms while protecting primary databases from connection exhaustion.';
-    action = 'Implemented Redis caching with probabilistic early expiration (XFetch algorithm) to prevent thundering herd, and tuned connection pooling.';
-    technicalTradeoffs = [
-      'Trade-off: Redis in-memory cache vs Postgres read replica (chose Redis for sub-millisecond retrieval).',
-      'Handled cache invalidation via write-through events in pub/sub instead of aggressive TTL expirations.',
-      'Configured Redis circuit breaker so DB gracefully degrades if cache nodes restart.',
-    ];
   } else if (lower.includes('scale') || lower.includes('users') || lower.includes('pipeline') || lower.includes('kafka') || lower.includes('events')) {
     trapQuestion = 'What happens during a network partition or broker crash? How do you ensure exactly-once vs at-least-once message processing without data duplication?';
-    situation = 'Ingestion throughput reached single-node limits, creating backpressure lag and risk of event loss during traffic surges.';
-    task = 'Re-architect the event pipeline to support horizontal scalability with guaranteed idempotent delivery.';
-    action = 'Partitioned message topics by entity hash, implemented idempotent database upserts using unique request UUIDs, and tuned batching intervals.';
-    technicalTradeoffs = [
-      'Trade-off: Chose at-least-once delivery semantics coupled with idempotent consumer logic rather than slow 2PC distributed transactions.',
-      'Partition count sized according to peak consumer parallelism requirements.',
-      'Configured dead-letter queues (DLQ) with automated alert thresholds for unparseable payloads.',
-    ];
   } else if (lower.includes('cost') || lower.includes('$') || lower.includes('aws') || lower.includes('cloud') || lower.includes('docker') || lower.includes('kubernetes')) {
     trapQuestion = 'Did cost reduction compromise reliability or disaster recovery SLA? How did you verify resource limits without inducing OOMKills under peak bursts?';
-    situation = 'Over-provisioned cloud infrastructure resulted in substantial idle compute costs without proportional reliability gains.';
-    task = 'Right-size compute resources and implement dynamic auto-scaling without risking availability SLOs.';
-    action = 'Audited resource utilization metrics with Prometheus, introduced Karpenter for spot instance bin-packing, and tuned Horizontal Pod Autoscalers.';
-    technicalTradeoffs = [
-      'Mixed on-demand nodes for critical stateful workloads with spot instances for stateless API workers.',
-      'Configured pod disruption budgets (PDB) to guarantee minimum replicas during node draining.',
-      'Set Prometheus alerting for CPU/memory throttle thresholds before pods hit limits.',
-    ];
   }
 
   return {
@@ -117,22 +89,6 @@ export default function InterviewArmorModal({
 
   const extractedBullets = useMemo(() => {
     const list = extractMetricBullets(resume);
-    if (list.length === 0) {
-      return [
-        {
-          source: 'Primary Engineering Metric',
-          text: 'Architected high-throughput API gateway handling 15,000+ RPS with 99.95% uptime and sub-50ms p95 latency.',
-        },
-        {
-          source: 'System Optimization',
-          text: 'Optimized complex SQL aggregation queries, reducing query execution times from 4.2s to 180ms across 12M records.',
-        },
-        {
-          source: 'Infrastructure & Reliability',
-          text: 'Led migration of monolithic services to containerized microservices, reducing AWS cloud infrastructure spend by 35%.',
-        },
-      ];
-    }
     return list;
   }, [resume]);
 
@@ -208,7 +164,7 @@ export default function InterviewArmorModal({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Simulates harsh technical interviewer follow-ups on your bold resume metrics and equips you with STAR scripts.
+                Generates follow-up questions from résumé bullets and gives you blank prompts for your own interview notes.
               </p>
             </div>
           </div>
@@ -229,6 +185,12 @@ export default function InterviewArmorModal({
               <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        {/* Disclaimer */}
+        <div className="px-6 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-xs text-amber-800">
+          <span className="font-bold shrink-0">⚠ Note:</span>
+          <span>Generated STAR framework — verify all details against your actual experience before use. Do not present fabricated metrics in interviews.</span>
         </div>
 
         {/* Custom Bullet Input Bar */}
@@ -253,6 +215,7 @@ export default function InterviewArmorModal({
 
         {/* Scrollable Defense Cards Area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-[#F8FAFC] custom-scrollbar">
+          {armorData.length === 0 && <div className="rounded-xl border border-slate-700 p-5 text-sm text-slate-300">No quantified résumé bullets found. Add a verified result to your résumé to prepare interview questions for it.</div>}
           {armorData.map((item, idx) => (
             <div
               key={idx}

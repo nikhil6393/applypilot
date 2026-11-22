@@ -1,0 +1,54 @@
+{
+  "studentResume": {
+    "fullName": "Aman Verma",
+    "email": "aman.verma.nsut@example.com",
+    "phone": "+91-9876543210",
+    "location": "New Delhi, India",
+    "education": [
+      {
+        "degree": "B.Tech in Information Technology",
+        "institution": "Netaji Subhas University of Technology",
+        "year": "2026"
+      }
+    ],
+    "skills": ["JavaScript", "TypeScript", "React", "Node.js", "Express", "MongoDB", "Git"],
+    "experience": [
+      {
+        "title": "Full-Stack Web Intern",
+        "company": "EdTech Labs",
+        "bullets": [
+          "Developed student assessment dashboard using React and TypeScript.",
+          "Integrated REST APIs with Express and MongoDB to handle student submissions."
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "name": "Campus Placement Tracker",
+        "description": "Built full-stack recruitment portal with Node.js, Express, and React for 500+ student applicants."
+      }
+    ]
+  },
+  "internshipOpportunities": [
+    {
+      "id": "opp_nsut_sde_1",
+      "title": "Software Engineer Intern (Frontend / Full-Stack)",
+      "company": "Swiggy India",
+      "location": "Bengaluru / Remote, India",
+      "isInternship": true,
+      "remote": true,
+      "skills": ["React", "TypeScript", "Node.js", "Docker", "GraphQL"],
+      "description": "Looking for pre-final or final year B.Tech students to join our engineering team. Must have strong skills in React and TypeScript. Docker and GraphQL are preferred. Location: India Remote."
+    },
+    {
+      "id": "opp_us_restricted_1",
+      "title": "Junior Developer Intern",
+      "company": "Aerospace US Defense",
+      "location": "Arlington, VA, USA",
+      "isInternship": true,
+      "remote": false,
+      "skills": ["C++", "Python"],
+      "description": "Must be a US Citizen. No foreign applicants or visa sponsorship. Top Secret Clearance eligible."
+    }
+  ]
+}

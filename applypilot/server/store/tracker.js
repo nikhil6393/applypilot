@@ -1,4 +1,5 @@
 import { getDb } from './db.js';
+import { supabase } from './supabase.js';
 
 export function listTracker(status, userId) {
     const db = getDb();
@@ -25,7 +26,19 @@ export function getTracker(id, userId) {
 export function addTracker(r, userId) {
     const db = getDb();
     const targetUserId = r.userId || userId || 'default';
-    const record = { ...r, userId: targetUserId };
+    const record = {
+        id: r.id || `trk_${Date.now()}`,
+        jobId: r.jobId,
+        jobTitle: r.jobTitle || 'Untitled',
+        company: r.company || 'Unknown',
+        applyUrl: r.applyUrl || '',
+        status: r.status || 'saved',
+        notes: r.notes || null,
+        createdAt: r.createdAt || new Date().toISOString(),
+        updatedAt: r.updatedAt || new Date().toISOString(),
+        ...r,
+        userId: targetUserId
+    };
     const existing = db.prepare('SELECT id, created_at FROM tracker WHERE job_id = ? AND user_id = ?').get(r.jobId, targetUserId);
     if (existing) {
         db.prepare(`
@@ -35,7 +48,21 @@ export function addTracker(r, userId) {
             updated_at = @updatedAt
         WHERE id = ? AND user_id = ?
       `).run({ ...record }, existing.id, targetUserId);
-        return { ...record, id: existing.id, createdAt: existing.created_at };
+        const finalRec = { ...record, id: existing.id, createdAt: existing.created_at };
+        if (supabase.isConfigured()) {
+            supabase.from('tracker').upsert({
+                id: finalRec.id,
+                user_id: targetUserId,
+                job_id: finalRec.jobId,
+                job_title: finalRec.jobTitle,
+                company: finalRec.company,
+                apply_url: finalRec.applyUrl,
+                status: finalRec.status,
+                notes: finalRec.notes || null,
+                updated_at: new Date().toISOString()
+            }).catch(e => console.warn('[Supabase Tracker Upsert]:', e.message));
+        }
+        return finalRec;
     }
     db.prepare(`
     INSERT INTO tracker (id, user_id, job_id, job_title, company, apply_url, status, notes, created_at, updated_at)
@@ -48,6 +75,22 @@ export function addTracker(r, userId) {
         notes = CASE WHEN excluded.notes IS NOT NULL AND excluded.notes != '' THEN excluded.notes ELSE tracker.notes END,
         updated_at = excluded.updated_at
   `).run(record);
+
+    if (supabase.isConfigured()) {
+        supabase.from('tracker').upsert({
+            id: String(record.id),
+            user_id: targetUserId,
+            job_id: String(record.jobId),
+            job_title: record.jobTitle || 'Untitled',
+            company: record.company || 'Unknown',
+            apply_url: record.applyUrl || '',
+            status: record.status || 'saved',
+            notes: record.notes || null,
+            created_at: record.createdAt || new Date().toISOString(),
+            updated_at: record.updatedAt || new Date().toISOString()
+        }).catch(e => console.warn('[Supabase Tracker Insert]:', e.message));
+    }
+
     return record;
 }
 
@@ -73,6 +116,19 @@ export function updateTracker(id, patch, userId) {
         notes: merged.notes,
         updatedAt: merged.updatedAt,
     });
+
+    if (supabase.isConfigured()) {
+        supabase.from('tracker').update({
+            job_id: merged.jobId,
+            job_title: merged.jobTitle,
+            company: merged.company,
+            apply_url: merged.applyUrl,
+            status: merged.status,
+            notes: merged.notes || null,
+            updated_at: new Date().toISOString()
+        }, `id=eq.${id}`).catch(e => console.warn('[Supabase Tracker Update]:', e.message));
+    }
+
     return merged;
 }
 
@@ -81,6 +137,11 @@ export function deleteTracker(id, userId) {
     const r = userId
         ? db.prepare('DELETE FROM tracker WHERE id = ? AND user_id = ?').run(id, userId)
         : db.prepare('DELETE FROM tracker WHERE id = ?').run(id);
+
+    if (supabase.isConfigured()) {
+        supabase.from('tracker').delete(`id=eq.${id}`).catch(e => console.warn('[Supabase Tracker Delete]:', e.message));
+    }
+
     return r.changes > 0;
 }
 

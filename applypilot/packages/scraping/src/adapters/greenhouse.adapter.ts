@@ -51,7 +51,7 @@ export class GreenhouseAdapter implements JobSourceAdapter {
     }
   }
 
-  async fetchJob(input: FetchJobInput): Promise<RawJob | null> {
+  async fetchJob(_input: FetchJobInput): Promise<RawJob | null> {
     return null;
   }
 

@@ -27,12 +27,13 @@ export async function scrapeWorkingNomads(req) {
                 id: `wn_${job.id || createHash('sha1').update(job.url || job.title).digest('hex').slice(0, 16)}`,
                 title: job.title,
                 company: job.company_name,
-                location: job.location || 'Remote',
+                location: job.location || '',
                 url: job.url,
                 applyUrl: job.url,
                 tags: (job.tags || '').split(',').map(t => t.trim()).filter(Boolean),
-                postedAt: job.pub_date ? new Date(job.pub_date).toISOString() : new Date().toISOString(),
+                postedAt: job.pub_date ? new Date(job.pub_date).toISOString() : '',
                 source: 'workingnomads',
+                remote: true,
                 type: 'remote',
                 logo: job.company_logo || null
             });

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import './SkillGapExact.css';
 import { useAppStore } from '../store/appStore';
-import { CompanyIcon, FirstAlphabetLogo } from './CompanyIcon';
+import { useAuth } from '../context/AuthContext';
+import { CompanyIcon } from './CompanyIcon';
+import { createPersonalizedLearningPath, getCandidateSkills, personalizeCompanySkillGaps } from '../utils/skillGapAnalysis.js';
 
 function renderCompanyLogo(company, size = 28) {
   if (!company) return null;
@@ -11,276 +13,66 @@ function renderCompanyLogo(company, size = 28) {
   return <CompanyIcon company={company.name || company.id} logoUrl={company.logoUrl} size={size} />;
 }
 
-export const COMPANIES_DATA = [
-  {
-    id: 'google',
-    name: 'Google',
-    industry: 'Internet Services & Software',
-    salary: '₹12L – ₹45L',
-    matchPct: 72,
-    gapPct: 28,
-    matchedCount: 23,
-    missingCount: 9,
-    totalSkills: 32,
-    missingSkills: ['System Design', 'Data Structures', 'Algorithms', 'Distributed Systems', 'GCP', 'Kubernetes'],
-    keySkillsToLearn: [
-      { name: 'System Design', color: '#db2777', icon: 'target' },
-      { name: 'Data Structures', color: '#2563eb', icon: 'box' },
-      { name: 'Algorithms', color: '#d97706', icon: 'code' },
-      { name: 'Kubernetes', color: '#16a34a', icon: 'shield' },
-      { name: 'GCP', color: '#2563eb', icon: 'globe' },
-      { name: 'Machine Learning', color: '#db2777', icon: 'sparkle' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 20, delta: '+1.2K', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 35, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 40, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 25, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 50, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 30, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: true,
-    logo: (
-      <svg width="30" height="30" viewBox="0 0 48 48">
-        <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.8-2.1 5.1-4.4 6.7v5.5h7.1c4.2-3.9 6.6-9.6 6.6-16.2z"/>
-        <path fill="#34A853" d="M24 46c6 0 11-2 14.5-5.3l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.2 15.4 46 24 46z"/>
-        <path fill="#FBBC05" d="M11.8 28.3c-.4-1.3-.7-2.8-.7-4.3s.3-3 .7-4.3V14H4.5A21.9 21.9 0 0 0 2 24c0 3.6.9 6.9 2.5 10z"/>
-        <path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C35 4.2 30 2 24 2 15.4 2 8.1 6.8 4.5 14l7.3 5.7c1.7-5.2 6.5-8.9 12.2-8.9z"/>
-      </svg>
-    )
-  },
-  {
-    id: 'amazon',
-    name: 'Amazon',
-    industry: 'E-commerce & Cloud',
-    salary: '₹10L – ₹40L',
-    matchPct: 68,
-    gapPct: 32,
-    matchedCount: 21,
-    missingCount: 10,
-    totalSkills: 31,
-    missingSkills: ['Python', 'System Design', 'AWS', 'DynamoDB', 'Microservices'],
-    keySkillsToLearn: [
-      { name: 'AWS Cloud', color: '#d97706', icon: 'globe' },
-      { name: 'System Design', color: '#db2777', icon: 'target' },
-      { name: 'Python', color: '#2563eb', icon: 'code' },
-      { name: 'DynamoDB', color: '#16a34a', icon: 'box' },
-      { name: 'CI/CD Pipelines', color: '#8b5cf6', icon: 'shield' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 25, delta: '+900', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 30, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 45, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 30, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 45, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 20, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logoStyle: { background: '#232f3e', borderColor: '#232f3e' },
-    logo: (
-      <svg width="32" height="28" viewBox="0 0 32 32">
-        <text x="16" y="21" textAnchor="middle" fontSize="15" fontWeight="800" fill="#fff" fontFamily="Inter, sans-serif">a</text>
-        <path d="M6 23.5c3.2 2.5 7.4 3.9 11 3.9 4.1 0 8-1.5 11-3.7" fill="none" stroke="#FF9900" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M25.8 22.8l1.8 1.1-.4 2" fill="none" stroke="#FF9900" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    )
-  },
-  {
-    id: 'microsoft',
-    name: 'Microsoft',
-    industry: 'Software & Cloud',
-    salary: '₹10L – ₹38L',
-    matchPct: 64,
-    gapPct: 36,
-    matchedCount: 20,
-    missingCount: 11,
-    totalSkills: 31,
-    missingSkills: ['Azure', 'System Design', '.NET', 'C#', 'SQL Server'],
-    keySkillsToLearn: [
-      { name: 'Azure Cloud', color: '#2563eb', icon: 'globe' },
-      { name: 'System Design', color: '#db2777', icon: 'target' },
-      { name: 'C# / .NET', color: '#8b5cf6', icon: 'code' },
-      { name: 'CosmosDB', color: '#16a34a', icon: 'box' },
-      { name: 'Enterprise Architecture', color: '#d97706', icon: 'sparkle' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 30, delta: '+850', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 40, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 38, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 28, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 52, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 25, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logo: (
-      <svg width="26" height="26" viewBox="0 0 24 24">
-        <rect x="2" y="2" width="9.2" height="9.2" fill="#F25022"/>
-        <rect x="12.8" y="2" width="9.2" height="9.2" fill="#7FBA00"/>
-        <rect x="2" y="12.8" width="9.2" height="9.2" fill="#00A4EF"/>
-        <rect x="12.8" y="12.8" width="9.2" height="9.2" fill="#FFB900"/>
-      </svg>
-    )
-  },
-  {
-    id: 'tcs',
-    name: 'TCS',
-    industry: 'IT Services & Consulting',
-    salary: '₹4L – ₹12L',
-    matchPct: 71,
-    gapPct: 29,
-    matchedCount: 22,
-    missingCount: 9,
-    totalSkills: 31,
-    missingSkills: ['Java', 'Spring Boot', 'SQL', 'Hibernate', 'REST APIs'],
-    keySkillsToLearn: [
-      { name: 'Java Enterprise', color: '#ef4444', icon: 'code' },
-      { name: 'Spring Boot', color: '#16a34a', icon: 'box' },
-      { name: 'SQL Query Optimization', color: '#2563eb', icon: 'shield' },
-      { name: 'Agile & JIRA', color: '#d97706', icon: 'sparkle' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 18, delta: '+600', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 32, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 35, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 20, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 40, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 28, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logo: (
-      <svg width="40" height="26" viewBox="0 0 40 24">
-        <text x="20" y="18" textAnchor="middle" fontFamily="Georgia, serif" fontSize="16" fontStyle="italic" fontWeight="700" fill="#e63946">tcs</text>
-      </svg>
-    )
-  },
-  {
-    id: 'infosys',
-    name: 'Infosys',
-    industry: 'IT Services & Consulting',
-    salary: '₹4L – ₹12L',
-    matchPct: 67,
-    gapPct: 33,
-    matchedCount: 20,
-    missingCount: 10,
-    totalSkills: 30,
-    missingSkills: ['JavaScript', 'React', 'Node.js', 'MongoDB', 'Angular'],
-    keySkillsToLearn: [
-      { name: 'React.js', color: '#0866ff', icon: 'code' },
-      { name: 'Node.js Backend', color: '#16a34a', icon: 'box' },
-      { name: 'TypeScript', color: '#2563eb', icon: 'shield' },
-      { name: 'Full-Stack Architecture', color: '#db2777', icon: 'target' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 22, delta: '+720', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 38, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 36, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 24, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 44, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 26, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logo: <span style={{ color: '#007cc3', fontWeight: 700, fontSize: 13 }}>Infosys</span>
-  },
-  {
-    id: 'meta',
-    name: 'Meta',
-    industry: 'Social Media & Technology',
-    salary: '₹15L – ₹60L',
-    matchPct: 59,
-    gapPct: 41,
-    matchedCount: 18,
-    missingCount: 13,
-    totalSkills: 31,
-    missingSkills: ['React', 'System Design', 'GraphQL', 'Relay', 'Large Scale Storage'],
-    keySkillsToLearn: [
-      { name: 'GraphQL / Relay', color: '#ec4899', icon: 'sparkle' },
-      { name: 'Distributed Caching', color: '#8b5cf6', icon: 'shield' },
-      { name: 'High-Concurrency Systems', color: '#db2777', icon: 'target' },
-      { name: 'React Internals', color: '#0866ff', icon: 'code' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 28, delta: '+1.5K', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 42, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 46, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 34, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 58, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 32, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logo: (
-      <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="#0668E1" strokeWidth="4.6" strokeLinecap="round">
-        <path d="M6 32c0-11 4.5-17 8.5-17S21 22 24 28s6 13 10 13c3.4 0 8-6 8-17 0-6-1.5-9-4-9-2.9 0-6.3 4.6-14 17"/>
-      </svg>
-    )
-  },
-  {
-    id: 'apple',
-    name: 'Apple',
-    industry: 'Consumer Electronics & Software',
-    salary: '₹12L – ₹50L',
-    matchPct: 56,
-    gapPct: 44,
-    matchedCount: 17,
-    missingCount: 14,
-    totalSkills: 31,
-    missingSkills: ['Swift', 'iOS Development', 'DSA', 'Objective-C', 'Metal'],
-    keySkillsToLearn: [
-      { name: 'Swift & SwiftUI', color: '#f97316', icon: 'code' },
-      { name: 'iOS Architecture (MVVM)', color: '#2563eb', icon: 'shield' },
-      { name: 'Memory Management (ARC)', color: '#db2777', icon: 'target' },
-      { name: 'CoreData & Concurrency', color: '#16a34a', icon: 'box' },
-    ],
-    categories: [
-      { name: 'Programming Languages', pct: 34, delta: '+1.1K', gradient: 'linear-gradient(90deg, #f87171, #fb923c)' },
-      { name: 'Frameworks & Libraries', pct: 45, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)' },
-      { name: 'Cloud & DevOps', pct: 38, delta: '', gradient: 'linear-gradient(90deg, #fbbf24, #fb923c)' },
-      { name: 'Data & Databases', pct: 30, delta: '', gradient: 'linear-gradient(90deg, #a78bfa, #8b5cf6)' },
-      { name: 'System Design', pct: 54, delta: '', gradient: 'linear-gradient(90deg, #8b5cf6, #7c3aed)' },
-      { name: 'Tools & Others', pct: 35, delta: '', gradient: 'linear-gradient(90deg, #34d399, #22c55e)' },
-    ],
-    topPick: false,
-    logo: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="#111">
-        <path d="M16.6 12.9c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-2-.9-3.2-.9-1.7 0-3.2 1-4 2.5-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.5-1-2.5-3.9zM14.2 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.8-1.5z"/>
-      </svg>
-    )
-  }
-];
-
-export function SkillGapExact({ onNavigateToFeed }) {
+export function SkillGapExact({ onNavigateToFeed, resume }) {
   const { addToast } = useAppStore();
-  const [companies, setCompanies] = useState(COMPANIES_DATA);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(COMPANIES_DATA[0].id);
+  const { user, token } = useAuth();
+  const [companyData, setCompanyData] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [activeTab, setActiveTab] = useState('company');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState('all');
   const [selectedRole, setSelectedRole] = useState('all');
   const [sortBy, setSortBy] = useState('highest_gap');
   const [isLiveLoaded, setIsLiveLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [fetchAttempt, setFetchAttempt] = useState(0);
+  const [learningPath, setLearningPath] = useState(null);
+  const candidateSkills = useMemo(() => getCandidateSkills(resume, user), [resume, user]);
+  const companies = useMemo(
+    () => personalizeCompanySkillGaps(companyData, candidateSkills),
+    [companyData, candidateSkills],
+  );
 
-  // Fetch real scraped companies from high-speed cached endpoint
+  // The endpoint returns neutral company skill demand; comparison uses the active resume here.
   useEffect(() => {
     let active = true;
-    fetch('/api/jobs/companies-skill-gap')
-      .then((res) => res.json())
+    const controller = new AbortController();
+    setIsLoading(true);
+    setLoadError('');
+    fetch('/api/jobs/companies-skill-gap', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Could not load company skill demand.');
+        return res.json();
+      })
       .then((data) => {
-        if (!active) return;
-        if (data && data.success && Array.isArray(data.companies) && data.companies.length > 0) {
-          setCompanies(data.companies);
+        if (!data?.success || !Array.isArray(data.companies)) {
+          throw new Error(data?.error || 'Company skill data was not available.');
+        }
+        if (active) {
+          setCompanyData(data.companies);
           setIsLiveLoaded(true);
           setSelectedCompanyId((prev) => {
             const exists = data.companies.some((c) => c.id === prev);
-            return exists ? prev : data.companies[0].id;
+            return exists ? prev : data.companies[0]?.id || null;
           });
+          setIsLoading(false);
         }
       })
-      .catch((err) => {
-        console.warn('[SkillGapExact] API fallback:', err);
+      .catch((error) => {
+        if (active && error.name !== 'AbortError') {
+          setLoadError(error.message || 'Could not load company skill demand.');
+          setIsLoading(false);
+        }
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, []);
+  }, [token, fetchAttempt]);
 
   const industries = useMemo(() => {
     const list = new Set();
@@ -291,7 +83,7 @@ export function SkillGapExact({ onNavigateToFeed }) {
   }, [companies]);
 
   const selectedCompany = useMemo(() => {
-    return companies.find((c) => c.id === selectedCompanyId) || companies[0] || COMPANIES_DATA[0];
+    return companies.find((c) => c.id === selectedCompanyId) || companies[0] || null;
   }, [companies, selectedCompanyId]);
 
   const filteredCompanies = useMemo(() => {
@@ -302,7 +94,7 @@ export function SkillGapExact({ onNavigateToFeed }) {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           (c.industry && c.industry.toLowerCase().includes(q)) ||
-          (c.missingSkills && c.missingSkills.some((s) => s.toLowerCase().includes(q)))
+          (c.advertisedSkills && c.advertisedSkills.some((skill) => skill.name.toLowerCase().includes(q)))
       );
     }
     if (selectedIndustry !== 'all') {
@@ -310,13 +102,13 @@ export function SkillGapExact({ onNavigateToFeed }) {
     }
     if (selectedRole !== 'all') {
       list = list.filter((c) =>
-        c.missingSkills && c.missingSkills.some((s) => s.toLowerCase().includes(selectedRole.toLowerCase()))
+        c.advertisedSkills && c.advertisedSkills.some((skill) => skill.name.toLowerCase().includes(selectedRole.toLowerCase()))
       );
     }
     if (sortBy === 'highest_gap') {
-      list.sort((a, b) => b.gapPct - a.gapPct);
+      list.sort((a, b) => (b.gapPct ?? -1) - (a.gapPct ?? -1));
     } else if (sortBy === 'highest_match') {
-      list.sort((a, b) => b.matchPct - a.matchPct);
+      list.sort((a, b) => (b.matchPct ?? -1) - (a.matchPct ?? -1));
     } else if (sortBy === 'most_jobs') {
       list.sort((a, b) => (b.openJobsCount || 0) - (a.openJobsCount || 0));
     }
@@ -336,13 +128,28 @@ export function SkillGapExact({ onNavigateToFeed }) {
   };
 
   const handleExploreLearning = () => {
-    const missing = selectedCompany.missingSkills || [];
-    addToast({
-      type: 'success',
-      title: 'Personalized Roadmap Ready',
-      message: `Generated custom curriculum covering: ${missing.slice(0, 3).join(', ')}.`,
-    });
+    setLearningPath((current) => current === null
+      ? createPersonalizedLearningPath(selectedCompany.missingSkillDetails || [])
+      : null);
   };
+
+  if (!selectedCompany) {
+    return (
+      <div className="skillgap-content p-8 text-center">
+        <h1 className="text-xl font-bold">Skill gap analysis</h1>
+        {isLoading ? (
+          <p role="status" className="mt-2 text-sm text-slate-600">Loading company skill demand…</p>
+        ) : loadError ? (
+          <>
+            <p role="alert" className="mt-2 text-sm text-rose-700">{loadError}</p>
+            <button type="button" className="mt-3" onClick={() => setFetchAttempt((attempt) => attempt + 1)}>Retry</button>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-slate-600">No company skill data is available yet. Search for jobs first.</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="skillgap-content">
@@ -423,6 +230,12 @@ export function SkillGapExact({ onNavigateToFeed }) {
             <path d="M366 30l1.6 3.4 3.4 1.6-3.4 1.6-1.6 3.4-1.6-3.4-3.4-1.6 3.4-1.6z" fill="#fff" opacity=".9" />
           </svg>
         </section>
+
+        {candidateSkills.length === 0 && (
+          <div role="status" className="skill-profile-notice">
+            Add skills or projects to your resume/profile to calculate your match. Company cards currently show advertised skills without assuming gaps.
+          </div>
+        )}
 
         {/* TABS */}
         <div className="card tabs">
@@ -550,13 +363,17 @@ export function SkillGapExact({ onNavigateToFeed }) {
           <div className="clist">
             {filteredCompanies.map((c) => {
               const isSelected = selectedCompanyId === c.id;
-              const ringBackground = `conic-gradient(#22c55e 0 ${c.matchPct}%, #d3f2dc ${c.matchPct}% 100%)`;
+              const ringBackground = `conic-gradient(#22c55e 0 ${c.matchPct ?? 0}%, #d3f2dc ${c.matchPct ?? 0}% 100%)`;
+              const skillsToShow = candidateSkills.length ? c.missingSkills : c.advertisedSkills.map((skill) => skill.name);
 
               return (
                 <div
                   key={c.id}
                   className={`crow ${isSelected ? 'sel' : ''}`}
-                  onClick={() => setSelectedCompanyId(c.id)}
+                  onClick={() => {
+                    setSelectedCompanyId(c.id);
+                    setLearningPath(null);
+                  }}
                 >
                   <div className="clogo" style={c.logoStyle || {}}>
                     {renderCompanyLogo(c, 28)}
@@ -572,39 +389,39 @@ export function SkillGapExact({ onNavigateToFeed }) {
                     </div>
                     <div className="cs">{c.industry}</div>
                     <div className="sal">
-                      Avg. Salary: <b>{c.salary}</b>
+                      Listed salary: <b>{c.salary || 'Not provided'}</b>
                     </div>
                   </div>
                   <div className="mstat">
                     <div className="ring" style={{ background: ringBackground }}>
-                      <span className="n">{c.matchPct}</span>
+                      <span className="n">{c.matchPct ?? '—'}</span>
                     </div>
                     <div className="ms">
                       <div className="pct">
-                        {c.matchPct}
+                        {c.matchPct ?? '—'}
                         <sup>%</sup>
                       </div>
                       <div className="cap">Skill Match</div>
                     </div>
                   </div>
                   <div className="mstat">
-                    <div className="gc">{c.gapPct}</div>
+                    <div className="gc">{c.gapPct ?? '—'}</div>
                     <div className="ms">
                       <div className="pct" style={{ color: '#db2777' }}>
-                        {c.gapPct}
+                        {c.gapPct ?? '—'}
                         <sup>%</sup>
                       </div>
                       <div className="cap">Skill Gap</div>
                     </div>
                   </div>
                   <div className="msk">
-                    <h5>Top Missing Skills</h5>
+                    <h5>{candidateSkills.length ? 'Top Missing Skills' : 'Top Advertised Skills'}</h5>
                     <div className="sk">
-                      {(c.missingSkills || []).slice(0, 3).map((sk) => (
+                      {skillsToShow.slice(0, 3).map((sk) => (
                         <span key={sk}>{sk}</span>
                       ))}
-                      {(c.missingSkills || []).length > 3 && (
-                        <span className="more">+{(c.missingSkills || []).length - 3} more</span>
+                      {skillsToShow.length > 3 && (
+                        <span className="more">+{skillsToShow.length - 3} more</span>
                       )}
                     </div>
                   </div>
@@ -670,22 +487,22 @@ export function SkillGapExact({ onNavigateToFeed }) {
             <div
               className="sgd"
               style={{
-                background: `conic-gradient(var(--green) 0 ${selectedCompany.matchPct}%, #e9edf5 ${selectedCompany.matchPct}% 100%)`,
+                background: `conic-gradient(var(--green) 0 ${selectedCompany.matchPct ?? 0}%, #e9edf5 ${selectedCompany.matchPct ?? 0}% 100%)`,
               }}
             >
-              <span className="pct">{selectedCompany.matchPct}%</span>
+              <span className="pct">{selectedCompany.matchPct === null ? '—' : `${selectedCompany.matchPct}%`}</span>
             </div>
             <div className="sm-txt">
               <div className="row">
                 <span>Skills Matched</span>
                 <b className="g">
-                  {selectedCompany.matchedCount} / {selectedCompany.totalSkills}
+                  {candidateSkills.length ? selectedCompany.matchedCount : '—'} / {selectedCompany.totalSkills}
                 </b>
               </div>
               <div className="row" style={{ marginTop: 6 }}>
                 <span>Skills Missing</span>
                 <b className="r">
-                  {selectedCompany.missingCount} / {selectedCompany.totalSkills}
+                  {candidateSkills.length ? selectedCompany.missingCount : '—'} / {selectedCompany.totalSkills}
                 </b>
               </div>
             </div>
@@ -699,15 +516,16 @@ export function SkillGapExact({ onNavigateToFeed }) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="#f43f5e">
                 <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" />
               </svg>
-              Key Skills You Need to Learn
+              {candidateSkills.length ? 'Key Skills You Need to Learn' : 'Company Advertised Skills'}
             </h3>
-            <span
+            <button
+              type="button"
               className="link"
-              style={{ color: 'var(--primary)', fontWeight: 600, fontSize: '11.5px', cursor: 'pointer' }}
+              style={{ color: 'var(--primary)', fontWeight: 600, fontSize: '11.5px', cursor: 'pointer', border: 0, background: 'transparent' }}
               onClick={handleExploreLearning}
             >
               View All
-            </span>
+            </button>
           </div>
           <div className="kchips">
             {(selectedCompany.keySkillsToLearn || []).map((k) => (
@@ -784,13 +602,54 @@ export function SkillGapExact({ onNavigateToFeed }) {
             <b>Personalized Learning Path</b>
           </div>
           <p>Get a step-by-step plan to bridge your skill gaps and match your target company.</p>
-          <button className="vlp" onClick={handleExploreLearning}>
-            View Learning Path
+          <button
+            className="vlp"
+            type="button"
+            aria-expanded={learningPath !== null}
+            aria-controls="skill-learning-roadmap"
+            onClick={handleExploreLearning}
+          >
+            {learningPath === null ? 'View Learning Path' : 'Hide Learning Path'}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 12h15M13 6l6 6-6 6" />
             </svg>
           </button>
         </div>
+        {learningPath !== null && (
+          <section id="skill-learning-roadmap" className="learning-roadmap" aria-live="polite">
+            <h3>Learning plan for {selectedCompany.name}</h3>
+            <p>Prioritized by how often each skill appears in this company’s current job listings.</p>
+            {learningPath.length === 0 ? (
+              <p>{candidateSkills.length ? 'No advertised skill gaps were found for this company.' : 'Add resume or profile skills to create a personalized plan.'}</p>
+            ) : (
+              <ol>
+                {learningPath.map((step, index) => {
+                  const hours = Math.floor(step.estimatedMinutes / 60);
+                  const minutes = step.estimatedMinutes % 60;
+                  const duration = hours
+                    ? `${hours} hr${hours === 1 ? '' : 's'}${minutes ? ` ${minutes} min` : ''}`
+                    : `${minutes} min`;
+                  return (
+                    <li key={step.name}>
+                      <h4>{index + 1}. {step.name}</h4>
+                      <p>Estimated time: {duration} · Appears in {step.frequency} job{step.frequency === 1 ? '' : 's'}</p>
+                      <ul>
+                        {step.topics.map((topic) => <li key={topic}>{topic}</li>)}
+                      </ul>
+                      {step.resourceUrl ? (
+                        <a href={step.resourceUrl} target="_blank" rel="noopener noreferrer">
+                          Official documentation for {step.name}
+                        </a>
+                      ) : (
+                        <span>No verified official documentation link is mapped for this skill yet.</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+        )}
       </aside>
     </div>
   );

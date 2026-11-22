@@ -1,14 +1,4 @@
 import { create } from 'zustand';
-const DEFAULT_SCRAPERS = [
-    { id: 'linkedin_guest', name: 'LinkedIn Guest Direct', sourceKey: 'linkedin', status: 'healthy', lastRun: '2m ago', jobsFetched: 143, rateHits: 0, nextRun: 'in 13m', enabled: true },
-    { id: 'naukri_direct', name: 'Naukri Fresh Direct', sourceKey: 'naukari', status: 'healthy', lastRun: '5m ago', jobsFetched: 89, rateHits: 0, nextRun: 'in 10m', enabled: true },
-    { id: 'yc_jobs', name: 'YC Work at a Startup', sourceKey: 'yc', status: 'healthy', lastRun: '12m ago', jobsFetched: 44, rateHits: 0, nextRun: 'in 3m', enabled: true },
-    { id: 'remoteok', name: 'RemoteOK Realtime API', sourceKey: 'remoteok', status: 'healthy', lastRun: '8m ago', jobsFetched: 67, rateHits: 0, nextRun: 'in 7m', enabled: true },
-    { id: 'greenhouse', name: 'Greenhouse Public Boards', sourceKey: 'greenhouse', status: 'healthy', lastRun: '14m ago', jobsFetched: 112, rateHits: 0, nextRun: 'in 1m', enabled: true },
-    { id: 'lever', name: 'Lever Direct Feeds', sourceKey: 'lever', status: 'healthy', lastRun: '18m ago', jobsFetched: 52, rateHits: 1, nextRun: 'in 12m', enabled: true },
-    { id: 'ashby', name: 'Ashby Boards API', sourceKey: 'ashby', status: 'healthy', lastRun: '20m ago', jobsFetched: 38, rateHits: 0, nextRun: 'in 10m', enabled: true },
-    { id: 'internshala', name: 'Internshala Batch Feeds', sourceKey: 'internshala', status: 'slow', lastRun: '45m ago', jobsFetched: 24, rateHits: 2, nextRun: 'in 15m', enabled: true },
-];
 export const useAppStore = create((set, get) => {
     // Load saved bookmarks from localStorage
     const savedBookmarks = (() => {
@@ -23,10 +13,10 @@ export const useAppStore = create((set, get) => {
     const savedApplied = (() => {
         try {
             const raw = localStorage.getItem('applypilot_applied_ids');
-            return raw ? new Set(JSON.parse(raw)) : new Set(['amazon-backend-dev']);
+            return raw ? new Set(JSON.parse(raw)) : new Set();
         }
         catch {
-            return new Set(['amazon-backend-dev']);
+            return new Set();
         }
     })();
     return {
@@ -50,6 +40,11 @@ export const useAppStore = create((set, get) => {
         selectedRecord: null,
         setSelectedRecord: (rec) => set({ selectedRecord: rec }),
         bookmarkedJobIds: savedBookmarks,
+        setBookmarkedJobIds: (ids) => {
+            const next = new Set(ids || []);
+            try { localStorage.setItem('applypilot_bookmarked_ids', JSON.stringify(Array.from(next))); } catch {}
+            set({ bookmarkedJobIds: next, savedJobIds: next });
+        },
         toggleBookmark: (jobId) => {
             set((state) => {
                 const next = new Set(state.bookmarkedJobIds);
@@ -68,6 +63,11 @@ export const useAppStore = create((set, get) => {
         },
         isBookmarked: (jobId) => get().bookmarkedJobIds.has(jobId),
         appliedJobIds: savedApplied,
+        setAppliedJobIds: (ids) => {
+            const next = new Set(ids || []);
+            try { localStorage.setItem('applypilot_applied_ids', JSON.stringify(Array.from(next))); } catch {}
+            set({ appliedJobIds: next });
+        },
         markJobApplied: (jobId) => {
             set((state) => {
                 const next = new Set(state.appliedJobIds);
@@ -80,67 +80,7 @@ export const useAppStore = create((set, get) => {
             });
         },
         isApplied: (jobId) => get().appliedJobIds.has(jobId),
-        scrapers: DEFAULT_SCRAPERS,
-        isScraperRunning: false,
-        lastScraperSync: 'Just now',
-        updateScraperStatus: (id, updates) => {
-            set((state) => ({
-                scrapers: state.scrapers.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-            }));
-        },
-        triggerScraperRun: async (id) => {
-            set({ isScraperRunning: true });
-            try {
-                const res = await fetch(`/api/jobs/scrape?source=${id}&limit=20`);
-                const data = await res.json();
-                const fetchedCount = data.count || 14;
-                set((state) => ({
-                    isScraperRunning: false,
-                    lastScraperSync: 'Just now',
-                    scrapers: state.scrapers.map((s) => s.id === id || id === 'all'
-                        ? {
-                            ...s,
-                            status: 'healthy',
-                            lastRun: 'Just now',
-                            jobsFetched: s.jobsFetched + fetchedCount,
-                        }
-                        : s),
-                }));
-                get().addToast({
-                    title: 'Scraper Synchronized',
-                    message: `Fetched ${fetchedCount} latest verified roles from adapter`,
-                    type: 'success',
-                });
-            }
-            catch (err) {
-                set({ isScraperRunning: false });
-                get().addToast({
-                    title: 'Scraper Probe Completed',
-                    message: err?.message || 'Synchronized with primary adapter cache',
-                    type: 'info',
-                });
-            }
-        },
-        notifications: [
-            {
-                id: 'notif-1',
-                title: 'Real-time Scraper Synced',
-                message: '14 new developer & design roles matching your profile were indexed from LinkedIn & YC.',
-                type: 'job',
-                timestamp: '5m ago',
-                read: false,
-                linkStep: 'discovery',
-            },
-            {
-                id: 'notif-2',
-                title: 'Guardrail Safe Verification',
-                message: 'Anti-hallucination verified 0 unanchored skills in candidate profile.',
-                type: 'security',
-                timestamp: '25m ago',
-                read: false,
-                linkStep: 'resume',
-            },
-        ],
+        notifications: [],
         isNotificationDrawerOpen: false,
         setIsNotificationDrawerOpen: (open) => set({ isNotificationDrawerOpen: open }),
         addNotification: (notif) => {
@@ -197,6 +137,27 @@ export const useAppStore = create((set, get) => {
                 next.delete(id);
                 return { newJobIds: next };
             });
+        },
+        searchRole: (() => {
+            try { return localStorage.getItem('applypilot_search_role') || ''; } catch { return ''; }
+        })(),
+        searchLocation: (() => {
+            try { return localStorage.getItem('applypilot_search_location') || ''; } catch { return ''; }
+        })(),
+        setSearchRole: (role) => {
+            try { localStorage.setItem('applypilot_search_role', role || ''); } catch {}
+            set({ searchRole: role });
+        },
+        setSearchLocation: (loc) => {
+            try { localStorage.setItem('applypilot_search_location', loc || ''); } catch {}
+            set({ searchLocation: loc });
+        },
+        setSearchParams: (role, loc) => {
+            try {
+                localStorage.setItem('applypilot_search_role', role || '');
+                localStorage.setItem('applypilot_search_location', loc || '');
+            } catch {}
+            set({ searchRole: role, searchLocation: loc });
         },
     };
 });

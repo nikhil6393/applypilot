@@ -4,26 +4,35 @@
  * Role Seniority, Tech Stack Tags, and Geographic Restrictions from job descriptions.
  */
 const VISA_SPONSOR_POSITIVE = [
-    /visa sponsorship (is )?(available|provided|offered|supported)/i,
-    /(offers?|provides?|supports?)\s+(visa|work authorization|h-?1b)\s*sponsorship/i,
-    /willing to sponsor/i,
-    /we (do )?sponsor/i,
-    /h-?1b\b.*?(sponsorship|transfer|filing)/i,
-    /open to sponsor(ing)?/i,
-    /provides? (visa|work authorization) sponsorship/i,
-    /sponsors?\s+(visas?|work authorization|h-?1b)/i,
+    /visa\s*sponsorship\s*(?:is\s*)?(?:available|provided|offered|supported)/i,
+    /(?<!(?:not|cannot|unable\s*to|will\s*not|does\s*not|without|no|may\s*not\s*(?:be\s*able\s*to\s*)?)\s{1,25})(?:offers?|provides?|willing\s*to|supports?)\s+(?:(?:full|comprehensive|future)\s+)?(?:visa|work\s*authorization|h-?1b)\s*sponsorship/i,
+    /willing\s*to\s*sponsor/i,
+    /we\s*(?:do\s*)?sponsor/i,
+    /(?<!(?:not|cannot|unable|no|will\s*not)\s{1,20})(?:active\s*)?h-?1b\s*(?:transfer|filing)\s*(?:available|supported|provided)/i,
+    /open\s*to\s*sponsor(?:ing)?/i,
+    /provides?\s*(?:visa|work\s*authorization)\s*sponsorship/i,
+    /sponsors?\s+(?:visas?|work\s*authorization|h-?1b)/i,
+    /relocation\s*(?:assistance|support|package)\s*(?:is\s*)?(?:provided|available|offered)/i,
 ];
 const VISA_SPONSOR_NEGATIVE = [
-    /no visa sponsorship/i,
-    /will not sponsor/i,
-    /unable to sponsor/i,
-    /cannot sponsor/i,
-    /does not (offer|provide) sponsorship/i,
-    /without (company|employer) sponsorship/i,
-    /must be legally authorized to work in .* without (the need for )?sponsorship/i,
-    /u\.?s\.? citizens? or green card holders? only/i,
-    /only (us|u\.s\.) citizens/i,
-    /security clearance required/i,
+    /no\s*visa\s*sponsorship/i,
+    /will\s*not\s*sponsor/i,
+    /unable\s*to\s*sponsor/i,
+    /cannot\s*sponsor/i,
+    /does\s*not\s*(?:offer|provide|support)\s*(?:visa|h-?1b|future)?\s*sponsorship/i,
+    /without\s*(?:company|employer)\s*sponsorship/i,
+    /must\s*be\s*legally\s*authorized\s*to\s*work\s*in\s*.*without\s*(?:the\s*need\s*for\s*)?sponsorship/i,
+    /u\.?s\.?\s*citizens?\s*(?:or\s*green\s*card\s*holders?)?\s*only/i,
+    /only\s*(?:us|u\.s\.)\s*citizens/i,
+    /security\s*clearance\s*required/i,
+    // Enterprise clauses (Roblox, Epic Games, Meta, Apple, etc.)
+    /(?:may\s*not\s*(?:be\s*able\s*to\s*)?(?:employ|hire|support|sponsor)|not\s*(?:be\s*able\s*to\s*)?support|support\s*future\s*h-?1b\s*sponsorship)/i,
+    /work\s*authorization\s*related\s*to\s*certain\s*u\.?s\.?\s*visa\s*categories/i,
+    /(?:no|not|cannot|unable\s*to|will\s*not|does\s*not)\s*(?:support|offer|provide)\s*(?:future\s*)?(?:h-?1b|visa)\s*(?:sponsorship|support)/i,
+    /(?:not\s*eligible|ineligible)\s*for\s*(?:visa|h-?1b)\s*sponsorship/i,
+    /without\s*(?:the\s*need\s*for\s*)?(?:now\s*or\s*in\s*the\s*future\s*)?(?:visa\s*)?sponsorship/i,
+    /for\s*u\.?s\.?\s*based\s*roles\s*only/i,
+    /require\s*sponsorship\s*now\s*or\s*in\s*the\s*future/i,
 ];
 export function extractVisaSponsorship(text) {
     if (!text)
@@ -309,9 +318,16 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         /will\s*not\s*sponsor/i.test(combined) ||
         /unable\s*to\s*sponsor/i.test(combined) ||
         /cannot\s*sponsor/i.test(combined) ||
-        /does\s*not\s*(offer|provide)\s*sponsorship/i.test(combined) ||
+        /does\s*not\s*(offer|provide|support)\s*(?:visa|h-?1b)?\s*sponsorship/i.test(combined) ||
         /without\s*(company|employer)\s*sponsorship/i.test(combined) ||
-        /\b(us\s*only|united\s*states\s*only|must\s*reside\s*in\s*(the\s*)?us|candidates\s*must\s*be\s*located\s*in\s*(the\s*)?us)\b/i.test(combined);
+        /\b(us\s*only|united\s*states\s*only|must\s*reside\s*in\s*(the\s*)?us|candidates\s*must\s*be\s*located\s*in\s*(the\s*)?us)\b/i.test(combined) ||
+        /(?:may\s*not\s*(?:be\s*able\s*to\s*)?(?:employ|hire|support|sponsor)|not\s*(?:be\s*able\s*to\s*)?support|support\s*future\s*h-?1b\s*sponsorship)/i.test(combined) ||
+        /work\s*authorization\s*related\s*to\s*certain\s*u\.?s\.?\s*visa\s*categories/i.test(combined) ||
+        /(?:no|not|cannot|unable\s*to|will\s*not|does\s*not)\s*(?:support|offer|provide)\s*(?:future\s*)?(?:h-?1b|visa)\s*(?:sponsorship|support)/i.test(combined) ||
+        /(?:not\s*eligible|ineligible)\s*for\s*(?:visa|h-?1b)\s*sponsorship/i.test(combined) ||
+        /without\s*(?:the\s*need\s*for\s*)?(?:now\s*or\s*in\s*the\s*future\s*)?(?:visa\s*)?sponsorship/i.test(combined) ||
+        /for\s*u\.?s\.?\s*based\s*roles\s*only/i.test(combined) ||
+        /require\s*sponsorship\s*now\s*or\s*in\s*the\s*future/i.test(combined);
 
     const isIndiaLocation =
         /\b(india|noida|bengaluru|bangalore|hyderabad|pune|mumbai|delhi|gurgaon|gurugram|chennai|kolkata|ahmedabad|jaipur|indore|kochi|chandigarh|ncr)\b/i.test(location.toLowerCase());
@@ -320,21 +336,21 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         /\b(worldwide\s*remote|remote\s*worldwide|work\s*from\s*anywhere|anywhere\s*in\s*the\s*world|global\s*remote|hire\s*anywhere|international\s*remote|remote\s*-\s*global|remote\s*-\s*worldwide)\b/i.test(combined) ||
         /^(worldwide|global|anywhere|remote \/ worldwide)$/i.test(location.trim().toLowerCase());
 
-    const hasExplicitVisaSponsorship =
-        sponsorsVisa === true ||
-        /visa\s*sponsorship\s*(is\s*)?(available|provided|offered|supported)/i.test(combined) ||
-        /(offers?|provides?|supports?)\s+(visa|work authorization|h-?1b)\s*sponsorship/i.test(combined) ||
-        /willing\s*to\s*sponsor/i.test(combined) ||
-        /relocation\s*(assistance|support|package)\s*(provided|available)/i.test(combined);
+    const computedSponsorsVisa = sponsorsVisa !== undefined ? sponsorsVisa : extractVisaSponsorship(combined);
+
+    const hasExplicitVisaSponsorship = !hasCitizenshipRestriction && (
+        computedSponsorsVisa === true ||
+        /relocation\s*(?:assistance|support|package)\s*(?:provided|available|offered)/i.test(combined)
+    );
 
     if (hasCitizenshipRestriction && !isIndiaLocation) {
         return {
             allowed: false,
             status: 'restricted',
-            badgeText: 'Indian Citizens: Not Allowed',
-            shortLabel: 'Not Allowed',
+            badgeText: '❌ Foreign Job: No Visa Sponsorship (Local Auth Only)',
+            shortLabel: 'No Visa Sponsor',
             badgeClass: 'citizen-restricted',
-            reason: 'Requires US/local work authorization without visa sponsorship.',
+            reason: 'Requires foreign local work authorization; employer explicitly denies visa/H-1B sponsorship.',
         };
     }
 
@@ -342,10 +358,10 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         return {
             allowed: true,
             status: 'allowed',
-            badgeText: 'Indian Citizens: Allowed (India)',
-            shortLabel: 'Allowed',
+            badgeText: '🇮🇳 Indian Citizens: Eligible (India Base)',
+            shortLabel: 'Eligible (India)',
             badgeClass: 'citizen-allowed',
-            reason: 'Position based in India or direct hire.',
+            reason: 'Position based in India with direct eligibility for Indian citizens.',
         };
     }
 
@@ -353,10 +369,10 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         return {
             allowed: true,
             status: 'allowed',
-            badgeText: 'Indian Citizens: Allowed (Visa Sponsored)',
+            badgeText: '✈️ Foreign Job: Visa Sponsored (Indians Eligible)',
             shortLabel: 'Visa Sponsored',
             badgeClass: 'citizen-allowed',
-            reason: 'Employer offers international visa sponsorship.',
+            reason: 'Employer explicitly offers international visa sponsorship or relocation.',
         };
     }
 
@@ -364,23 +380,37 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         return {
             allowed: true,
             status: 'allowed',
-            badgeText: 'Indian Citizens: Allowed (Worldwide Remote)',
-            shortLabel: 'Worldwide Remote',
+            badgeText: '🌐 Global Remote (Indians Eligible)',
+            shortLabel: 'Global Remote',
             badgeClass: 'citizen-allowed',
-            reason: 'Global / Worldwide remote role open to international candidates.',
+            reason: 'Global / Worldwide remote role open to international candidates including India.',
         };
     }
 
-    const isForeignLocation = /\b(united states|usa|us|uk|united kingdom|canada|germany|france|australia|singapore|netherlands|switzerland|poland|japan|ireland|california|new york|texas|london|berlin)\b/i.test(location.toLowerCase());
+    const isForeignLocation = !isIndiaLocation && (
+        /\b(united states|usa|us|uk|united kingdom|canada|germany|france|australia|singapore|netherlands|switzerland|poland|japan|ireland|california|new york|texas|london|berlin|europe|emea|apac|latam|san mateo|san francisco|seattle|austin|boston|chicago)\b/i.test(location.toLowerCase()) ||
+        Boolean(location && location.trim().length > 0 && !/remote|anywhere|worldwide|global/i.test(location))
+    );
 
     if (isForeignLocation && !remote) {
         return {
             allowed: false,
             status: 'requires_auth',
-            badgeText: 'Indian Citizens: Work Visa Required',
-            shortLabel: 'Work Visa Required',
+            badgeText: '⚠️ Foreign Job: Work Visa Required (No Sponsorship Mentioned)',
+            shortLabel: 'Visa Required',
             badgeClass: 'citizen-warning',
-            reason: 'Foreign location without explicit remote or visa sponsorship.',
+            reason: 'Foreign location without explicit remote hiring or visa sponsorship.',
+        };
+    }
+
+    if (isForeignLocation && remote) {
+        return {
+            allowed: false,
+            status: 'requires_auth',
+            badgeText: '⚠️ US/Foreign Remote: Local Work Auth Required',
+            shortLabel: 'US Auth Required',
+            badgeClass: 'citizen-warning',
+            reason: 'Remote role for candidates legally authorized to work in the foreign country.',
         };
     }
 
@@ -388,8 +418,8 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
         return {
             allowed: true,
             status: 'allowed',
-            badgeText: 'Indian Citizens: Allowed (Remote)',
-            shortLabel: 'Allowed Remote',
+            badgeText: '🌐 Remote: Eligible for Indian Applicants',
+            shortLabel: 'Eligible Remote',
             badgeClass: 'citizen-allowed',
             reason: 'Remote role without geographic citizenship restrictions.',
         };
@@ -398,10 +428,10 @@ export function extractIndianCitizenEligibility({ text = '', title = '', locatio
     return {
         allowed: true,
         status: 'allowed',
-        badgeText: 'Indian Citizens: Allowed',
-        shortLabel: 'Allowed',
+        badgeText: '🇮🇳 Indian Citizens: Eligible',
+        shortLabel: 'Eligible',
         badgeClass: 'citizen-allowed',
-        reason: 'Open position without stated citizenship restriction.',
+        reason: 'Open position without stated citizenship restrictions.',
     };
 }
 

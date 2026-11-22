@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { cleanCanonicalUrl, getSafeJobApplyUrl, getTimestampProvenance, getVerificationBadge } from '../src/utils/jobUtils.js';
-import { detectDuplicateJobs, verifyJobUrlLive } from '../server/scrape/validator.js';
+import { cleanCanonicalUrl, compareJobsByApplicantsAndRecency, getSafeJobApplyUrl, getTimestampProvenance, getVerificationBadge } from '../src/utils/jobUtils.js';
+import { detectDuplicateJobs } from '../server/scrape/validator.js';
 import type { JobPosting } from '../shared/types.js';
 
 describe('Job Verification & Provenance Integrity Tests', () => {
+  it('orders known low applicant counts first, then prioritizes newer postings', () => {
+    const jobs = [
+      { applicantCount: 15, postedAt: '2026-03-24T14:30:00Z' },
+      { applicantCount: 4, postedAt: '2026-03-20T14:30:00Z' },
+      { applicantCount: undefined, postedAt: '2026-03-24T15:00:00Z' },
+      { applicantCount: 4, postedAt: '2026-03-24T14:30:00Z' },
+      { applicantCount: 0, postedAt: '2026-03-01T14:30:00Z' },
+    ];
+
+    jobs.sort(compareJobsByApplicantsAndRecency);
+
+    expect(jobs.map((job) => job.applicantCount)).toEqual([0, 4, 4, 15, undefined]);
+    expect(jobs[1].postedAt).toBe('2026-03-24T14:30:00Z');
+  });
+
   it('cleanCanonicalUrl removes UTM, tracking tokens, and session noise', () => {
     const dirtyUrl = 'https://jobs.lever.co/stripe/12345?utm_source=linkedin&utm_medium=cpc&ref=xyz&gh_src=123';
     const clean = cleanCanonicalUrl(dirtyUrl);
@@ -104,5 +119,30 @@ describe('Job Verification & Provenance Integrity Tests', () => {
     expect(getVerificationBadge('unverified').label).toBe('Unverified');
     expect(getVerificationBadge('stale').label).toBe('Potentially Stale');
     expect(getVerificationBadge('expired').label).toBe('Expired / Closed');
+  });
+
+  it('validates canonical URL domain mappings across major boards', () => {
+    const expectedHosts: Record<string, string> = {
+      linkedin: 'linkedin.com',
+      naukri: 'naukri.com',
+      unstop: 'unstop.com',
+      internshala: 'internshala.com',
+      ashby: 'ashbyhq.com',
+      greenhouse: 'greenhouse.io',
+      lever: 'lever.co',
+      himalayas: 'himalayas.app',
+      remoteok: 'remoteok.com',
+      arbeitnow: 'arbeitnow.com',
+      weworkremotely: 'weworkremotely.com',
+      jobicy: 'jobicy.com',
+    };
+
+    for (const [, host] of Object.entries(expectedHosts)) {
+      const url = `https://${host}/jobs/12345?utm_source=test`;
+      const clean = cleanCanonicalUrl(url);
+      expect(clean).toContain(host);
+      expect(clean).not.toContain('utm_source');
+      expect(clean).not.toContain('localhost');
+    }
   });
 });

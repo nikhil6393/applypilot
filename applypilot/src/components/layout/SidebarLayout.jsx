@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useAppStore } from '../../store/appStore';
 import { Menu, X } from 'lucide-react';
-import { Interactive3DTilt } from '../3d/Interactive3DTilt';
 import '../DashboardExact.css';
 
 /* ---------------- Sidebar Component ---------------- */
 function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className = '', isMobile = false }) {
+  const { notifications, setIsNotificationDrawerOpen } = useAppStore();
   const navItems = [
     {
       id: 'analytics',
@@ -21,7 +22,7 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className =
     {
       id: 'discovery',
       label: 'Job Feed',
-      badge: jobCount ? String(jobCount) : '49',
+      badge: jobCount ? String(jobCount) : null,
       badgeClass: 'pur',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round">
@@ -34,8 +35,6 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className =
     {
       id: 'scoring',
       label: 'Skill Gap',
-      badge: 'New',
-      badgeClass: 'green',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="8.5" />
@@ -57,8 +56,6 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className =
     {
       id: 'saved_jobs',
       label: 'Saved Jobs',
-      badge: '12',
-      badgeClass: 'pur',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 3h12v18l-6-4.5L6 21z" />
@@ -89,7 +86,7 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className =
         <span className="brand-name">
           Apply<span>Pilot</span>
         </span>
-        <span className="pro">PRO</span>
+        <span className="pro">ACCOUNT</span>
         {onClose && (
           <button onClick={onClose} aria-label="Close navigation" className="ml-auto text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
             <X className="w-5 h-5" />
@@ -116,71 +113,56 @@ function Sidebar({ currentScreen, onSelectScreen, onClose, jobCount, className =
           );
         })}
       </nav>
+      <button type="button" onClick={() => setIsNotificationDrawerOpen(true)} className="mx-4 mb-3 rounded-xl border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">
+        Notifications{notifications.some((item) => !item.read) ? ` (${notifications.filter((item) => !item.read).length} unread)` : ''}
+      </button>
 
-      {/* When on Skill Gap screen, show exact gapcard from design */}
-      {currentScreen === 'scoring' ? (
-        <Interactive3DTilt maxTilt={7} scale={1.02} glare={true} glareOpacity={0.15}>
-          <div className="gapcard">
-            <svg className="dart" viewBox="0 0 110 110">
-              <path d="M18 96 56 58" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity=".9" />
-              <circle cx="62" cy="48" r="26" fill="rgba(255,255,255,.16)" />
-              <circle cx="62" cy="48" r="17" fill="#fff" />
-              <circle cx="62" cy="48" r="9.5" fill="#7c6cf6" />
-              <circle cx="62" cy="48" r="3.5" fill="#fff" />
-              <path d="M62 48 44 30" stroke="#f59e0b" strokeWidth="4" strokeLinecap="round" />
-              <path d="M40 24l7 1.4-2.6 7.2-4.4-4.2z" fill="#ef4444" />
-              <path d="M20 22l1.8 3.8 3.8 1.8-3.8 1.8-1.8 3.8-1.8-3.8-3.8-1.8 3.8-1.8z" fill="#fff" opacity=".85" />
-              <path d="M92 24l1.4 3 3 1.4-3 1.4-1.4 3-1.4-3-3-1.4 3-1.4z" fill="#fff" opacity=".6" />
-            </svg>
-            <h4>
-              Close the<br />Skill Gap
-            </h4>
-            <div className="tag">Get hired faster!</div>
-            <p>Find what skills you're missing, see top companies, and get personalized learning paths.</p>
-            <button className="exp" onClick={() => onSelectScreen('scoring')}>
-              Explore Learning
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12h15M13 6l6 6-6 6" />
-              </svg>
-            </button>
+      <div className="p-4 mt-auto rounded-2xl bg-gradient-to-br from-orange-50/70 via-white to-purple-50/40 border border-orange-200/80 shadow-sm text-left">
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-orange-500/25">
+              AP
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900">Career tools</div>
+              <div className="text-[10.5px] text-slate-500 font-semibold">Workspace</div>
+            </div>
           </div>
-        </Interactive3DTilt>
-      ) : (
-        <Interactive3DTilt maxTilt={7} scale={1.02} glare={true} glareOpacity={0.15}>
-          <div className="level">
-            <svg className="rocket" viewBox="0 0 90 90">
-              <path d="M30 62 14 78" stroke="#c9c2fa" strokeWidth="3" strokeLinecap="round" />
-              <path d="M20 58c10-26 30-40 52-44-2 22-14 44-38 54z" fill="#fff" />
-              <path d="M20 58c10-26 30-40 52-44-1 11-4.5 22-11 32L34 62z" fill="#e8e5fb" />
-              <circle cx="55" cy="32" r="6.5" fill="#5b4df0" /><circle cx="55" cy="32" r="3" fill="#fff" />
-              <path d="M20 58c-7-1-12 1-14 8 7 2 12 0 14-8z" fill="#f97316" />
-              <path d="M42 64c-4 2-6 6-5 12 6-1 9-5 5-12z" fill="#fb923c" />
-              <circle cx="16" cy="24" r="2.4" fill="#fff" opacity=".85" />
-              <circle cx="30" cy="12" r="1.8" fill="#fff" opacity=".7" />
-              <path d="M78 56l1.6 3.4 3.4 1.6-3.4 1.6-1.6 3.4-1.6-3.4-3.4-1.6 3.4-1.6z" fill="#fff" opacity=".9" />
-            </svg>
-            <h4>
-              Level Up<br />Your Career
-            </h4>
-            <p>Better skills. Stronger resume. Higher chances.</p>
-            <button className="plans" onClick={() => onSelectScreen('resume')}>
-              Explore Plans
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12h15M13 6l6 6-6 6" />
-              </svg>
-            </button>
-          </div>
-        </Interactive3DTilt>
-      )}
+          <p className="text-[11.5px] text-slate-600 mb-3 leading-relaxed">
+            Tailor resumes, track applications & discover verified jobs.
+          </p>
+          <button
+            onClick={() => onSelectScreen('resume')}
+            className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-orange-500/30 cursor-pointer"
+          >
+            <span>Resume Studio</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
     </aside>
   );
 }
 
 /* ---------------- Topbar Component ---------------- */
-function Topbar({ onOpenMobile, onSearch, onSelectScreen }) {
+function Topbar({ currentScreen, onOpenMobile, onSearch, onSelectScreen }) {
   const { user } = useAuth();
-  const userName = user?.name && user.name !== 'Alex Chen' ? user.name : 'Nikhil K';
+  const { notifications, setIsNotificationDrawerOpen } = useAppStore();
+  const userName = user?.name || 'Account';
   const [query, setQuery] = useState('');
+
+  const SCREEN_INFO = {
+    analytics: { title: 'Dashboard', sub: 'Performance & job market intelligence', icon: '📊' },
+    discovery: { title: 'Job Feed', sub: 'Live scraped job & internship requisitions', icon: '💼' },
+    scoring: { title: 'Skill Gap Analysis', sub: 'Target role benchmarking & match analysis', icon: '🎯' },
+    resume: { title: 'Resume Studio', sub: 'Deterministic LaTeX tailoring & ATS scanner', icon: '📄' },
+    tailor: { title: 'Resume Studio', sub: 'Zero-hallucination bullet customization', icon: '📄' },
+    saved_jobs: { title: 'Saved Jobs', sub: 'Your shortlisted opportunities pipeline', icon: '⭐' },
+    settings: { title: 'Profile Settings', sub: 'Preferences, career goals & guardrails', icon: '⚙️' },
+    profile_settings: { title: 'Profile Settings', sub: 'Preferences, career goals & guardrails', icon: '⚙️' },
+    scraper_status: { title: 'Live Scrapers', sub: 'Real-time daemon synchronization telemetry', icon: '⚡' },
+    job_detail: { title: 'Job Details', sub: 'Comprehensive breakdown and tailor preview', icon: '🔍' },
+  };
+
+  const activeInfo = SCREEN_INFO[currentScreen] || { title: 'Workspace', sub: 'ApplyPilot career automation', icon: '🚀' };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && query.trim()) {
@@ -190,32 +172,38 @@ function Topbar({ onOpenMobile, onSearch, onSelectScreen }) {
   };
 
   return (
-    <header className="topbar">
-      {onOpenMobile && (
-        <button onClick={onOpenMobile} className="lg:hidden p-1.5 rounded-xl border border-[#e8eaf3] bg-white text-[#565b78]">
-          <Menu className="w-5 h-5" />
-        </button>
-      )}
-      <div className="flex-1" />
-      <div className="top-right">
-        <button className="bell" onClick={() => onSelectScreen && onSelectScreen('analytics')}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <header className="topbar lg:hidden">
+      <div className="flex items-center gap-3">
+        {onOpenMobile && (
+          <button
+            onClick={onOpenMobile}
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+            title="Toggle Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <span className="text-sm font-bold text-slate-800">ApplyPilot</span>
+      </div>
+
+      <div className="top-right flex items-center gap-2.5">
+        <button
+          className="bell"
+          onClick={() => setIsNotificationDrawerOpen(true)}
+          title="Notifications"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 9a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9" />
             <path d="M10 20a2.2 2.2 0 0 0 4 0" />
           </svg>
-          <span className="dot">3</span>
+          {notifications.some((item) => !item.read) && <span className="dot" />}
         </button>
-        <div className="user cursor-pointer" onClick={() => onSelectScreen && onSelectScreen('settings')}>
-          <img
-            className="av object-cover rounded-full ring-1 ring-slate-200"
-            src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-            alt={userName}
-            style={{ width: 36, height: 36 }}
-          />
-          <b>{userName}</b>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8fa8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+        <div
+          className="user cursor-pointer flex items-center gap-2 px-2 py-1 rounded-full hover:bg-slate-100/80 transition-colors"
+          onClick={() => onSelectScreen && onSelectScreen('settings')}
+          title="Account Settings"
+        >
+          {user?.avatar ? <img className="av object-cover rounded-full ring-2 ring-indigo-500/20 shrink-0" src={user.avatar} alt={userName} style={{ width: 32, height: 32 }} /> : <span className="av rounded-full ring-2 ring-indigo-500/20 shrink-0 flex items-center justify-center" aria-label={userName}>{userName.charAt(0).toUpperCase()}</span>}
         </div>
       </div>
     </header>
@@ -233,10 +221,16 @@ export function SidebarLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="exact-dashboard-wrapper relative">
-      {/* 3D Kinetic Ambient Background */}
+    <div className="exact-dashboard-wrapper relative min-h-screen" style={{ background: "var(--bg, #FAFAFA)", color: "var(--ink, #0D0D12)" }}>
+      {/* Landing Page Ambient Aurora Mesh & Subtle Dot-Grid */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="aurora-blob aurora-blob-1" style={{ top: "-10%", left: "15%", opacity: 0.55 }} />
+        <div className="aurora-blob aurora-blob-2" style={{ top: "35%", right: "-8%", opacity: 0.5 }} />
+        <div className="aurora-blob aurora-blob-3" style={{ bottom: "-10%", left: "30%", opacity: 0.45 }} />
+        <div className="dot-grid absolute inset-0 opacity-30" />
+      </div>
 
-      <div className="app relative z-10">
+      <div className="app relative z-10" style={{ background: "transparent" }}>
         {/* Desktop Sidebar */}
         <Sidebar
           currentScreen={currentScreen}
@@ -279,6 +273,7 @@ export function SidebarLayout({
         {/* Main Area */}
         <div className="main">
           <Topbar
+            currentScreen={currentScreen}
             onOpenMobile={() => setMobileOpen(true)}
             onSearch={onSearch}
             onSelectScreen={onSelectScreen}

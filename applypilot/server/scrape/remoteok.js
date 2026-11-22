@@ -9,7 +9,7 @@ export async function remoteok(req) {
     const cached = scrapeCache.get(cacheKey);
     if (cached)
         return cached;
-    const max = Math.max(1, Math.min(50, req.maxPerSource ?? 20));
+    const max = Math.max(1, Math.min(100, req.maxPerSource ?? 50));
     const queryLower = (req.query || 'software engineer internship').toLowerCase();
     const requireIntern = req.internshipsOnly !== false && (req.internshipsOnly || /intern|co-?op/i.test(queryLower));
     try {
@@ -75,7 +75,7 @@ export async function remoteok(req) {
                                     ? 43200
                                     : req.postedWithinHours && req.postedWithinHours > 0
                                         ? req.postedWithinHours * 60
-                                        : 2880; // 48 hours max default for startup boards
+                                        : 43200; // 30 days default for active startup listings
             if (diffMin > maxAllowedMin)
                 continue;
             let rel = 'Just now';
@@ -114,7 +114,7 @@ export async function remoteok(req) {
                 source: 'remoteok',
                 url: applyUrl,
                 applyUrl,
-                location: item.location || 'Remote / Worldwide',
+                location: item.location || '',
                 remote: true,
                 description: cleanDesc,
                 descriptionHtml: item.description,
@@ -127,7 +127,7 @@ export async function remoteok(req) {
                 skills: Array.isArray(item.tags) ? item.tags : [],
                 tags,
                 fetchedAt: new Date().toISOString(),
-                employmentType: isIntern ? 'internship' : 'full-time',
+                employmentType: isIntern ? 'internship' : 'unknown',
             });
             if (out.length >= max)
                 break;

@@ -28,37 +28,37 @@ export const ProfileSettingsScreen = ({
   settings,
   onUpdateSettings,
 }) => {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, token, updateProfile, logout } = useAuth();
   const { addToast } = useAppStore();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'guardrails' | 'scrapers' | 'security'
   const [localSettings, setLocalSettings] = useState(settings || { minFitScore: 75, maxAutoApplyPerBatch: 10 });
   
   // Profile fields initialized from user / resume
-  const [candidateName, setCandidateName] = useState(user?.name || resume?.name || 'Nikhil Singh');
-  const [candidateEmail, setCandidateEmail] = useState(user?.email || resume?.contact?.email || 'demo@applypilot.io');
-  const [candidatePhone, setCandidatePhone] = useState(user?.phone || resume?.contact?.phone || '+91 98765 43210');
-  const [candidateLocation, setCandidateLocation] = useState(user?.location || resume?.contact?.location || 'Noida, India');
-  const [targetRole, setTargetRole] = useState(user?.roleTitle || user?.targetRole || resume?.targetRole || 'Software Development Engineer');
-  const [headline, setHeadline] = useState(user?.headline || user?.bio || 'Full-Stack Developer passionate about scalable web apps and AI-assisted workflows');
+  const [candidateName, setCandidateName] = useState(user?.name || resume?.name || '');
+  const [candidateEmail, setCandidateEmail] = useState(user?.email || resume?.contact?.email || '');
+  const [candidatePhone, setCandidatePhone] = useState(user?.phone || resume?.contact?.phone || '');
+  const [candidateLocation, setCandidateLocation] = useState(user?.location || resume?.contact?.location || '');
+  const [targetRole, setTargetRole] = useState(user?.roleTitle || user?.targetRole || resume?.targetRole || '');
+  const [headline, setHeadline] = useState(user?.headline || user?.bio || '');
   
   // Skills list
   const [skills, setSkills] = useState(
     resume?.skills?.length
       ? resume.skills
-      : ['React', 'Node.js', 'TypeScript', 'Python', 'Tailwind CSS', 'PostgreSQL', 'Docker']
+      : []
   );
   const [newSkill, setNewSkill] = useState('');
 
   // Scraper & Board preferences
   const [scraperPrefs, setScraperPrefs] = useState({
-    naukri: true,
-    unstop: true,
-    linkedin: true,
-    internshala: true,
-    indeed: true,
-    workplaceType: 'All', // 'All' | 'Remote' | 'Hybrid' | 'Onsite'
-    experienceLevel: 'Entry Level',
+    naukri: user?.preferences?.naukri ?? true,
+    unstop: user?.preferences?.unstop ?? true,
+    linkedin: user?.preferences?.linkedin ?? true,
+    internshala: user?.preferences?.internshala ?? true,
+    indeed: false,
+    workplaceType: user?.preferences?.workplaceType || 'All',
+    experienceLevel: user?.preferences?.experienceLevel || 'Entry Level',
   });
 
   // Security / Password fields
@@ -194,7 +194,7 @@ export const ProfileSettingsScreen = ({
     }
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (!currentPwd || !newPwd || !confirmPwd) {
       setPwdFeedback({ type: 'error', text: 'All password fields are required.' });
@@ -209,39 +209,45 @@ export const ProfileSettingsScreen = ({
       return;
     }
 
-    setPwdFeedback({ type: 'success', text: 'Password successfully updated!' });
-    setCurrentPwd('');
-    setNewPwd('');
-    setConfirmPwd('');
-    addToast({
-      title: 'Security Updated',
-      message: 'Your account password has been updated.',
-      type: 'success',
-    });
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Password update failed.');
+      setPwdFeedback({ type: 'success', text: data.message || 'Password successfully updated!' });
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+      addToast({ title: 'Security Updated', message: data.message, type: 'success' });
+    } catch (err) {
+      setPwdFeedback({ type: 'error', text: err.message || 'Password update failed.' });
+    }
   };
 
-  const handleExportData = () => {
-    const exportObject = {
-      profile: {
-        name: candidateName,
-        email: candidateEmail,
-        phone: candidatePhone,
-        location: candidateLocation,
-        targetRole,
-        headline,
-        skills,
-      },
-      settings: localSettings,
-      scraperPreferences: scraperPrefs,
-      exportDate: new Date().toISOString(),
-    };
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportObject, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `applypilot_profile_${candidateName.toLowerCase().replace(/\s+/g, '_')}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const handleExportData = async () => {
+    try {
+      const response = await fetch('/api/tracker', { headers: { Authorization: `Bearer ${token}` } });
+      const trackerData = await response.json();
+      if (!response.ok) throw new Error(trackerData.error || 'Could not export application history.');
+      const exportObject = {
+        profile: { name: candidateName, email: candidateEmail, phone: candidatePhone, location: candidateLocation, targetRole, headline, skills },
+        resume,
+        applicationHistory: trackerData.items || [],
+        settings: localSettings,
+        scraperPreferences: scraperPrefs,
+        exportDate: new Date().toISOString(),
+      };
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportObject, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `applypilot_profile_${(candidateName || 'account').toLowerCase().replace(/\s+/g, '_')}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err) {
+      addToast({ title: 'Export failed', message: err.message || 'Could not export account data.', type: 'error' });
+    }
   };
 
   return (
@@ -255,7 +261,7 @@ export const ProfileSettingsScreen = ({
             </div>
             <h1 className="text-xl font-bold text-[#16183d]">User Profile &amp; Settings</h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">
-              PRO Active
+              Account
             </span>
           </div>
           <p className="text-xs text-[#8a8fa8] mt-1">
@@ -341,11 +347,17 @@ export const ProfileSettingsScreen = ({
               onClick={() => avatarInputRef.current?.click()}
               title="Click to change profile photo"
             >
-              <img
-                src={avatar || user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                alt={candidateName}
-                className="w-20 h-20 rounded-full object-cover ring-4 ring-[#5b4df0]/20 shadow-md group-hover:ring-[#5b4df0] transition-all"
-              />
+              {avatar || user?.avatar ? (
+                <img
+                  src={avatar || user?.avatar}
+                  alt={candidateName}
+                  className="w-20 h-20 rounded-full object-cover ring-4 ring-[#5b4df0]/20 shadow-md group-hover:ring-[#5b4df0] transition-all"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-[#5b4df0]/10 text-[#5b4df0] ring-4 ring-[#5b4df0]/20 shadow-md flex items-center justify-center text-2xl font-bold">
+                  {(candidateName || 'A').trim().charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="absolute inset-0 bg-black/45 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="w-6 h-6 text-white" />
               </div>
@@ -408,10 +420,11 @@ export const ProfileSettingsScreen = ({
                 <input
                   type="email"
                   value={candidateEmail}
-                  onChange={(e) => setCandidateEmail(e.target.value)}
+                  readOnly
                   className="w-full p-3 border border-[#e8eaf3] rounded-xl outline-none focus:border-[#5b4df0] text-slate-800"
-                  placeholder="e.g. nikhil@example.com"
+                  aria-describedby="account-email-help"
                 />
+                <p id="account-email-help" className="mt-1 text-[11px] text-slate-500">Account email cannot be changed here.</p>
               </div>
 
               <div>
@@ -542,7 +555,7 @@ export const ProfileSettingsScreen = ({
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <span className="font-bold text-[#565b78]">Max Auto-Apply per Batch</span>
+                  <span className="font-bold text-[#565b78]">Max Jobs to Track per Session</span>
                   <b className="text-[#5b4df0] font-black text-sm">{localSettings.maxAutoApplyPerBatch} jobs</b>
                 </div>
                 <input
@@ -554,7 +567,7 @@ export const ProfileSettingsScreen = ({
                   className="w-full accent-[#5b4df0] cursor-pointer"
                 />
                 <span className="text-[11px] text-[#8a8fa8] mt-1 block">
-                  Prevents spamming by setting a strict limit on applications sent in a single auto-run.
+                  Limits how many jobs are tracked/saved in a single discovery session.
                 </span>
               </div>
             </div>
@@ -618,12 +631,13 @@ export const ProfileSettingsScreen = ({
               { id: 'unstop', label: 'Unstop', desc: 'Campus & Early Career Hiring', active: scraperPrefs.unstop },
               { id: 'linkedin', label: 'LinkedIn', desc: 'Realtime & Global openings', active: scraperPrefs.linkedin },
               { id: 'internshala', label: 'Internshala', desc: 'Stipend tech internships', active: scraperPrefs.internshala },
-              { id: 'indeed', label: 'Indeed', desc: 'Direct corporate career feeds', active: scraperPrefs.indeed },
             ].map((portal) => (
-              <div
+              <button
+                type="button"
+                aria-pressed={portal.active}
                 key={portal.id}
                 onClick={() => setScraperPrefs({ ...scraperPrefs, [portal.id]: !portal.active })}
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                   portal.active
                     ? 'border-indigo-200 bg-indigo-50/50 shadow-xs'
                     : 'border-slate-200 bg-slate-50/50 opacity-60'
@@ -640,7 +654,7 @@ export const ProfileSettingsScreen = ({
                 >
                   {portal.active && <CheckCircle2 className="w-3.5 h-3.5" />}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
 
@@ -756,7 +770,7 @@ export const ProfileSettingsScreen = ({
               <div className="space-y-3 mt-4 text-xs">
                 <div className="flex justify-between py-2 border-b border-slate-50">
                   <span className="text-slate-500">Account Tier</span>
-                  <span className="font-bold text-[#5b4df0]">PRO Plan (Active)</span>
+                  <span className="font-bold text-[#5b4df0]">{String(user?.tier || 'free').toUpperCase()} account</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-50">
                   <span className="text-slate-500">Security Encryption</span>

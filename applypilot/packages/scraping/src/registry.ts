@@ -1,5 +1,5 @@
 import type { JobSource } from '@applypilot/domain';
-import type { JobSourceAdapter, HealthStatus, SearchQuery, RawJob } from './types.js';
+import type { JobSourceAdapter, HealthStatus } from './types.js';
 
 export class AdapterRegistry {
   private adapters: Map<JobSource, JobSourceAdapter> = new Map();

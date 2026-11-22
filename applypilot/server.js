@@ -5,20 +5,8 @@ import zlib from 'node:zlib';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 // ApplyPilot Production Server with Live Scrapers & Precision Filtering
-import { fileURLToPath } from 'url';
-const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : (import.meta && import.meta.url ? path.dirname(fileURLToPath(import.meta.url)) : process.cwd());
+const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 import { exec } from 'child_process';
-// @ts-ignore
-import { createRequire } from 'module';
-const nodeRequire = typeof require !== 'undefined' ? require : (import.meta && import.meta.url ? createRequire(import.meta.url) : () => ({}));
-const pdfParse = (() => {
-    try {
-        return nodeRequire('pdf-parse/lib/pdf-parse.js');
-    }
-    catch {
-        return nodeRequire('pdf-parse');
-    }
-})();
 import { parseResumeText } from './server/ai/resume-parser.js';
 import { evaluateResumeAts } from './server/scoring/ats-scorer.js';
 import { bulkTailorQueue } from './server/queue/bulkTailorQueue.js';
@@ -120,6 +108,7 @@ async function startServer() {
                     "https://lh3.googleusercontent.com",
                     "https://media.licdn.com",
                     "https://*.licdn.com",
+                    "https://logo.clearbit.com",
                 ],
                 connectSrc: [
                     "'self'",
@@ -1802,8 +1791,7 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
     });
 
     // Vite middleware setup (only in development and non-bundled mode)
-    const hasDist = fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) || fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
-    const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __filename !== 'undefined' && __filename.includes('server.cjs')) || hasDist;
+    const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __filename !== 'undefined' && __filename.includes('server.cjs'));
     if (!isProductionMode) {
         const vite = await createViteServer({
             root: APP_ROOT,
@@ -1821,7 +1809,7 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
         app.use(vite.middlewares);
     }
     else {
-        const distPath = fs.existsSync(path.join(APP_ROOT, 'index.html')) ? APP_ROOT : (fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) ? path.join(APP_ROOT, 'dist') : path.join(process.cwd(), 'dist'));
+        const distPath = fs.existsSync(path.join(APP_ROOT, 'dist', 'index.html')) ? path.join(APP_ROOT, 'dist') : path.join(process.cwd(), 'dist');
         app.use(express.static(distPath, {
             maxAge: '1y',
             immutable: true,
@@ -1880,7 +1868,8 @@ CANDIDATE EXPERIENCE: ${(resume.experience || []).map((e) => `${e.role} at ${e.c
             }
         }
         try {
-            scrapeOrchestrator.start(180000);
+            const bgInterval = process.env.SCRAPE_INTERVAL_MS ? parseInt(process.env.SCRAPE_INTERVAL_MS, 10) : 600000;
+            scrapeOrchestrator.start(bgInterval);
         }
         catch (e) {
             console.warn('[monitor] failed to start background monitor:', e.message);

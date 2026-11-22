@@ -26,7 +26,7 @@ export function RecruiterGazeBanner({ isVisible, onClose }) {
               </span>
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Simulates how senior technical recruiters scan your resume in the first 6 seconds.
+              Visual F-Pattern overlay showing where recruiters typically focus. This is a reference guide, not an AI eye-tracking measurement.
             </p>
           </div>
         </div>
@@ -35,10 +35,10 @@ export function RecruiterGazeBanner({ isVisible, onClose }) {
           {/* Gaze Efficiency Score */}
           <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200">
             <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-              Gaze Score
+              F-Pattern Reference
             </span>
-            <span className="text-sm font-black text-emerald-600">
-              94% (High Impact)
+            <span className="text-sm font-black text-slate-500">
+              Visual Guide Only
             </span>
           </div>
 

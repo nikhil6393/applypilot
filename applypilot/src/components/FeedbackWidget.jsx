@@ -44,6 +44,10 @@ const CSS = `
   @keyframes fb-spin { to{transform:rotate(360deg)} }
 
   .fb-trigger{position:fixed;bottom:28px;right:28px;z-index:9998;display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#5b4df0 0%,#7c3aed 100%);color:#fff;border:none;border-radius:100px;padding:11px 20px 11px 14px;font-family:'Plus Jakarta Sans',Inter,sans-serif;font-size:13.5px;font-weight:700;letter-spacing:.01em;cursor:pointer;box-shadow:0 4px 24px rgba(91,77,240,.38),0 1px 4px rgba(0,0,0,.12);transition:box-shadow .2s,transform .18s;user-select:none}
+  @media(max-width:640px){
+    .fb-trigger{bottom:16px;right:16px;padding:8px 12px;font-size:11px;gap:6px;opacity:0.9}
+    .fb-panel{bottom:72px!important;right:12px!important;left:12px!important;width:auto!important}
+  }
   .fb-trigger:hover{box-shadow:0 8px 32px rgba(91,77,240,.48),0 2px 8px rgba(0,0,0,.14);transform:translateY(-2px) scale(1.03)}
   .fb-trigger:active{transform:scale(.97)}
   .fb-panel{position:fixed;bottom:84px;right:28px;z-index:9999;width:360px;background:#fff;border-radius:20px;box-shadow:0 24px 56px rgba(15,23,42,.16),0 4px 12px rgba(91,77,240,.10),0 0 0 1px rgba(226,232,240,.9);font-family:'Plus Jakarta Sans',Inter,sans-serif;overflow:hidden;animation:fb-slide-up .28s cubic-bezier(.22,1,.36,1) forwards}

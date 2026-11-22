@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CompanySchema, type Company } from './company.js';
 import { LocationSchema, type Location } from './location.js';
-import { SkillSchema, type Skill } from './skill.js';
+import { SkillSchema } from './skill.js';
 
 export const JobSourceSchema = z.enum([
   'linkedin',

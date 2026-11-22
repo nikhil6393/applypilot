@@ -115,6 +115,26 @@ export function normalizeSkillList(skills: string[]): string[] {
   return Array.from(canonicalSet);
 }
 
+export function extractKnownSkills(text: string): string[] {
+  const found = new Set<string>();
+  const shortAliases = new Set(['c++', 'c#', '.net']);
+
+  for (const [skill, entry] of Object.entries(SkillTaxonomyDictionary)) {
+    for (const alias of [skill, ...entry.aliases]) {
+      const normalized = alias.trim();
+      if (normalized.length < 3 && !shortAliases.has(normalized.toLowerCase())) continue;
+      const escaped = normalized
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s+');
+      if (new RegExp(`(^|[^a-z0-9])${escaped}(?=$|[^a-z0-9])`, 'i').test(text)) {
+        found.add(resolveSkill(skill).canonicalName);
+      }
+    }
+  }
+
+  return Array.from(found);
+}
+
 /**
  * Compares two skill lists using canonical taxonomy resolution.
  */

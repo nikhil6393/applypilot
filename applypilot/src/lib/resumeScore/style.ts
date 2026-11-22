@@ -14,7 +14,7 @@ const DATE_FORMAT_PATTERNS = [
   /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}\b/i,
 ];
 
-function detectDateFormat(s: string): string | null {
+export function detectDateFormat(s: string): string | null {
   for (let i = 0; i < DATE_FORMAT_PATTERNS.length; i++) {
     if (DATE_FORMAT_PATTERNS[i].test(s)) return `pattern-${i}`;
   }

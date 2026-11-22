@@ -203,34 +203,42 @@ export function isJobLocationMatch(jobLocation = '', isJobRemoteOrRequestedLocat
         return true;
     }
     const reqClean = (targetRequestedLoc || '').trim().toLowerCase();
-    // 3. If user requested "Remote" specifically
-    if (reqClean === 'remote' || reqClean.includes('remote')) {
-        return remote;
-    }
-    // 4. If the job is explicitly marked Global Remote / Worldwide, it is available anywhere!
-    if (remote && /\b(worldwide|global|anywhere)\b/i.test(jobLocation)) {
-        return true;
-    }
     const jobLocLower = jobLocation.toLowerCase();
-    // 5. Check if requestedLocation is a known Country
+
+    // 3. Check if user requested a specific country (e.g. India)
     for (const region of ALL_REGIONS) {
         const isRequestedCountry = region.countryAliases.some((alias) => reqClean === alias || reqClean.includes(alias));
         if (isRequestedCountry) {
-            // If the user requested this country, does the job location belong to this region?
-            if (textMatchesRegion(jobLocLower, region)) {
+            // High-precision foreign exclusion: If user wants India, drop any explicitly foreign regions
+            const otherRegions = ALL_REGIONS.filter(r => r.country !== region.country);
+            const matchesOtherRegion = otherRegions.some(r => textMatchesRegion(jobLocLower, r));
+            const hasExplicitTargetRegion = textMatchesRegion(jobLocLower, region);
+            if (matchesOtherRegion && !hasExplicitTargetRegion) {
+                return false;
+            }
+            if (hasExplicitTargetRegion) {
                 return true;
             }
-            // If job is remote without country restriction, or says e.g. "Remote - India"
-            if (remote && (reqClean.includes('india') || reqClean.includes('us') || reqClean.includes('united states'))) {
-                if (textMatchesRegion(jobLocLower, region))
-                    return true;
+            // If the job is explicitly Worldwide / Global Remote without foreign restrictions, it is open anywhere
+            if (remote && /\b(worldwide|anywhere|global)\b/i.test(jobLocLower) && !matchesOtherRegion) {
+                return true;
             }
-            // If the job is fully remote worldwide
-            if (remote && (isGlobalLocation(jobLocation) || /\b(worldwide|anywhere|global)\b/i.test(jobLocLower))) {
+            // If the job is remote and specifically designates the requested country
+            if (remote && (jobLocLower.includes('india') || jobLocLower.includes('pan india') || jobLocLower.includes('bharat'))) {
                 return true;
             }
             return false;
         }
+    }
+
+    // 4. If user requested "Remote" specifically
+    if (reqClean === 'remote' || reqClean === 'remote only') {
+        return remote;
+    }
+
+    // 5. If the job is explicitly marked Global Remote / Worldwide, it is available anywhere
+    if (remote && /\b(worldwide|global|anywhere)\b/i.test(jobLocation)) {
+        return true;
     }
     // 6. Check if requestedLocation contains a specific City or Metro area
     const tokens = reqClean
@@ -254,7 +262,8 @@ export function isJobLocationMatch(jobLocation = '', isJobRemoteOrRequestedLocat
                 return true;
             }
         }
-        if (remote) {
+        // Only allow remote if the remote job explicitly matches the target city/region
+        if (remote && tokens.some(t => jobLocLower.includes(t))) {
             return true;
         }
         return false;

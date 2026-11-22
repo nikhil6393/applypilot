@@ -111,9 +111,9 @@ export async function linkedinSearchDork(req) {
                     postedDate: timeInfo.iso,
                     postedRelative: timeInfo.relative,
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
-                    skills: meta.techStack && meta.techStack.length > 0 ? meta.techStack : ['JavaScript', 'Python', 'React'],
+                    skills: meta.techStack || [],
                     tags,
                 });
             });
@@ -180,9 +180,8 @@ export async function linkedinSearchDork(req) {
                         postedDate: timeInfo.iso,
                         postedRelative: timeInfo.relative,
                         fetchedAt: new Date().toISOString(),
-                        employmentType: isIntern ? 'internship' : 'full-time',
+                        employmentType: isIntern ? 'internship' : 'unknown',
                         isInternship: isIntern,
-                        skills: ['JavaScript', 'Python', 'React'],
                         tags: [isIntern ? 'Internship' : 'Full-Time', jobLoc],
                     });
                 });

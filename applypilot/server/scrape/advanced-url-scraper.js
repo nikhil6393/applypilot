@@ -3,6 +3,7 @@ import { htmlToCleanMarkdown, extractStructuredSections, decodeHtmlEntities } fr
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { resolveCompanyLogo } from './logo-resolver.js';
 import { getBrowserHeaders } from './linkedin-realtime.js';
+import { assertSafeUrl } from '../security/ssrf.js';
 
 /**
  * Advanced Universal Job Description & Direct URL Scraper
@@ -296,7 +297,7 @@ async function scrapeGenericUrl(url) {
         }
 
         if (!location) {
-            location = cleanText($('[data-automation-id="jobLocation"], .job-location, .location').first().text()) || 'Remote / Hybrid';
+            location = cleanText($('[data-automation-id="jobLocation"], .job-location, .location').first().text());
         }
 
         // C. Target semantic job description container
@@ -312,8 +313,12 @@ async function scrapeGenericUrl(url) {
         return {
             title: title || 'Software Engineer',
             company: company || 'Tech Company',
-            location: location || 'Remote / Hybrid',
-            isRemote: /remote/i.test(location) || /remote/i.test(title),
+            location: location || '',
+            isRemote: /remote/i.test(location) || /remote/i.test(title)
+                ? true
+                : /\b(hybrid|on[- ]?site|in[- ]office|office[- ]based)\b/i.test(location + ' ' + title)
+                    ? false
+                    : undefined,
             isInternship: /intern|co-?op|trainee|apprentice/i.test(title) || /intern/i.test(employmentType),
             salary: salary || undefined,
             description,
@@ -425,6 +430,7 @@ export async function scrapeJobFromUrlOrText(urlOrText, rawText) {
     let baseJob = null;
 
     if (inputUrl) {
+        await assertSafeUrl(inputUrl);
         if (inputUrl.includes('linkedin.com')) {
             baseJob = await scrapeLinkedInUrl(inputUrl);
         } else if (inputUrl.includes('greenhouse.io')) {
@@ -482,7 +488,7 @@ export async function scrapeJobFromUrlOrText(urlOrText, rawText) {
         companyLogo: baseJob.companyLogo || resolveCompanyLogo(baseJob.company, null, baseJob.applyUrl),
         location: baseJob.location,
         remote: baseJob.isRemote,
-        employmentType: baseJob.isInternship ? 'internship' : 'full-time',
+        employmentType: baseJob.isInternship ? 'internship' : 'unknown',
         description: baseJob.description, // 100% original, fully preserved description
         responsibilities: sections.responsibilities,
         requirements: sections.requirements,
@@ -499,7 +505,7 @@ export async function scrapeJobFromUrlOrText(urlOrText, rawText) {
         url: baseJob.applyUrl,
         applyUrl: baseJob.applyUrl,
         source: baseJob.source || 'manual',
-        postedAt: new Date().toISOString(),
+        postedAt: baseJob.postedAt || '',
         fetchedAt: new Date().toISOString(),
         tags,
     };

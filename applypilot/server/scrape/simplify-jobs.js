@@ -107,11 +107,10 @@ export async function simplifyJobs(req) {
                     postedDate: new Date(postedTimeMs).toISOString(),
                     postedRelative: 'Active Opening',
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
                     sponsorsVisa: item.sponsorship === 'Offers Sponsorship',
-                    eligibleBatches: ['2028', '2027', '2026', '2025'],
-                    skills: meta.techStack && meta.techStack.length > 0 ? meta.techStack : ['Software Engineering', 'Problem Solving'],
+                    skills: meta.techStack || [],
                     tags,
                 });
                 if (out.length >= max)

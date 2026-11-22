@@ -122,7 +122,7 @@ export async function himalayas(req) {
                 source: 'himalayas',
                 url: apply,
                 applyUrl: apply,
-                location: j.location || 'Worldwide Remote',
+                location: j.location || '',
                 remote: true,
                 description: descClean.slice(0, 1500),
                 postedAt,
@@ -131,7 +131,11 @@ export async function himalayas(req) {
                     ? 'internship'
                     : j.employmentType?.toLowerCase().includes('part')
                         ? 'part-time'
-                        : 'full-time',
+                        : j.employmentType?.toLowerCase().includes('contract')
+                            ? 'contract'
+                            : j.employmentType?.toLowerCase().includes('full')
+                                ? 'full-time'
+                                : 'unknown',
                 isInternship: isIntern,
                 companyLogo: j.companyLogo,
                 sponsorsVisa: meta.sponsorsVisa,

@@ -93,6 +93,35 @@ describe('Characterization Tests — Existing API Endpoints Freeze (Phase 1 Base
             expect(typeof res.body.valid).toBe('number');
             expect(typeof res.body.inserted).toBe('number');
         });
+        it('GET /api/jobs/companies-skill-gap returns neutral advertised skill counts', async () => {
+            const company = `Skill Gap Contract ${Date.now()}`;
+            const ingest = await request(app)
+                .post('/api/jobs/ingest')
+                .send({
+                    jobs: [{
+                        id: `skill-gap-contract-${Date.now()}`,
+                        title: 'Frontend Engineer',
+                        company,
+                        source: 'greenhouse',
+                        url: 'https://boards.greenhouse.io/example/jobs/2',
+                        location: 'Remote',
+                        description: 'Build accessible web applications.',
+                        skills: ['React', 'React', 'TypeScript'],
+                    }],
+                });
+            expect(ingest.status).toBe(200);
+
+            const res = await request(app).get('/api/jobs/companies-skill-gap');
+            expect(res.status).toBe(200);
+            const companyData = res.body.companies.find((item) => item.name === company);
+            expect(companyData).toBeDefined();
+            expect(companyData.advertisedSkills).toEqual(expect.arrayContaining([
+                { name: 'React', frequency: 1 },
+                { name: 'TypeScript', frequency: 1 },
+            ]));
+            expect(companyData).not.toHaveProperty('missingSkills');
+            expect(companyData).not.toHaveProperty('matchPct');
+        });
     });
     describe('Resume Intelligence Contract', () => {
         it('POST /api/resume/parse with text extracts and stores resume deterministically', async () => {

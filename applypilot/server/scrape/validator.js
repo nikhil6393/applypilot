@@ -2,8 +2,10 @@ import { isJobLocationMatch as geoResolverLocationMatch } from './geo-resolver.j
 import { detectDomainFromQuery, matchesDomainJob, isSoftwareEngineerInternQuery, isSoftwareEngineerFullTimeQuery, matchesSoftwareEngineerInternRole, matchesSoftwareEngineerFullTimeRole, } from './RoleExpansionConfig.js';
 import { semanticMatchJob } from '../../shared/roleTaxonomy.js';
 import { extractEligibleBatches, formatEligibleBatchText, extractIndianCitizenEligibility, extractVisaSponsorship } from './metadata-extractor.js';
+import { assertSafeUrl } from '../security/ssrf.js';
 const VALID_SOURCES = new Set([
     'linkedin',
+    'naukri',
     'naukari',
     'greenhouse',
     'lever',
@@ -151,16 +153,35 @@ export function validateJobPosting(raw) {
     const batches = (Array.isArray(raw.eligibleBatches) && raw.eligibleBatches.length > 0)
         ? raw.eligibleBatches
         : extractEligibleBatches(descText, title);
-    const batchText = raw.eligibleBatchText || formatEligibleBatchText(batches, isIntern, title, descText);
-    const cleanLocation = (raw.location || '').trim() || 'Remote';
-    const isRemote = Boolean(raw.remote || /remote|wfh|work from home/i.test(cleanLocation + ' ' + title));
+    const batchText = raw.eligibleBatchText && raw.eligibleBatchText !== 'All Batches Eligible'
+        ? raw.eligibleBatchText
+        : batches?.length
+            ? formatEligibleBatchText(batches, isIntern, title, descText)
+            : '';
+    const cleanLocation = (raw.location || '').trim();
+    const primaryWorkplaceText = `${raw.workplace || ''} ${cleanLocation} ${title} ${(Array.isArray(raw.tags) ? raw.tags : []).join(' ')}`;
+    const hasExplicitNoRemote = /\b(not\s*(?:eligible\s*for|open\s*to)?\s*remote|no\s*remote|not\s*a\s*remote\s*(?:role|position|job)|remote\s*(?:work\s*)?is\s*not\s*(?:permitted|allowed|available|offered|eligible|supported)|on[- ]?site\s*only|in[- ]?person\s*only|must\s*be\s*(?:on[- ]?site|in[- ]?person|in[- ]?office|located\s*in\s*our))\b/i.test(`${primaryWorkplaceText} ${descText}`);
+    const isHybrid = !hasExplicitNoRemote && Boolean(
+        raw.workplace === 'Hybrid' ||
+        raw.isHybrid === true ||
+        /\bhybrid\b/i.test(primaryWorkplaceText) ||
+        /\b(hybrid\s*(?:model|role|schedule|work)|in[- ]office\s*\d+\s*days)\b/i.test(descText)
+    );
+    const isRemote = !hasExplicitNoRemote && !isHybrid && Boolean(
+        raw.workplace === 'Remote' ||
+        ((raw.remote === true || raw.isRemote === true) && !hasExplicitNoRemote) ||
+        /\b(remote|wfh|work\s*from\s*home|anywhere|worldwide|virtual)\b/i.test(primaryWorkplaceText) ||
+        /\b(100%\s*remote|fully\s*remote|strictly\s*remote|remote\s*first|work\s*from\s*anywhere)\b/i.test(descText)
+    );
+    const workplace = isHybrid ? 'Hybrid' : (isRemote ? 'Remote' : 'Onsite');
+    const remote = isRemote;
     const sponsorsVisa = raw.sponsorsVisa !== undefined ? raw.sponsorsVisa : extractVisaSponsorship(`${title} ${descText}`);
     const indianCitizenEligibility = raw.indianCitizenEligibility || extractIndianCitizenEligibility({
         text: descText,
         title,
         location: cleanLocation,
         sponsorsVisa,
-        remote: isRemote,
+        remote,
     });
     const cleanJob = {
         id: raw.id || `${source}_${Math.random().toString(36).slice(2, 10)}`,
@@ -171,10 +192,14 @@ export function validateJobPosting(raw) {
         applyUrl: canonicalUrl,
         canonicalUrl,
         location: cleanLocation,
-        remote: isRemote,
+        workplace,
+        workMode: workplace,
+        isHybrid,
+        isRemote,
+        remote,
         description: descText,
         descriptionHtml: raw.descriptionHtml,
-        postedAt: validPostedAt || new Date().toISOString(),
+        postedAt: validPostedAt || '',
         postedDate: validPostedAt || undefined,
         postedRelative: raw.postedRelative,
         postedDateKind: raw.postedDateKind || (source === 'greenhouse' || source === 'ashby' || source === 'lever'
@@ -294,6 +319,7 @@ export function isJobTypeMatch(jobOrTitle, jobType, internshipsOnly) {
     const job = typeof jobOrTitle === 'string' ? { title: jobOrTitle } : jobOrTitle;
     const isInternshipReq = internshipsOnly || jobType === 'internship';
     const titleLower = (job.title || '').toLowerCase();
+    const text = `${titleLower} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
     
     // Explicit internship tokens in title, metadata, or tags
     const titleHasIntern = /\b(intern(ship)?|co-?op|working\s+student|werkstudent|praktikant|trainee|apprentice|apprenticeship|fellow(ship)?|student\s+intern|sde\s+intern|swe\s+intern|campus(\s+hiring)?|graduate\s+engineer)\b/i.test(titleLower);
@@ -314,6 +340,10 @@ export function isJobTypeMatch(jobOrTitle, jobType, internshipsOnly) {
     }
     if (jobType === 'fulltime') {
         if (titleHasIntern || isInternMeta || tagHasIntern)
+            return false;
+        if (job.employmentType && job.employmentType !== 'unknown' && job.employmentType !== 'full-time')
+            return false;
+        if (/\b(contract|freelance|temporary|part[- ]time|consultant)\b/i.test(text))
             return false;
         return true;
     }
@@ -464,11 +494,8 @@ export function isJobBatchMatch(job, batchYear) {
         return job.eligibleBatches.includes(yr) || job.eligibleBatches.includes('All Batches');
     }
     const text = `${job.title || ''} ${(job.tags || []).join(' ')} ${job.description || ''}`.toLowerCase();
-    if (text.includes(yr)) {
-        return true;
-    }
-    // For internships with unmentioned batch, assume current college cohorts are eligible
-    if ((job.isInternship || /intern/i.test(job.title)) && ['2025', '2026', '2027'].includes(yr)) {
+    const batchMention = new RegExp(`(?:\\b(?:batch|class\\s+of|graduat(?:ing|ion|e)s?|eligib(?:le|ility)|pass(?:ing)?\\s*out)\\s*[:\\-–]?\\s*(?:of\\s*)?${yr}\\b|\\b${yr}\\s*(?:batch|class|graduates?|passouts?)\\b)`, 'i');
+    if (batchMention.test(text)) {
         return true;
     }
     return false;
@@ -498,22 +525,107 @@ export function isJobSeniorityMatch(job, seniorityLevel) {
     }
     return true;
 }
+function isGenericRemoteLocation(location) {
+    return /^(?:remote|work\s+from\s+home|wfh|anywhere|worldwide|global)(?:[\s,\/-]*(?:remote|work\s+from\s+home|wfh|anywhere|worldwide|global))*$/i.test(String(location || '').trim());
+}
 export function filterJobsByCriteria(jobs, criteria) {
-    return jobs.filter((job) => {
-        if (!isJobTypeMatch(job, criteria.jobType, criteria.internshipsOnly))
-            return false;
-        if (!isJobLocationMatch(job.location, job.remote, criteria.location, criteria.remoteOnly))
-            return false;
-        if (!isJobWorkplaceMatch(job, criteria.workplaceType))
-            return false;
+    const isSpecificLocation = criteria.location &&
+        !/^(anywhere|global|worldwide|all|any)$/i.test(String(criteria.location).trim());
+    const isSpecificWorkplace = criteria.workplaceType &&
+        !['all', 'any'].includes(String(criteria.workplaceType).toLowerCase());
+    const isSpecificJobType = criteria.internshipsOnly ||
+        (criteria.jobType && !['any', 'all'].includes(String(criteria.jobType).toLowerCase()));
+    const isSpecificBatch = criteria.batchYear &&
+        !['any', 'all batches'].includes(String(criteria.batchYear).toLowerCase());
+    const isSpecificSeniority = criteria.seniorityLevel &&
+        !['any', 'all'].includes(String(criteria.seniorityLevel).toLowerCase());
+
+    return jobs.reduce((filtered, job) => {
+        const unverifiedFilters = Array.isArray(job.unverifiedFilters)
+            ? [...job.unverifiedFilters]
+            : [];
+        const text = `${job.title || ''} ${(job.tags || []).join(' ')} ${job.description || ''}`;
+        if (!Number.isFinite(Date.parse(job.postedAt || job.postedDate || ''))) {
+            unverifiedFilters.push('posted date');
+        }
+        const hasJobTypeEvidence = Boolean(
+            (job.employmentType && job.employmentType !== 'unknown') ||
+            job.isInternship === true ||
+            /\b(intern(ship)?|co-?op|trainee|apprentice|fellow|full[- ]time|part[- ]time|contract|freelance|temporary|permanent)\b/i.test(text)
+        );
+        const hasLocationEvidence = Boolean(job.location && job.location.trim());
+        const requestsRemoteLocation = /\b(remote|wfh|work from home|telecommute)\b/i.test(String(criteria.location || ''));
+        const hasGeographicEvidence = hasLocationEvidence &&
+            (!isGenericRemoteLocation(job.location) || requestsRemoteLocation);
+        const hasWorkplaceEvidence = typeof job.remote === 'boolean' ||
+            /\b(remote|wfh|work from home|hybrid|on[- ]?site|in[- ]office|office[- ]based)\b/i.test(text);
+        const hasBatchEvidence = Boolean(
+            (Array.isArray(job.eligibleBatches) && job.eligibleBatches.length > 0) ||
+            /\b(?:batch|class\s+of|graduat(?:ing|ion|e)s?|eligib(?:le|ility)|pass(?:ing)?\s*out)\s*[:\-–]?\s*(?:of\s*)?(202[3-9]|2030)\b|\b(202[3-9]|2030)\s*(?:batch|class|graduates?|passouts?)\b/i.test(text) ||
+            /\b(202[3-9]|2030)\b/.test(job.eligibleBatchText || '')
+        );
+        const hasSeniorityEvidence = Boolean(
+            job.seniority ||
+            /\b(intern|junior|jr\.|entry|graduate|fresher|new grad|mid[- ]level|intermediate|senior|sr\.|lead|principal|staff|manager|director|vp|head|architect)\b/i.test(text)
+        );
+
+        if (isSpecificJobType) {
+            if (!hasJobTypeEvidence) {
+                unverifiedFilters.push('job type');
+            }
+            else if (!isJobTypeMatch(job, criteria.jobType, criteria.internshipsOnly)) {
+                return filtered;
+            }
+        }
+        if (isSpecificLocation) {
+            if (!hasGeographicEvidence) {
+                unverifiedFilters.push('location');
+            }
+            else if (!isJobLocationMatch(job.location, job.remote, criteria.location, false)) {
+                return filtered;
+            }
+        }
+        if (criteria.remoteOnly) {
+            if (!hasWorkplaceEvidence) {
+                unverifiedFilters.push('workplace');
+            }
+            else if (!isJobLocationMatch(job.location, job.remote, criteria.location, true)) {
+                return filtered;
+            }
+        }
+        if (isSpecificWorkplace) {
+            if (!hasWorkplaceEvidence) {
+                unverifiedFilters.push('workplace');
+            }
+            else if (!isJobWorkplaceMatch(job, criteria.workplaceType)) {
+                return filtered;
+            }
+        }
         if (!isJobRoleMatch(job, criteria.query))
-            return false;
-        if (!isJobBatchMatch(job, criteria.batchYear))
-            return false;
-        if (!isJobSeniorityMatch(job, criteria.seniorityLevel))
-            return false;
-        return true;
-    });
+            return filtered;
+        if (isSpecificBatch) {
+            if (!hasBatchEvidence) {
+                unverifiedFilters.push('batch');
+            }
+            else if (!isJobBatchMatch(job, criteria.batchYear)) {
+                return filtered;
+            }
+        }
+        if (isSpecificSeniority) {
+            if (!hasSeniorityEvidence) {
+                unverifiedFilters.push('seniority');
+            }
+            else if (!isJobSeniorityMatch(job, criteria.seniorityLevel)) {
+                return filtered;
+            }
+        }
+        const result = { ...job };
+        if (unverifiedFilters.length > 0) {
+            result.unverifiedFilters = [...new Set(unverifiedFilters)];
+        }
+        filtered.push(result);
+        return filtered;
+    }, []);
 }
 export const filterJobsStrict = filterJobsByCriteria;
 /**
@@ -558,6 +670,16 @@ export function detectDuplicateJobs(jobs) {
 export async function verifyJobUrlLive(url) {
     const cleanUrl = cleanCanonicalUrl(url);
     const startTime = Date.now();
+    try {
+        await assertSafeUrl(cleanUrl);
+    } catch (ssrfErr) {
+        return {
+            verified: false,
+            status: 'unverified',
+            latencyMs: 0,
+            reason: `SSRF blocked: ${ssrfErr.message}`,
+        };
+    }
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 6000);

@@ -158,12 +158,12 @@ adminRouter.get('/metrics', (_req, res) => {
     res.json({
         success: true,
         metrics: {
-            totalUsers: totalUsers || 1,
-            activeCandidates: totalUsers || 1,
-            totalJobsIndexed: totalJobs || 50,
-            applicationsDispatched: totalApplications || 18,
-            successRate: 98.4,
-            avgAtsScore: 82.6,
+            totalUsers: totalUsers || 0,
+            activeCandidates: totalUsers || 0,
+            totalJobsIndexed: totalJobs || 0,
+            applicationsDispatched: totalApplications || 0,
+            successRate: null,
+            avgAtsScore: null,
             circuitBreakers: cfg.circuitBreakers,
         },
     });
@@ -435,7 +435,6 @@ adminRouter.get('/settings', (_req, res) => {
             aiProvider: cfg.aiProvider || 'nvidia_nim',
             smtpHost: cfg.smtpHost || 'smtp.sendgrid.net',
             smtpPort: cfg.smtpPort || '587',
-            bullConcurrency: cfg.bullConcurrency || 3,
             circuitBreakers: cfg.circuitBreakers,
             featureFlags: cfg.featureFlags,
         },
@@ -444,15 +443,13 @@ adminRouter.get('/settings', (_req, res) => {
 adminRouter.post('/settings', (req, res) => {
     try {
         const cfg = readConfig();
-        const { aiProvider, smtpHost, smtpPort, bullConcurrency, circuitBreakers, featureFlags } = req.body || {};
+        const { aiProvider, smtpHost, smtpPort, circuitBreakers, featureFlags } = req.body || {};
         if (aiProvider !== undefined)
             cfg.aiProvider = aiProvider;
         if (smtpHost !== undefined)
             cfg.smtpHost = String(smtpHost).trim();
         if (smtpPort !== undefined)
             cfg.smtpPort = String(smtpPort).trim();
-        if (bullConcurrency !== undefined)
-            cfg.bullConcurrency = parseInt(String(bullConcurrency), 10);
         if (circuitBreakers && typeof circuitBreakers === 'object') {
             cfg.circuitBreakers = { ...cfg.circuitBreakers, ...circuitBreakers };
         }
@@ -809,19 +806,15 @@ adminRouter.post('/test/circuit', (req, res) => {
 });
 // ─── 13. EMAIL SMTP DISPATCH TEST PING ─────────────────────────────────────────
 adminRouter.post('/test/smtp', async (req, res) => {
-    const { host, port, testRecipient = 'test-audit@applypilot.local' } = req.body || {};
-    const startTime = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, 380));
-    const durationMs = Date.now() - startTime;
+    const { host, port } = req.body || {};
+    // shortcut: no real SMTP integration wired; returns honest not-configured status
     res.json({
-        success: true,
+        success: false,
         testType: 'smtp-handshake-ping',
-        durationMs,
         host: host || 'smtp.sendgrid.net',
         port: port || 587,
-        testRecipient,
-        status: 'CONNECTED',
-        message: 'SMTP socket verification passed. Ready to dispatch candidate email applications (Tier B).',
+        status: 'NOT_CONFIGURED',
+        message: 'SMTP integration is not configured. Set SMTP_HOST, SMTP_PORT and SMTP credentials to enable email dispatch.',
         timestamp: new Date().toISOString(),
     });
 });

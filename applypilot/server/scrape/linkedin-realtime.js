@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { load } from 'cheerio';
 
 import { validateAndFilterJobs } from './validator.js';
@@ -6,11 +9,57 @@ import { scrapeCache } from './cache.js';
 import { enrichJobMetadata } from './metadata-extractor.js';
 import { linkedinSearchDork } from './linkedin-dork.js';
 import { getScraperSearchClusters, } from './RoleExpansionConfig.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SELENIUM_SCRIPT_PATH = path.join(__dirname, 'linkedin_selenium.py');
+
+/**
+ * Executes headless Chrome Selenium to retrieve real-time LinkedIn job postings.
+ * Bypasses botwalls and TLS fingerprinting in sub-5 seconds.
+ */
+export async function runLinkedInSelenium(req) {
+    return new Promise((resolve) => {
+        const query = (req.query || 'software engineer').trim();
+        const location = (req.location || 'India').trim();
+        const timeWindow = req.timeWindow || '7d';
+        const jobType = req.jobType || (req.internshipsOnly ? 'internship' : 'any');
+        const limit = Math.max(1, Math.min(50, req.maxPerSource ?? 25));
+
+        const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+        const args = [
+            SELENIUM_SCRIPT_PATH,
+            '--query', query,
+            '--location', location,
+            '--timeWindow', timeWindow,
+            '--jobType', jobType,
+            '--limit', String(limit),
+        ];
+
+        execFile(pythonCmd, args, { maxBuffer: 10 * 1024 * 1024, timeout: 15000 }, (err, stdout, stderr) => {
+            if (err) {
+                if (stderr) console.warn('[linkedin-selenium] stderr:', stderr.slice(0, 150));
+                return resolve([]);
+            }
+            if (stdout && stdout.trim()) {
+                try {
+                    const jobs = JSON.parse(stdout.trim());
+                    if (Array.isArray(jobs) && jobs.length > 0) {
+                        return resolve(jobs);
+                    }
+                } catch (e) {
+                    console.warn('[linkedin-selenium] JSON parse error:', e.message);
+                }
+            }
+            resolve([]);
+        });
+    });
+}
 // ── Circuit Breaker State ──────────────────────────────────────────────
 const CIRCUIT_BREAKER = {
     consecutiveFailures: 0,
-    maxFailures: 10,
-    cooldownMs: 30 * 1000, // 30s auto-healing cooldown (reduced from 2m for high resilience)
+    maxFailures: 3,
+    cooldownMs: 60 * 1000, // 60s cooldown; fail fast after 3 consecutive failures
     lastOpenedAt: 0,
     state: 'closed',
     lastError: null,
@@ -594,15 +643,43 @@ JSON only.`;
     return job;
 }
 export async function linkedinRealtime(req) {
-    // Check circuit breaker before attempting any scrape
-    if (isCircuitOpen()) {
-        console.warn('[linkedin-realtime] Circuit breaker is OPEN — seamlessly falling back to Google/DDG real-time index scraper.');
-        return linkedinSearchDork(req);
-    }
     const cacheKey = scrapeCache.generateKey('linkedin', req);
     const cached = scrapeCache.get(cacheKey);
     if (cached)
         return cached;
+
+    // ── 1. Primary Engine: Headless Chrome via Selenium ──
+    try {
+        const seleniumJobs = await runLinkedInSelenium(req);
+        if (Array.isArray(seleniumJobs) && seleniumJobs.length > 0) {
+            recordSuccess();
+            const verifiedJobs = validateAndFilterJobs(seleniumJobs);
+            if (verifiedJobs.length > 0) {
+                scrapeCache.set(cacheKey, verifiedJobs, 180);
+                return verifiedJobs;
+            }
+        }
+    } catch (err) {
+        console.warn('[linkedin-realtime] Selenium attempt failed, using fallback:', err.message);
+    }
+
+    // ── 2. Fallback Engine: Search Engine Real-Time Index Dorking ──
+    try {
+        const dorkJobs = await linkedinSearchDork(req);
+        if (Array.isArray(dorkJobs) && dorkJobs.length > 0) {
+            recordSuccess();
+            const verified = validateAndFilterJobs(dorkJobs);
+            scrapeCache.set(cacheKey, verified, 180);
+            return verified;
+        }
+    } catch (err) {
+        console.warn('[linkedin-realtime] Dork fallback failed:', err.message);
+    }
+
+    // ── 3. Direct Guest Scraper (Legacy) ──
+    if (isCircuitOpen()) {
+        return [];
+    }
     const query = (req.query || 'software engineer').trim();
     const rawLoc = (req.location || 'India').trim();
     const isGlobal = !rawLoc || /^(anywhere|global|worldwide|remote|all|any)$/i.test(rawLoc);
@@ -629,6 +706,8 @@ export async function linkedinRealtime(req) {
                     ? 1440
                     : effectiveTW === '7d'
                         ? 10080
+                        : effectiveTW === 'all'
+                            ? Number.POSITIVE_INFINITY
                         : req.postedWithinHours && req.postedWithinHours > 0
                             ? req.postedWithinHours * 60
                             : 43200;
@@ -779,7 +858,7 @@ export async function linkedinRealtime(req) {
                 href.match(/(\d{8,12})/);
             const numericId = idMatch ? idMatch[1] : undefined;
             const id = numericId ? `linkedin_${numericId}` : stableId(rawApplyUrl);
-            const applyUrl = numericId ? `https://www.linkedin.com/jobs/view/${numericId}` : rawApplyUrl;
+            const applyUrl = rawApplyUrl.startsWith('http') ? rawApplyUrl : (numericId ? `https://www.linkedin.com/jobs/view/${numericId}` : rawApplyUrl);
             if (seen.has(id))
                 continue;
             seen.add(id);
@@ -904,10 +983,10 @@ export async function linkedinRealtime(req) {
                 isInternship: isIntern,
                 sponsorsVisa: meta.sponsorsVisa,
                 eligibleBatches: meta.eligibleBatches,
-                skills: techStack || extractSkillsFromText(title + ' ' + (loc || '')),
+                skills: techStack || [],
                 tags,
                 fetchedAt: new Date().toISOString(),
-                employmentType: isIntern ? 'internship' : 'full-time',
+                employmentType: isIntern ? 'internship' : 'unknown',
             });
         }
     }
@@ -920,8 +999,10 @@ export async function linkedinRealtime(req) {
         recordSuccess();
     // Validate all jobs through Data Integrity Layer
     const verifiedJobs = validateAndFilterJobs(out);
-    // In deep scrape mode, if direct guest scrape was throttled or returned few jobs, seamlessly augment with search engine index dorking
-    if (!req.fastMode && verifiedJobs.length < 5) {
+    // If direct guest scrape was throttled or returned few jobs, augment with search engine index dorking.
+    // Also runs in fastMode when we got nothing at all (< 2 results), so stream search is never empty.
+    const dorkThreshold = req.fastMode ? 2 : 5;
+    if (verifiedJobs.length < dorkThreshold) {
         try {
             const dorkJobs = await linkedinSearchDork(req);
             for (const dj of dorkJobs) {

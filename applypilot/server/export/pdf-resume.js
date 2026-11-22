@@ -1,5 +1,3 @@
-import { chromium } from 'playwright';
-
 /**
  * Generate PDF resume conforming strictly to the exact template specification:
  * - Page size: US Letter (8.5" x 11")
@@ -11,48 +9,62 @@ import { chromium } from 'playwright';
  */
 export async function generateStrictPdf(resume) {
     const html = buildResumeHtml(resume);
-    let browser = null;
-    const executablePath = process.env.CHROMIUM_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
+    let chromium = null;
+
     try {
-        browser = await chromium.launch({
-            headless: true,
-            executablePath: executablePath || undefined,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-        });
-        const context = await browser.newContext();
-        const page = await context.newPage();
-        await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
-        
-        // Wait for font rendering if supported with bounded timeout
-        try {
-            await page.evaluate(async () => {
-                if (document.fonts) {
-                    await Promise.race([
-                        document.fonts.ready,
-                        new Promise(resolve => setTimeout(resolve, 1500))
-                    ]);
-                }
-            });
-        } catch (_) {}
-
-        const pdfBuffer = await page.pdf({
-            format: 'Letter',
-            margin: {
-                top: '0.14in',
-                bottom: '0.10in',
-                left: '0.44in',
-                right: '0.44in',
-            },
-            printBackground: true,
-            displayHeaderFooter: false,
-        });
-
-        await browser.close();
-        return pdfBuffer;
-    } catch (err) {
-        if (browser) await browser.close().catch(() => {});
-        throw err;
+        const pw = await import('playwright');
+        chromium = pw.chromium || pw.default?.chromium;
+    } catch {
+        // Playwright not installed in lightweight cloud deployment
     }
+
+    if (chromium) {
+        let browser = null;
+        const executablePath = process.env.CHROMIUM_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
+        try {
+            browser = await chromium.launch({
+                headless: true,
+                executablePath: executablePath || undefined,
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+            });
+            const context = await browser.newContext();
+            const page = await context.newPage();
+            await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
+            
+            try {
+                await page.evaluate(async () => {
+                    if (document.fonts) {
+                        await Promise.race([
+                            document.fonts.ready,
+                            new Promise(resolve => setTimeout(resolve, 1500))
+                        ]);
+                    }
+                });
+            } catch (_) {}
+
+            const pdfBuffer = await page.pdf({
+                format: 'Letter',
+                margin: {
+                    top: '0.14in',
+                    bottom: '0.10in',
+                    left: '0.44in',
+                    right: '0.44in',
+                },
+                printBackground: true,
+                displayHeaderFooter: false,
+            });
+
+            await browser.close();
+            return pdfBuffer;
+        } catch (err) {
+            if (browser) await browser.close().catch(() => {});
+            console.warn('[PDF Export] Chromium execution skipped or unavailable:', err.message);
+        }
+    }
+
+    // Lightweight fallback: Return print-optimized HTML buffer with auto-print script
+    const autoPrintHtml = html.replace('</body>', '<script>window.addEventListener("DOMContentLoaded", () => { setTimeout(() => window.print(), 300); });</script></body>');
+    return Buffer.from(autoPrintHtml, 'utf-8');
 }
 
 export function buildResumeHtml(resume) {

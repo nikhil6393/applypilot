@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ResumeUploadGateway from './ResumeUploadGateway';
-import Resume3DExtractorModal from './Resume3DExtractorModal';
 import LeftScoreSidebar from './LeftScoreSidebar';
 import HomeOverviewView from './HomeOverviewView';
 import FixDetailView from './FixDetailView';
@@ -11,6 +10,7 @@ import InterviewArmorModal from './InterviewArmorModal';
 import confetti from 'canvas-confetti';
 import { scoreResume } from '../../lib/resumeScore/index';
 import { useAuth } from '../../context/AuthContext';
+import { SAMPLE_RESUMES } from '../../data/sampleResumes';
 import { X, CheckCircle2, AlertTriangle, ShieldCheck, Download, Award, Sparkles, Target, ShieldAlert } from 'lucide-react';
 
 /**
@@ -41,7 +41,7 @@ export default function ExactResumeStudio({
   const [activeFixId, setActiveFixId] = useState(null);
   const [highlightWord, setHighlightWord] = useState(null);
   const [isHighlightActive, setIsHighlightActive] = useState(false);
-  const [pendingParsedResume, setPendingParsedResume] = useState(null);
+  const [extractionError, setExtractionError] = useState('');
   const [activeTargetJob, setActiveTargetJob] = useState(targetJob);
 
   useEffect(() => {
@@ -78,12 +78,13 @@ export default function ExactResumeStudio({
   // File Upload Handler (PDF, DOCX, TXT)
   const handleFileUpload = (file) => {
     setUploadedFileName(file.name || 'Resume.pdf');
+    setExtractionError('');
     setStudioState('extracting');
 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const base64 = e.target?.result;
+        const base64 = String(e.target?.result || '').split(',').pop();
         const token = localStorage.getItem('applypilot_token');
         const res = await fetch('/api/resume/parse', {
           method: 'POST',
@@ -98,24 +99,23 @@ export default function ExactResumeStudio({
           }),
         });
         const data = await res.json();
-        if (data?.resume) {
-          setPendingParsedResume(data.resume);
-          onUpdateResume(data.resume);
-          if (updateProfile) updateProfile({ savedResume: data.resume });
-          try {
-            localStorage.setItem('applypilot_resume', JSON.stringify(data.resume));
-          } catch {}
-        }
+        if (!res.ok || !data?.resume) throw new Error(data.error || 'Could not parse this resume.');
+        onUpdateResume(data.resume);
+        setStudioState('studio');
+        setActiveTab('home');
       } catch (err) {
-        console.error('Failed to parse uploaded resume:', err);
+        setExtractionError(err.message || 'Failed to parse the uploaded resume.');
+        setStudioState('upload');
       }
     };
+    reader.onerror = () => { setExtractionError('Could not read this file.'); setStudioState('upload'); };
     reader.readAsDataURL(file);
   };
 
   // Text Upload Handler
   const handleTextUpload = async (text) => {
     setUploadedFileName('Pasted_Resume.txt');
+    setExtractionError('');
     setStudioState('extracting');
     try {
       const token = localStorage.getItem('applypilot_token');
@@ -131,32 +131,14 @@ export default function ExactResumeStudio({
         }),
       });
       const data = await res.json();
-      if (data?.resume) {
-        setPendingParsedResume(data.resume);
-        onUpdateResume(data.resume);
-        if (updateProfile) updateProfile({ savedResume: data.resume });
-        try {
-          localStorage.setItem('applypilot_resume', JSON.stringify(data.resume));
-        } catch {}
-      }
+      if (!res.ok || !data?.resume) throw new Error(data.error || 'Could not parse the pasted resume.');
+      onUpdateResume(data.resume);
+      setStudioState('studio');
+      setActiveTab('home');
     } catch (err) {
-      console.error('Failed to parse pasted resume:', err);
+      setExtractionError(err.message || 'Failed to parse the pasted resume.');
+      setStudioState('upload');
     }
-  };
-
-  // Sample Load Handler
-  const handleLoadSample = () => {
-    setUploadedFileName('Nikhil_Singh_Resume.pdf');
-    setStudioState('extracting');
-  };
-
-  // Extraction Complete Handler
-  const handleExtractionComplete = () => {
-    if (pendingParsedResume) {
-      onUpdateResume(pendingParsedResume);
-    }
-    setStudioState('studio');
-    setActiveTab('home');
   };
 
   // Switch to Fix Drilldown
@@ -202,21 +184,7 @@ export default function ExactResumeStudio({
       next.summary = payload;
       changed = true;
     } else if (type === 'no-metric' || type === 'metrics') {
-      const metricSamples = [
-        'increasing throughput by 35% across 10,000+ daily active users',
-        'reducing latency by 42ms and ensuring 99.9% uptime',
-        'accelerating release cycle by 2.5x with automated CI/CD pipelines',
-        'saving 15+ engineering hours per week through modular architecture',
-      ];
-      let mIdx = 0;
-      (next.experience || []).forEach((exp) => {
-        (exp.bullets || []).forEach((b, bi) => {
-          if (!/\d+%|\d+x|\$\d+|\d+\s?(ms|seconds?|hours?|days?|users?|customers?|requests?)/i.test(b)) {
-            exp.bullets[bi] = b.replace(/\.$/, '') + `, ${metricSamples[mIdx++ % metricSamples.length]}.`;
-            changed = true;
-          }
-        });
-      });
+      // Metrics must come from the candidate; never synthesize resume claims.
     } else if (type === 'weak-opener' || type === 'action-verb') {
       const WEAK_OPENER_RE = /^(responsible for|worked on|helped with|assisted in|duties included|participated in|involved in|tasked with|was part of)\s*/i;
       const powerVerbs = ['Engineered', 'Architected', 'Spearheaded', 'Optimized', 'Streamlined', 'Deployed'];
@@ -272,7 +240,8 @@ export default function ExactResumeStudio({
       <ResumeUploadGateway
         onFileUpload={handleFileUpload}
         onTextUpload={handleTextUpload}
-        onLoadSample={handleLoadSample}
+        onLoadSample={() => handleTextUpload(SAMPLE_RESUMES.swe_intern.text)}
+        error={extractionError}
       />
     );
   }
@@ -280,10 +249,11 @@ export default function ExactResumeStudio({
   // 2. Extraction State: 3D Laser Scanner
   if (studioState === 'extracting') {
     return (
-      <Resume3DExtractorModal
-        fileName={uploadedFileName}
-        onComplete={handleExtractionComplete}
-      />
+      <div role="status" aria-live="polite" className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-950/80 text-white">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-600 border-t-indigo-400" />
+        <h2 className="font-semibold">Parsing {uploadedFileName}</h2>
+        <p className="text-sm text-slate-300">The parser is extracting your document. Progress is not estimated.</p>
+      </div>
     );
   }
 

@@ -9,7 +9,6 @@ export default defineConfig({
       '@applypilot/scraping': resolve(__dirname, './packages/scraping/src/index.ts'),
       '@applypilot/db': resolve(__dirname, './packages/db/src/index.ts'),
       '@applypilot/scoring': resolve(__dirname, './packages/scoring/src/index.ts'),
-      '@applypilot/ai-local': resolve(__dirname, './packages/ai-local/src/index.ts'),
       '@applypilot/parsing': resolve(__dirname, './packages/parsing/src/index.ts'),
       '@applypilot/security': resolve(__dirname, './packages/security/src/index.ts'),
     },

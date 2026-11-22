@@ -2,13 +2,23 @@ import { Router } from 'express';
 import { tailorResumeForJob } from '../profile/tailor-engine.js';
 import { getJob } from '../store/jobs.js';
 import { getResume, setResume } from '../store/resume.js';
+import { getDb } from '../store/db.js';
 
 export const tailorRouter = Router();
 
 async function handleTailorRequest(req, res) {
     try {
         const body = req.body || {};
-        let resume = body.resume || getResume();
+        const db = getDb();
+        let resume = body.resume || (req.user?.id
+            ? (() => {
+                const user = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(req.user.id);
+                const profile = user?.profile_json ? JSON.parse(user.profile_json) : {};
+                if (profile.savedResume) return profile.savedResume;
+                const row = db.prepare('SELECT profile_json FROM candidate_profiles WHERE id = ?').get(req.user.id);
+                return row?.profile_json ? JSON.parse(row.profile_json) : null;
+            })()
+            : (process.env.NODE_ENV === 'test' ? getResume() : null));
 
         if (!resume || typeof resume !== 'object') {
             return res.status(400).json({
@@ -18,7 +28,7 @@ async function handleTailorRequest(req, res) {
         }
 
         // Cache the incoming resume if provided
-        if (body.resume) {
+        if (body.resume && process.env.NODE_ENV === 'test') {
             try {
                 setResume(body.resume);
             } catch {}

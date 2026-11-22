@@ -47,12 +47,12 @@ export default function ResumeEditModal({
       experience: [
         ...(prev.experience || []),
         {
-          company: 'New Company',
-          role: 'Software Engineer',
-          title: 'Software Engineer',
-          dates: '2024 – Present',
-          location: 'Remote',
-          bullets: ['Engineered scalable microservices handling user requests.'],
+          company: '',
+          role: '',
+          title: '',
+          dates: '',
+          location: '',
+          bullets: [''],
         }
       ]
     }));
@@ -141,11 +141,11 @@ export default function ResumeEditModal({
       projects: [
         ...(prev.projects || []),
         {
-          name: 'Project Name',
-          tech: 'React, Node.js, TypeScript',
-          link: 'https://github.com/example/project',
-          description: 'High-performance web application designed for developer productivity.',
-          bullets: ['Built real-time telemetry pipelines.', 'Achieved 99.9% uptime.']
+          name: '',
+          tech: '',
+          link: '',
+          description: '',
+          bullets: ['']
         }
       ]
     }));

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   CanonicalJobSchema,
   toCanonicalJob,
-  JobSourceSchema,
   CompanySchema,
   LocationSchema,
   SkillSchema,
@@ -15,7 +14,7 @@ import {
   AtsScoreReportSchema,
   FitResultSchema,
 } from '../src/index.js';
-import { AppConfigSchema, loadConfig } from '../../config/src/index.js';
+import { loadConfig } from '../../config/src/index.js';
 
 describe('Phase 2 Domain Contracts — Canonical Schemas & Types', () => {
   describe('Company & Location', () => {

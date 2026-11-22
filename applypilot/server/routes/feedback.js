@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../store/db.js';
+import { requireAdmin } from '../security/auth.js';
 
 export const feedbackRouter = Router();
 
@@ -57,8 +58,8 @@ feedbackRouter.post('/', (req, res) => {
   }
 });
 
-// GET /api/feedback  (admin-only summary — protected by requireAuth in app.js)
-feedbackRouter.get('/', (req, res) => {
+// GET /api/feedback  (admin-only summary — protected by requireAdmin)
+feedbackRouter.get('/', requireAdmin, (req, res) => {
   try {
     if (!tableReady) { ensureTable(); tableReady = true; }
     const db = getDb();

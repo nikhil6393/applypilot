@@ -6,11 +6,11 @@ import { useAppStore } from '../store/appStore';
 import { ApplyPilotLogo } from './ApplyPilotLogo';
 export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailoredCount, }) => {
   const { user, setIsAuthModalOpen, setIsSettingsModalOpen, setAuthModalTab } = useAuth();
-  const { notifications, setIsNotificationDrawerOpen, bookmarkedJobIds, setAppMode, isScraperRunning, } = useAppStore();
+  const { notifications, setIsNotificationDrawerOpen, bookmarkedJobIds, setAppMode } = useAppStore();
   const unreadNotifs = notifications.filter((n) => !n.read).length;
   const navItems = [
     { id: 'analytics', label: 'Dashboard', icon: BarChart3 },
-    { id: 'discovery', label: 'Job Feed', icon: Search, badge: jobCount > 0 ? jobCount : undefined, liveDot: true },
+    { id: 'discovery', label: 'Job Feed', icon: Search, badge: jobCount > 0 ? jobCount : undefined },
     { id: 'scoring', label: 'Fit Score', icon: Zap, badge: scoredCount > 0 ? scoredCount : undefined },
     { id: 'tailor', label: 'Bulk Tailor', icon: Sparkles, badge: tailoredCount > 0 ? tailoredCount : undefined },
     { id: 'saved_jobs', label: 'Saved', icon: Bookmark, badge: bookmarkedJobIds.size > 0 ? bookmarkedJobIds.size : undefined },
@@ -18,8 +18,8 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
   return (<motion.header initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 350, damping: 28 }} className="sticky top-1.5 z-40 px-3 mb-2">
     <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-2xl bg-white/90 border border-slate-200/80 backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-colors duration-200">
       {/* Brand Emblem */}
-      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} id="nav-logo-btn" onClick={() => onSelectStep(currentStep === 'landing' ? 'analytics' : 'landing')} className="flex items-center gap-2 group flex-shrink-0 cursor-pointer" title="JobPulse Telemetry Platform">
-        <ApplyPilotLogo size={36} showText={true} badgeText="PRO" />
+      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} id="nav-logo-btn" onClick={() => onSelectStep(currentStep === 'landing' ? 'analytics' : 'landing')} className="flex items-center gap-2 group flex-shrink-0 cursor-pointer" title="ApplyPilot">
+        <ApplyPilotLogo size={36} showText={true} badgeText="" />
       </motion.button>
 
       {/* Clean Segmented Navigation */}
@@ -33,9 +33,6 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
             {isActive && (<motion.div layoutId="activeNavTab" className="absolute inset-0 rounded-lg bg-white border border-slate-200/80 shadow-xs" transition={{ type: 'spring', stiffness: 450, damping: 32 }} />)}
             <Icon className={`w-3.5 h-3.5 relative z-10 ${isActive ? 'text-[#5B7BE8]' : 'text-slate-400'}`} />
             <span className="relative z-10 whitespace-nowrap">{item.label}</span>
-
-            {/* Scraper Live pulsing green dot next to "Jobs" nav item as requested in prompt */}
-            {item.liveDot && (<span className="relative z-10 w-2 h-2 rounded-full bg-[#10B981] animate-pulse" title="Real-time scraper stream active" />)}
 
             {item.badge !== undefined && (<span className={`ml-0.5 text-[10px] font-sans font-semibold px-1.5 py-0.2 rounded-full relative z-10 ${isActive
               ? 'bg-[#EEF2FF] text-[#3D5FD9]'
@@ -57,7 +54,7 @@ export const Navbar = ({ currentStep, onSelectStep, jobCount, scoredCount, tailo
         </motion.button>
 
         {/* Notifications Bell */}
-        <button onClick={() => setIsNotificationDrawerOpen(true)} className="relative p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 text-slate-600 transition-colors cursor-pointer" title="Telemetry notifications">
+        <button onClick={() => setIsNotificationDrawerOpen(true)} className="relative p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/70 text-slate-600 transition-colors cursor-pointer" title="Notifications" aria-label="View notifications">
           <Bell className="w-3.5 h-3.5" />
           {unreadNotifs > 0 && (<span className="absolute -top-1 -right-1 w-4 h-4 bg-[#F43F5E] text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-xs">
             {unreadNotifs}

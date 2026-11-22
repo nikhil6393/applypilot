@@ -32,9 +32,6 @@
       "@applypilot/scoring": [
         "./packages/scoring/src/index.ts"
       ],
-      "@applypilot/ai-local": [
-        "./packages/ai-local/src/index.ts"
-      ],
       "@applypilot/parsing": [
         "./packages/parsing/src/index.ts"
       ],

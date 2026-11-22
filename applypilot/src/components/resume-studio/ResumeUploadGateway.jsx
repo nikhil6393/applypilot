@@ -9,7 +9,8 @@ import { UploadCloud, FileText, CheckCircle2, Shield, Zap, Sparkles, ArrowRight 
 export default function ResumeUploadGateway({
   onFileUpload,
   onTextUpload,
-  onLoadSample
+  onLoadSample,
+  error
 }) {
   const [dragActive, setDragActive] = useState(false);
   const [showPasteText, setShowPasteText] = useState(false);
@@ -51,15 +52,16 @@ export default function ResumeUploadGateway({
         {/* Header */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold mb-4">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>AI Resume Review & Scoring Studio</span>
+          <span>Resume Review and Scoring</span>
         </div>
 
         <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">
-          Upload Your Resume for Instant Review
+          Upload Your Resume for Review
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
-          Get an immediate ATS benchmark score, line-by-line recruiter feedback, and 1-click fixes with zero formatting changes.
+          Get a rule-based resume readability score and review suggested edits before applying them.
         </p>
+        {error && <p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
         {/* Drag and Drop Zone */}
         {!showPasteText ? (

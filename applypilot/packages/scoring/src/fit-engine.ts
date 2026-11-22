@@ -1,26 +1,74 @@
-import type { CanonicalJob, CanonicalResume, FitResult } from '@applypilot/domain';
-import { compareSkills, resolveSkill } from './taxonomy.js';
+import type { CanonicalJob, CanonicalResume } from '@applypilot/domain';
+import { compareSkills, extractKnownSkills, normalizeSkillList } from './taxonomy.js';
 
 export interface FitEngineOptions {
   version?: 'fit_engine_v1';
   preferredRemote?: boolean;
+  preferredWorkplace?: 'remote' | 'hybrid' | 'on-site';
   preferredLocations?: string[];
+  preferredEmploymentTypes?: string[];
 }
 
 export interface FitEvaluationEvidence {
-  category: 'hard_requirement' | 'skill_overlap' | 'location' | 'employment' | 'recency';
+  category:
+    | 'hard_requirement'
+    | 'skill_overlap'
+    | 'experience'
+    | 'role_alignment'
+    | 'preference'
+    | 'location'
+    | 'employment'
+    | 'recency';
   impact: number; // positive or negative score delta
   description: string;
 }
 
 export interface DetailedFitReport {
   scoringVersion: 'fit_engine_v1';
-  fitScore: number; // 0 to 100 integer
+  fitScore: number | null; // 0 to 100 integer, null when no comparable evidence exists
   matchedSkills: string[];
   missingSkills: string[];
+  availableEvidence: string[];
   evidence: FitEvaluationEvidence[];
   warnings: string[];
   evaluatedAt: string;
+}
+
+function getSkillNames(skills: unknown): string[] {
+  if (!Array.isArray(skills)) return [];
+  return skills
+    .map((skill) => (typeof skill === 'string' ? skill : skill?.name))
+    .filter((skill): skill is string => typeof skill === 'string' && skill.trim().length > 0);
+}
+
+function roleTokens(value: string): Set<string> {
+  const stopWords = new Set([
+    'engineer',
+    'developer',
+    'software',
+    'senior',
+    'junior',
+    'staff',
+    'principal',
+    'lead',
+    'specialist',
+  ]);
+  return new Set(
+    value
+      .toLowerCase()
+      .replace(/front[- ]end/g, 'frontend')
+      .replace(/back[- ]end/g, 'backend')
+      .match(/[a-z0-9+#.]+/g)
+      ?.filter((token) => token.length > 1 && !stopWords.has(token)) || [],
+  );
+}
+
+function roleOverlap(candidateRole: string, jobTitle: string): number {
+  const candidateTokens = roleTokens(candidateRole);
+  const jobTokens = roleTokens(jobTitle);
+  if (!candidateTokens.size || !jobTokens.size) return 0;
+  const overlap = [...candidateTokens].filter((token) => jobTokens.has(token)).length;
+  return overlap / new Set([...candidateTokens, ...jobTokens]).size;
 }
 
 export class DeterministicFitEngine {
@@ -35,151 +83,135 @@ export class DeterministicFitEngine {
     job: CanonicalJob,
     opts: FitEngineOptions = {}
   ): DetailedFitReport {
-    const evidence: FitEvaluationEvidence[] = [];
     const warnings: string[] = [];
-
-    // 1. Skill Taxonomy Comparison
-    const jobSkillNames = (job.skills || []).map((s) => (typeof s === 'string' ? s : s.name));
-    const resumeSkillNames = (resume.skills || []).map((s) => (typeof s === 'string' ? s : s.name));
+    const jobText = [
+      job.title,
+      job.description,
+      ...(job.requirements || []),
+      ...(job.responsibilities || []),
+    ].join(' ');
+    const jobSkillNames = normalizeSkillList([
+      ...getSkillNames(job.skills),
+      ...extractKnownSkills(jobText),
+    ]);
+    const resumeSkillNames = normalizeSkillList(getSkillNames(resume.skills));
     const skillComparison = compareSkills(jobSkillNames, resumeSkillNames);
+    const components: Array<{
+      category: FitEvaluationEvidence['category'];
+      weight: number;
+      score: number;
+      description: string;
+    }> = [];
 
-    // Baseline points from skill overlap (up to 50 pts)
-    const skillPoints = Math.round(skillComparison.overlapRatio * 50);
-    evidence.push({
-      category: 'skill_overlap',
-      impact: skillPoints,
-      description: `Matched ${skillComparison.matchedSkills.length} of ${jobSkillNames.length} key skills (${skillPoints}/50 pts)`,
-    });
+    if (jobSkillNames.length > 0 && resumeSkillNames.length > 0) {
+      components.push({
+        category: 'skill_overlap',
+        weight: 50,
+        score: skillComparison.overlapRatio,
+        description: `Skills: ${skillComparison.matchedSkills.length} of ${jobSkillNames.length} matched`,
+      });
+    }
 
-    // 2. Experience Evidence (up to 20 pts)
-    let experiencePoints = 0;
-    const resumeExpText = (resume.experience || [])
-      .map((e) => `${e.title || e.role || ''} ${e.company || ''} ${e.bullets?.join(' ') || ''}`)
+    const experienceText = [
+      ...(resume.experience || []).map(
+        (item) => `${item.title || item.role || ''} ${item.company || ''} ${(item.bullets || []).join(' ')}`,
+      ),
+      ...(resume.projects || []).map(
+        (item) => `${item.name || ''} ${item.description || ''} ${(item.tech || []).join(' ')} ${(item.bullets || []).join(' ')}`,
+      ),
+    ]
       .join(' ')
       .toLowerCase();
 
-    let matchedInExperienceCount = 0;
-    for (const skill of skillComparison.matchedSkills) {
-      if (resumeExpText.includes(skill.toLowerCase())) {
-        matchedInExperienceCount++;
-      }
-    }
-
-    if (skillComparison.matchedSkills.length > 0) {
-      const expRatio = matchedInExperienceCount / skillComparison.matchedSkills.length;
-      experiencePoints = Math.round(expRatio * 20);
-    }
-    evidence.push({
-      category: 'skill_overlap',
-      impact: experiencePoints,
-      description: `Hands-on work experience mentions for ${matchedInExperienceCount} matched skills (${experiencePoints}/20 pts)`,
-    });
-
-    // 3. Location / Remote Compatibility (up to 15 pts)
-    let locationPoints = 10;
-    if (job.remoteType === 'remote') {
-      locationPoints = 15;
-      evidence.push({
-        category: 'location',
-        impact: 15,
-        description: 'Fully remote role matching candidate availability (+15 pts)',
+    if (jobSkillNames.length > 0 && experienceText.trim()) {
+      const evidencedSkills = jobSkillNames.filter((skill) =>
+        experienceText.includes(skill.toLowerCase()),
+      ).length;
+      components.push({
+        category: 'experience',
+        weight: 20,
+        score: evidencedSkills / jobSkillNames.length,
+        description: `Experience/projects mention ${evidencedSkills} of ${jobSkillNames.length} listed skills`,
       });
-    } else if (opts.preferredLocations && opts.preferredLocations.length > 0) {
-      const jobLoc = (job.locations[0]?.raw || '').toLowerCase();
-      const matchesPref = opts.preferredLocations.some((loc) =>
-        jobLoc.includes(loc.toLowerCase())
+    }
+
+    const candidateRoles = [
+      ...(resume.targetRoles || []),
+      ...(resume.experience || []).map((item) => item.title || item.role || ''),
+    ].filter(Boolean);
+    if (candidateRoles.length > 0 && job.title) {
+      const roleScore = Math.max(...candidateRoles.map((role) => roleOverlap(role, job.title)));
+      components.push({
+        category: 'role_alignment',
+        weight: 20,
+        score: roleScore,
+        description: `Role alignment: ${Math.round(roleScore * 100)}%`,
+      });
+    }
+
+    const preferenceMatches: number[] = [];
+    if (opts.preferredWorkplace && job.remoteType !== 'unknown') {
+      preferenceMatches.push(Number(job.remoteType === opts.preferredWorkplace));
+    } else if (opts.preferredRemote !== undefined && job.remoteType !== 'unknown') {
+      preferenceMatches.push(Number((job.remoteType === 'remote') === opts.preferredRemote));
+    }
+    if (opts.preferredLocations?.length && job.locations?.length) {
+      const jobLocations = job.locations.map((location) => (location.raw || '').toLowerCase());
+      preferenceMatches.push(
+        Number(opts.preferredLocations.some((preferred) =>
+          jobLocations.some((location) => location.includes(preferred.toLowerCase())),
+        )),
       );
-      if (matchesPref) {
-        locationPoints = 15;
-        evidence.push({
-          category: 'location',
-          impact: 15,
-          description: `Location aligns with preferred locations: ${job.locations[0]?.raw} (+15 pts)`,
-        });
-      } else {
-        locationPoints = 5;
-        evidence.push({
-          category: 'location',
-          impact: 5,
-          description: `On-site/Hybrid position in ${job.locations[0]?.raw || 'specified office'} (+5 pts)`,
-        });
-      }
-    } else {
-      evidence.push({
-        category: 'location',
-        impact: 10,
-        description: 'Location considered compatible (+10 pts)',
+    }
+    if (opts.preferredEmploymentTypes?.length && job.employmentType !== 'unknown') {
+      const employmentType = job.employmentType.toLowerCase().replace(/_/g, '-');
+      preferenceMatches.push(
+        Number(opts.preferredEmploymentTypes.some(
+          (preferred) => preferred.toLowerCase().replace(/_/g, '-') === employmentType,
+        )),
+      );
+    }
+    if (preferenceMatches.length > 0) {
+      components.push({
+        category: 'preference',
+        weight: 10,
+        score: preferenceMatches.reduce((sum, match) => sum + match, 0) / preferenceMatches.length,
+        description: `Explicit preferences matched ${preferenceMatches.filter(Boolean).length} of ${preferenceMatches.length} known job details`,
       });
     }
 
-    // 4. Recency Boost (up to 15 pts)
-    let recencyPoints = 5;
-    if (job.postedAt) {
-      const postedTime = Date.parse(job.postedAt);
-      if (Number.isFinite(postedTime)) {
-        const hoursAgo = (Date.now() - postedTime) / 3600_000;
-        if (hoursAgo <= 24) {
-          recencyPoints = 15;
-          evidence.push({
-            category: 'recency',
-            impact: 15,
-            description: `Posted within last 24h (~${Math.round(hoursAgo)}h ago) (+15 pts)`,
-          });
-        } else if (hoursAgo <= 72) {
-          recencyPoints = 10;
-          evidence.push({
-            category: 'recency',
-            impact: 10,
-            description: `Posted within last 3 days (+10 pts)`,
-          });
-        } else {
-          evidence.push({
-            category: 'recency',
-            impact: 5,
-            description: `Standard posting active for >3 days (+5 pts)`,
-          });
-        }
-      }
-    } else {
-      evidence.push({
-        category: 'recency',
-        impact: 5,
-        description: 'Default recency score (+5 pts)',
-      });
-    }
-
-    // 5. Hard Requirements & Missing Critical Skills Penalty
-    let penalties = 0;
     if (job.requirements && job.requirements.length > 0) {
       for (const req of job.requirements) {
         const reqLower = req.toLowerCase();
-        // Check if mandatory requirement requires a skill that is completely missing
         for (const missing of skillComparison.missingSkills) {
           if (reqLower.includes(missing.toLowerCase())) {
-            penalties += 5;
             warnings.push(`Missing mandatory requirement: ${missing}`);
           }
         }
       }
     }
 
-    if (penalties > 0) {
-      evidence.push({
-        category: 'hard_requirement',
-        impact: -penalties,
-        description: `Deduction for ${warnings.length} missing stated requirements (-${penalties} pts)`,
-      });
-    }
-
-    // Sum and clamp to 0-100
-    const rawTotal = skillPoints + experiencePoints + locationPoints + recencyPoints - penalties;
-    const finalScore = Math.max(0, Math.min(100, rawTotal));
+    const availableWeight = components.reduce((sum, component) => sum + component.weight, 0);
+    const weightedScore = components.reduce(
+      (sum, component) => sum + component.score * component.weight,
+      0,
+    );
+    const evidence = components.map((component) => ({
+      category: component.category,
+      impact: availableWeight
+        ? Math.round((component.score * component.weight * 100) / availableWeight)
+        : 0,
+      description: component.description,
+    }));
 
     return {
       scoringVersion: this.version,
-      fitScore: finalScore,
+      fitScore: availableWeight
+        ? Math.max(0, Math.min(100, Math.round((weightedScore / availableWeight) * 100)))
+        : null,
       matchedSkills: skillComparison.matchedSkills,
       missingSkills: skillComparison.missingSkills,
+      availableEvidence: components.map((component) => component.category),
       evidence,
       warnings,
       evaluatedAt: new Date().toISOString(),

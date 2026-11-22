@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isJobLocationMatch } from '../scrape/geo-resolver.js';
-import { validateJobPosting, isJobRoleMatch, isJobTypeMatch, filterJobsStrict, } from '../scrape/validator.js';
+import { validateJobPosting, isJobRoleMatch, isJobTypeMatch, filterJobsStrict, filterJobsByCriteria, } from '../scrape/validator.js';
 describe('Geo-Resolver: Hierarchical Multi-Location Matching', () => {
     it('matches Indian tech hubs to "India" searches', () => {
         expect(isJobLocationMatch('Bengaluru, Karnataka', 'India')).toBe(true);
@@ -45,6 +45,10 @@ describe('Validator: Expanded Student & Internship Role Classification', () => {
         expect(isJobTypeMatch('Associate SDE - Campus Hiring 2026', 'internship')).toBe(true);
         expect(isJobTypeMatch('Software Engineer Apprentice', 'internship')).toBe(true);
         expect(isJobTypeMatch('Machine Learning Fellow', 'internship')).toBe(true);
+    });
+    it('matches contract roles without throwing and excludes part-time work from full-time', () => {
+        expect(isJobTypeMatch({ title: 'Software Consultant', employmentType: 'contract' }, 'contract')).toBe(true);
+        expect(isJobTypeMatch({ title: 'Software Engineer', employmentType: 'part-time' }, 'fulltime')).toBe(false);
     });
     it('validates new job sources: internshala, unstop, simplify_jobs, linkedin_dork', () => {
         const internshalaJob = {
@@ -130,6 +134,87 @@ describe('Strict Filtering Pipeline with Geo & Role Matching', () => {
         const filtered = filterJobsStrict(sampleJobs, {
             jobType: 'internship',
         });
-        expect(filtered.map((j) => j.id)).toEqual(['1', '3']);
+        expect(filtered.map((j) => j.id)).toEqual(['1', '2', '3']);
+        expect(filtered.find((j) => j.id === '2').unverifiedFilters).toContain('job type');
+    });
+});
+
+describe('Filter evidence for incomplete source data', () => {
+    const makeJob = (overrides = {}) => ({
+        id: 'unknown-job',
+        title: 'Software Engineer',
+        company: 'Example Co',
+        source: 'naukri',
+        url: 'https://example.com/jobs/1',
+        location: '',
+        remote: undefined,
+        employmentType: 'unknown',
+        ...overrides,
+    });
+
+    it('keeps an unknown location marked while excluding a known location mismatch', () => {
+        const jobs = [
+            makeJob(),
+            makeJob({ id: 'foreign-job', location: 'London, UK' }),
+            makeJob({ id: 'generic-remote-job', location: 'Remote / Worldwide', remote: true }),
+        ];
+
+        const filtered = filterJobsByCriteria(jobs, { location: 'India' });
+
+        expect(filtered.map((job) => job.id)).toEqual(['unknown-job', 'generic-remote-job']);
+        expect(filtered[0].unverifiedFilters).toContain('location');
+        expect(filtered[1].unverifiedFilters).toContain('location');
+        expect(filtered[0].unverifiedFilters).toContain('posted date');
+    });
+
+    it('keeps an unknown job type marked when an internship filter is active', () => {
+        const filtered = filterJobsByCriteria(
+            [makeJob()],
+            { jobType: 'internship' },
+        );
+
+        expect(filtered).toHaveLength(1);
+        expect(filtered[0].unverifiedFilters).toContain('job type');
+    });
+
+    it('keeps an unknown workplace marked instead of assuming onsite', () => {
+        const filtered = filterJobsByCriteria(
+            [makeJob()],
+            { workplaceType: 'remote' },
+        );
+
+        expect(filtered).toHaveLength(1);
+        expect(filtered[0].unverifiedFilters).toContain('workplace');
+    });
+
+    it('keeps unknown batch and seniority data visible as unverified', () => {
+        const job = makeJob({ location: 'Bengaluru, India' });
+        const batchFiltered = filterJobsByCriteria([job], { batchYear: '2028' });
+        const seniorityFiltered = filterJobsByCriteria([job], { seniorityLevel: 'senior' });
+
+        expect(batchFiltered).toHaveLength(1);
+        expect(batchFiltered[0].unverifiedFilters).toContain('batch');
+        expect(seniorityFiltered).toHaveLength(1);
+        expect(seniorityFiltered[0].unverifiedFilters).toContain('seniority');
+    });
+
+    it('preserves known filter mismatches as exclusions', () => {
+        const jobs = [
+            makeJob({ id: 'known-intern', title: 'Software Engineer Intern', employmentType: 'internship' }),
+            makeJob({ id: 'known-batch', location: 'Bengaluru, India', eligibleBatches: ['2027'] }),
+            makeJob({ id: 'known-workplace', location: 'Bengaluru, India', remote: true }),
+        ];
+
+        expect(filterJobsByCriteria([jobs[0]], { jobType: 'fulltime' })).toEqual([]);
+        expect(filterJobsByCriteria(jobs.slice(1, 2), { batchYear: '2028' })).toEqual([]);
+        expect(filterJobsByCriteria(jobs.slice(2), { workplaceType: 'onsite' })).toEqual([]);
+    });
+
+    it('does not convert missing location and workplace data into Remote', () => {
+        const result = validateJobPosting(makeJob());
+
+        expect(result.valid).toBe(true);
+        expect(result.job.location).toBe('');
+        expect(result.job.remote).toBeUndefined();
     });
 });

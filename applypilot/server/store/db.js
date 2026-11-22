@@ -5,6 +5,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { supabase } from './supabase.js';
 const DATA_DIR = path.join(process.cwd(), 'data');
 try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -41,7 +42,56 @@ export function getDb() {
 export function initDb() {
     const db = getDb();
     seedDefaultTemplate(db);
+    hydrateFromSupabase(db).catch(e => console.warn('[DB] Supabase async hydration error:', e.message));
     return db;
+}
+
+export async function hydrateFromSupabase(db) {
+    if (!supabase.isConfigured()) return;
+    try {
+        const [users, tracker, jobs] = await Promise.all([
+            supabase.from('users').select().catch(() => []),
+            supabase.from('tracker').select().catch(() => []),
+            supabase.from('jobs').select('limit=1500').catch(() => [])
+        ]);
+
+        if (users && users.length > 0) {
+            const insertUser = db.prepare(`
+                INSERT OR IGNORE INTO users (id, name, email, password_hash, salt, role_title, tier, role, avatar, profile_json, created_at, last_login)
+                VALUES (@id, @name, @email, @password_hash, @salt, @role_title, @tier, @role, @avatar, @profile_json, @created_at, @last_login)
+            `);
+            const runMany = db.transaction((rows) => {
+                for (const u of rows) insertUser.run(u);
+            });
+            runMany(users);
+        }
+
+        if (tracker && tracker.length > 0) {
+            const insertTracker = db.prepare(`
+                INSERT OR IGNORE INTO tracker (id, user_id, job_id, job_title, company, apply_url, status, notes, created_at, updated_at)
+                VALUES (@id, @user_id, @job_id, @job_title, @company, @apply_url, @status, @notes, @created_at, @updated_at)
+            `);
+            const runMany = db.transaction((rows) => {
+                for (const t of rows) insertTracker.run(t);
+            });
+            runMany(tracker);
+        }
+
+        if (jobs && jobs.length > 0) {
+            const insertJob = db.prepare(`
+                INSERT OR IGNORE INTO jobs (id, title, company, source, url, apply_url, location, remote, description, description_html, posted_at, fetched_at, employment_type, salary_min, salary_max, salary_currency, skills, company_logo, hash, raw)
+                VALUES (@id, @title, @company, @source, @url, @apply_url, @location, @remote, @description, @description_html, @posted_at, @fetched_at, @employment_type, @salary_min, @salary_max, @salary_currency, @skills, @company_logo, @hash, @raw)
+            `);
+            const runMany = db.transaction((rows) => {
+                for (const j of rows) insertJob.run(j);
+            });
+            runMany(jobs);
+        }
+
+        console.log(`[DB] Successfully hydrated from Supabase: ${users?.length || 0} users, ${tracker?.length || 0} tracker items, ${jobs?.length || 0} jobs.`);
+    } catch (err) {
+        console.warn('[DB] Supabase hydration warning:', err.message);
+    }
 }
 export function closeDb() {
     if (_db) {

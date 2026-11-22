@@ -4,7 +4,6 @@ import {
   Download, Copy, Check, Briefcase, MapPin, Building,
   Layers, RefreshCw, FileText, ExternalLink, ChevronRight, Zap
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
 // Comprehensive dictionary of high-demand technical keywords, tools, concepts & architectures
 const KNOWN_TECH_KEYWORDS = [
@@ -127,8 +126,6 @@ export default function JobKeywordTailorModal({
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'matched' | 'missing'
   const [activeTab, setActiveTab] = useState('bullets'); // 'bullets' | 'summary' | 'skills' | 'cover_letter' | 'jd'
   const [searchQuery, setSearchQuery] = useState('');
-  const [isTailoring, setIsTailoring] = useState(false);
-  const [isTailored, setIsTailored] = useState(false);
   const [copiedType, setCopiedType] = useState(null);
 
   // Local working copy of resume during tailoring
@@ -136,7 +133,6 @@ export default function JobKeywordTailorModal({
 
   useEffect(() => {
     setWorkingResume(resume);
-    setIsTailored(false);
   }, [resume, job]);
 
   // Extract all keywords from this specific job
@@ -157,8 +153,8 @@ export default function JobKeywordTailorModal({
       }
     });
 
-    const total = allJobKeywords.length || 1;
-    const matchRate = Math.min(100, Math.round((matched.length / total) * 100));
+    const total = allJobKeywords.length;
+    const matchRate = total ? Math.round((matched.length / total) * 100) : null;
 
     return {
       all: allJobKeywords,
@@ -184,92 +180,6 @@ export default function JobKeywordTailorModal({
 
   if (!isOpen || !job) return null;
 
-  // 1-Click: Tailor Resume to match EVERY single keyword
-  const handleAutoTailorAllKeywords = () => {
-    setIsTailoring(true);
-
-    setTimeout(() => {
-      const next = JSON.parse(JSON.stringify(workingResume || {}));
-      const missing = [...keywordAnalysis.missing];
-
-      // 1. Add missing skills to resume skills
-      if (Array.isArray(next.skills)) {
-        missing.forEach(m => {
-          if (!next.skills.some(s => s.toLowerCase() === m.toLowerCase())) {
-            next.skills.push(m);
-          }
-        });
-      } else if (typeof next.skills === 'object' && next.skills !== null) {
-        if (!next.skills.frameworks) next.skills.frameworks = [];
-        if (!next.skills.tools) next.skills.tools = [];
-        missing.forEach(m => {
-          const lower = m.toLowerCase();
-          const targetCategory = (lower.includes('aws') || lower.includes('docker') || lower.includes('kubernetes') || lower.includes('ci/cd'))
-            ? 'tools'
-            : 'frameworks';
-          if (!next.skills[targetCategory]) next.skills[targetCategory] = [];
-          if (!next.skills[targetCategory].some(s => s.toLowerCase() === lower)) {
-            next.skills[targetCategory].push(m);
-          }
-        });
-      } else {
-        next.skills = Array.from(new Set([...missing, 'JavaScript', 'React', 'Node.js', 'SQL']));
-      }
-
-      // 2. Tailor summary mentioning job title, company, and primary missing keywords
-      const candidateName = next.fullName || next.name || 'Candidate';
-      const keySkillsSample = [...keywordAnalysis.matched, ...missing].slice(0, 4).join(', ');
-      next.summary = `${candidateName} is an accomplished Software Engineer with verified proficiencies in ${keySkillsSample}. Demonstrated background in engineering resilient distributed systems, modern full-stack architectures, and high-throughput APIs, tailored to drive engineering excellence as ${job.title} at ${job.company}.`;
-
-      // 3. Enhance experience bullets with missing keywords using Google XYZ & STAR formula
-      if (next.experience && next.experience.length > 0) {
-        const keywordsToInject = [...missing];
-        const powerVerbs = ['Architected', 'Engineered', 'Optimized', 'Spearheaded', 'Deployed', 'Implemented', 'Streamlined'];
-        let verbIdx = 0;
-
-        next.experience.forEach((exp, expIdx) => {
-          if (exp.bullets && exp.bullets.length > 0) {
-            // Pick a bullet to enhance
-            const bIdx = exp.bullets.length - 1;
-            const original = exp.bullets[bIdx];
-            if (keywordsToInject.length > 0) {
-              const kw1 = keywordsToInject.shift();
-              const kw2 = keywordsToInject.length > 0 ? keywordsToInject.shift() : null;
-              const verb = powerVerbs[(expIdx + verbIdx++) % powerVerbs.length];
-
-              if (kw2) {
-                exp.bullets[bIdx] = `${verb} scalable workflows utilizing ${kw1} and ${kw2}, accelerating end-to-end release velocity by 32% across production microservices.`;
-              } else {
-                exp.bullets[bIdx] = `${original.replace(/\.$/, '')} utilizing ${kw1} to optimize latency and ensure 99.9% uptime.`;
-              }
-            }
-          }
-        });
-
-        // If there are still missing keywords, add a targeted project bullet or experience bullet
-        if (keywordsToInject.length > 0 && next.experience[0]?.bullets) {
-          const remainingKeywords = keywordsToInject.splice(0, 3).join(' and ');
-          next.experience[0].bullets.unshift(
-            `Spearheaded the integration of ${remainingKeywords}, improving system modularity and reducing deployment cycles by 40%.`
-          );
-        }
-      }
-
-      setWorkingResume(next);
-      setIsTailoring(false);
-      setIsTailored(true);
-      confetti({ particleCount: 70, spread: 80, origin: { y: 0.5 } });
-
-      if (onAddToast) {
-        onAddToast({
-          type: 'success',
-          title: 'Resume 100% Tailored!',
-          message: `All ${missing.length} missing keywords matched to ${job.title} at ${job.company}.`,
-        });
-      }
-    }, 450);
-  };
-
   // 1-Click: Save as active resume across whole platform
   const handleSaveActiveResume = () => {
     if (onUpdateResume && workingResume) {
@@ -281,7 +191,7 @@ export default function JobKeywordTailorModal({
         onAddToast({
           type: 'success',
           title: 'Active Resume Updated',
-          message: `Your tailored resume for ${job.company} is now active in Resume Studio and Job Applications!`,
+          message: 'Your current resume is now active in Resume Studio.',
         });
       }
     }
@@ -289,16 +199,7 @@ export default function JobKeywordTailorModal({
 
   // Add individual keyword
   const handleAddSingleKeyword = (kw) => {
-    const next = JSON.parse(JSON.stringify(workingResume || {}));
-    if (Array.isArray(next.skills)) {
-      if (!next.skills.includes(kw)) next.skills.push(kw);
-    } else if (typeof next.skills === 'object' && next.skills !== null) {
-      if (!next.skills.tools) next.skills.tools = [];
-      if (!next.skills.tools.includes(kw)) next.skills.tools.push(kw);
-    } else {
-      next.skills = [kw];
-    }
-    setWorkingResume(next);
+    if (onAddToast) onAddToast({ type: 'info', title: 'Verify this skill first', message: `Add “${kw}” only if it reflects your real experience.` });
   };
 
   // Copy helpers
@@ -311,11 +212,10 @@ export default function JobKeywordTailorModal({
   const candidateName = workingResume?.fullName || workingResume?.name || 'Candidate';
   const coverLetterText = `Dear Hiring Team at ${job.company},
 
-I am writing to express my enthusiastic interest in the ${job.title} position. Having reviewed your job description and technical requirements, my background with ${allJobKeywords.slice(0, 4).join(', ')} directly aligns with your team's objectives.
+I am applying for the ${job.title} position. Please add a short example of relevant work you personally completed, including the context, your contribution, and any result you can verify.
 
-Throughout my experience, I have focused on engineering resilient architectures, optimizing system performance, and delivering high-quality user experiences. I am confident that my technical versatility and hands-on problem-solving abilities will enable me to contribute meaningfully to ${job.company} from day one.
-
-Thank you for your time and consideration. I welcome the opportunity to discuss how my skill set can support your engineering initiatives.
+Job description keywords to review: ${allJobKeywords.join(', ') || 'No keywords detected'}.
+Only include keywords that accurately describe your skills and experience.
 
 Sincerely,
 ${candidateName}`;
@@ -341,7 +241,7 @@ ${candidateName}`;
               <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
                 <span>{job.title}</span>
                 <span>•</span>
-                <span>{job.location || 'Remote'}</span>
+                <span>{job.location || 'Location not provided'}</span>
                 {job.workplace && <span>• {job.workplace}</span>}
               </p>
             </div>
@@ -369,7 +269,7 @@ ${candidateName}`;
                     stroke={keywordAnalysis.matchRate >= 85 ? '#10b981' : keywordAnalysis.matchRate >= 60 ? '#f59e0b' : '#6366f1'}
                     strokeWidth="6"
                     strokeDasharray={175.9}
-                    strokeDashoffset={175.9 - (keywordAnalysis.matchRate / 100) * 175.9}
+                    strokeDashoffset={175.9 - ((keywordAnalysis.matchRate || 0) / 100) * 175.9}
                     strokeLinecap="round"
                     fill="transparent"
                     style={{ transition: 'stroke-dashoffset 0.8s ease' }}
@@ -377,7 +277,7 @@ ${candidateName}`;
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-base font-black text-slate-900 dark:text-white leading-none">
-                    {keywordAnalysis.matchRate}%
+                    {keywordAnalysis.matchRate === null ? '?' : `${keywordAnalysis.matchRate}%`}
                   </span>
                   <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">MATCH</span>
                 </div>
@@ -385,11 +285,7 @@ ${candidateName}`;
 
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {keywordAnalysis.matchRate >= 95
-                    ? '🎉 100% Keywords Matched! ATS Verified'
-                    : keywordAnalysis.matchRate >= 70
-                    ? 'Strong Match — Bridge remaining keywords to reach 100%'
-                    : `${keywordAnalysis.missing.length} Target Keywords Missing from Resume`}
+                  {keywordAnalysis.total === 0 ? 'No job keywords detected' : `${keywordAnalysis.missing.length} job keywords were not found in the resume`}
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{keywordAnalysis.matched.length} matched</strong>
@@ -400,35 +296,7 @@ ${candidateName}`;
               </div>
             </div>
 
-            {/* Auto Tailor Button */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                onClick={handleAutoTailorAllKeywords}
-                disabled={isTailoring || keywordAnalysis.missing.length === 0}
-                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  keywordAnalysis.missing.length === 0
-                    ? 'bg-emerald-600 text-white cursor-default'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/25 active:scale-95'
-                }`}
-              >
-                {isTailoring ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Matching Keywords...</span>
-                  </>
-                ) : keywordAnalysis.missing.length === 0 ? (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>100% Keywords Matched</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4 fill-current text-amber-300" />
-                    <span>⚡ Auto-Tailor to 100% Match</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <p className="max-w-sm text-xs text-slate-500">Missing keywords are prompts to review. Add them only if they reflect your experience.</p>
           </div>
 
           {/* Section: Keyword Matrix */}
@@ -510,9 +378,9 @@ ${candidateName}`;
                         <button
                           onClick={() => handleAddSingleKeyword(kw)}
                           className="ml-1 text-[10px] font-bold text-rose-600 hover:text-rose-800 dark:hover:text-rose-200 underline cursor-pointer"
-                          title="Add to skills"
+                          title="Verify this skill before adding it"
                         >
-                          +Add
+                          Verify
                         </button>
                       )}
                     </div>
@@ -534,7 +402,7 @@ ${candidateName}`;
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                   }`}
                 >
-                  Tailored Bullets ({workingResume?.experience?.[0]?.bullets?.length || 0})
+                  Experience Bullets ({workingResume?.experience?.[0]?.bullets?.length || 0})
                 </button>
                 <button
                   onClick={() => setActiveTab('summary')}
@@ -544,7 +412,7 @@ ${candidateName}`;
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                   }`}
                 >
-                  Tailored Summary
+                  Current Summary
                 </button>
                 <button
                   onClick={() => setActiveTab('skills')}
@@ -554,7 +422,7 @@ ${candidateName}`;
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                   }`}
                 >
-                  Tailored Skills List
+                  Current Skills
                 </button>
                 <button
                   onClick={() => setActiveTab('cover_letter')}
@@ -615,11 +483,11 @@ ${candidateName}`;
               </div>
             )}
 
-            {/* Tab 2: Tailored Summary */}
+            {/* Tab 2: Current Summary */}
             {activeTab === 'summary' && (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Targeted Professional Summary</span>
+                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Current Professional Summary</span>
                   <button
                     onClick={() => handleCopyText(workingResume?.summary || '', 'summary')}
                     className="text-indigo-600 hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
@@ -636,7 +504,7 @@ ${candidateName}`;
             {activeTab === 'skills' && (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-3">
                 <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] block">
-                  Active Resume Skills Enriched with Job Keywords
+                  Skills currently listed on your resume
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {(Array.isArray(workingResume?.skills)

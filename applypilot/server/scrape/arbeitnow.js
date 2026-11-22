@@ -104,8 +104,8 @@ export async function arbeitnow(req) {
                 url: applyUrl,
                 applyUrl,
                 companyLogo: resolveCompanyLogo(item.company_name, item.company_logo_url || item.company_logo || item.logo, applyUrl),
-                location: item.location || (item.remote ? 'Remote / Worldwide' : 'Worldwide'),
-                remote: Boolean(item.remote),
+                location: item.location || '',
+                remote: typeof item.remote === 'boolean' ? item.remote : undefined,
                 description: cleanDesc,
                 descriptionHtml: item.description,
                 postedDate: new Date(postedMs).toISOString(),
@@ -117,7 +117,7 @@ export async function arbeitnow(req) {
                 skills: Array.isArray(item.tags) ? item.tags : [],
                 tags,
                 fetchedAt: new Date().toISOString(),
-                employmentType: isIntern ? 'internship' : 'full-time',
+                employmentType: isIntern ? 'internship' : 'unknown',
             });
             if (out.length >= max)
                 break;

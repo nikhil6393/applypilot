@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 class ScrapeCache {
     cache = new Map();
-    defaultTtlMs = 3 * 60 * 1000; // 3 minutes TTL default
+    defaultTtlMs = 20 * 60 * 1000; // 20 minutes TTL — ATS boards update slowly, reduces redundant requests
     maxEntries = 250;
     hits = 0;
     misses = 0;

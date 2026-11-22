@@ -8,6 +8,18 @@ export default defineConfig(() => {
         resolve: {
             alias: {
                 '@': path.resolve(__dirname, '.'),
+                '@applypilot/domain': path.resolve(__dirname, 'packages/domain/src/index.ts'),
+            },
+        },
+        build: {
+            chunkSizeWarningLimit: 600,
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        vendor_three: ['three'],
+                        vendor_icons: ['lucide-react'],
+                    },
+                },
             },
         },
         server: {

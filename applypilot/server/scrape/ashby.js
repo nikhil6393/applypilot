@@ -21,7 +21,7 @@ export async function ashby(req) {
     const cached = scrapeCache.get(cacheKey);
     if (cached)
         return cached;
-    const max = Math.max(1, Math.min(100, req.maxPerSource ?? 25));
+    const max = Math.max(1, Math.min(300, req.maxPerSource ?? 80));
     const out = [];
     const queryLower = (req.query || '').toLowerCase();
     const requireIntern = req.internshipsOnly !== false &&
@@ -41,7 +41,7 @@ export async function ashby(req) {
     const fetchBoard = async (c) => {
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 2500);
+            const timeout = setTimeout(() => controller.abort(), 4500);
             const res = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${c}`, {
                 headers: { 'User-Agent': 'ApplyPilot/2.0' },
                 signal: controller.signal,
@@ -79,9 +79,10 @@ export async function ashby(req) {
                 const sections = extractStructuredSections(cleanMarkdown);
                 if (!j.applyUrl)
                     continue;
-                const pubMs = j.publishedAt ? new Date(j.publishedAt).getTime() : Date.now();
+                const rawDateStr = j.publishedAt || j.createdAt || j.updatedAt || j.openedAt;
+                const pubMs = rawDateStr ? new Date(rawDateStr).getTime() : (Date.now() - 86400000 * 14);
                 const diffMin = Math.max(0, Math.floor((Date.now() - pubMs) / 60000));
-                let rel = 'Just now';
+                let rel = 'Active Opening';
                 if (diffMin < 60)
                     rel = `${diffMin}m ago`;
                 else if (diffMin < 1440)
@@ -115,7 +116,7 @@ export async function ashby(req) {
                     source: 'ashby',
                     url: j.applyUrl,
                     applyUrl: j.applyUrl,
-                    location: j.location || 'Worldwide',
+                    location: j.location || '',
                     remote,
                     description: desc,
                     descriptionHtml: j.descriptionHtml,
@@ -124,11 +125,11 @@ export async function ashby(req) {
                     requirements: sections.requirements,
                     preferred: sections.preferred,
                     benefits: sections.benefits,
-                    postedAt: j.publishedAt || new Date().toISOString(),
-                    postedDate: j.publishedAt || new Date().toISOString(),
+                    postedAt: j.publishedAt || '',
+                    postedDate: j.publishedAt || undefined,
                     postedRelative: rel,
                     fetchedAt: new Date().toISOString(),
-                    employmentType: isIntern ? 'internship' : 'full-time',
+                    employmentType: isIntern ? 'internship' : 'unknown',
                     isInternship: isIntern,
                     sponsorsVisa: meta.sponsorsVisa,
                     eligibleBatches: meta.eligibleBatches,
@@ -146,20 +147,19 @@ export async function ashby(req) {
             return [];
         }
     };
-    // Parallel batch execution with chunk size 12
-    const batches = chunkArray(ASHBY_BOARDS.slice(0, 24), 12);
-    for (const batch of batches) {
-        const results = await Promise.allSettled(batch.map((c) => fetchBoard(c)));
-        for (const r of results) {
-            if (r.status === 'fulfilled' && r.value.length > 0) {
-                out.push(...r.value);
-                if (out.length >= max)
-                    break;
-            }
+    // Run ALL Ashby boards in a single parallel wave — no sequential batching, no early exit
+    const results = await Promise.allSettled(ASHBY_BOARDS.map((c) => fetchBoard(c)));
+    for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.length > 0) {
+            out.push(...r.value);
         }
-        if (out.length >= max)
-            break;
     }
+    // Sort by recency — most recent first
+    out.sort((a, b) => {
+        const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+        const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+        return tb - ta;
+    });
     const finalJobs = out.slice(0, max);
     scrapeCache.set(cacheKey, finalJobs);
     return finalJobs;

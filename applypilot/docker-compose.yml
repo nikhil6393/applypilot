@@ -10,11 +10,17 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DB_PATH=/app/data/applypilot.db
+      - DB_PATH=:memory:
       - LOG_FORMAT=json
       - LOG_LEVEL=info
-      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - ALLOWED_ORIGINS=*
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
     volumes:
       - applypilot_data:/app/data
     healthcheck:
@@ -24,7 +30,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # ── Enterprise Profile (PostgreSQL + Redis + Ollama) ───────────────
+  # ── Optional Enterprise Profile (PostgreSQL + Redis + Ollama) ─────────
   postgres:
     profiles: ["enterprise", "full"]
     image: postgres:16-alpine
@@ -38,11 +44,6 @@ services:
       - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U applypilot -d applypilot"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     profiles: ["enterprise", "full"]
@@ -53,14 +54,9 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   ollama:
-    profiles: ["ai", "full"]
+    profiles: ["enterprise", "full"]
     image: ollama/ollama:latest
     container_name: applypilot-ollama
     restart: unless-stopped

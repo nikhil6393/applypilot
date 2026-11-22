@@ -25,7 +25,6 @@ export class LinkedInAdapter implements JobSourceAdapter {
   }
 
   async search(query: SearchQuery): Promise<RawJob[]> {
-    const start = Date.now();
     try {
       const jobs = await linkedinRealtime({
         query: query.query || 'software engineer intern',

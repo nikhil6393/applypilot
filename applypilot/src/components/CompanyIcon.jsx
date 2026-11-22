@@ -4,160 +4,160 @@ import React, { useState, useEffect, useMemo } from 'react';
 // Uses Clearbit Logo API as primary source (free, high-res, SVG-quality PNG)
 export const KNOWN_ORIGINAL_LOGOS = {
     // ── Global Tech Giants & Cloud ──────────────────────────────────────────
-    google: 'https://logo.clearbit.com/google.com',
-    alphabet: 'https://logo.clearbit.com/google.com',
-    microsoft: 'https://logo.clearbit.com/microsoft.com',
-    amazon: 'https://logo.clearbit.com/amazon.com',
-    apple: 'https://logo.clearbit.com/apple.com',
-    meta: 'https://logo.clearbit.com/meta.com',
-    facebook: 'https://logo.clearbit.com/meta.com',
-    netflix: 'https://logo.clearbit.com/netflix.com',
-    spotify: 'https://logo.clearbit.com/spotify.com',
-    stripe: 'https://logo.clearbit.com/stripe.com',
-    uber: 'https://logo.clearbit.com/uber.com',
-    airbnb: 'https://logo.clearbit.com/airbnb.com',
-    openai: 'https://logo.clearbit.com/openai.com',
-    anthropic: 'https://logo.clearbit.com/anthropic.com',
-    adobe: 'https://logo.clearbit.com/adobe.com',
-    salesforce: 'https://logo.clearbit.com/salesforce.com',
-    nvidia: 'https://logo.clearbit.com/nvidia.com',
-    tesla: 'https://logo.clearbit.com/tesla.com',
-    github: 'https://logo.clearbit.com/github.com',
-    linkedin: 'https://logo.clearbit.com/linkedin.com',
-    twitter: 'https://logo.clearbit.com/x.com',
-    x: 'https://logo.clearbit.com/x.com',
-    figma: 'https://logo.clearbit.com/figma.com',
-    notion: 'https://logo.clearbit.com/notion.so',
-    canva: 'https://logo.clearbit.com/canva.com',
-    slack: 'https://logo.clearbit.com/slack.com',
-    discord: 'https://logo.clearbit.com/discord.com',
-    zoom: 'https://logo.clearbit.com/zoom.us',
-    dropbox: 'https://logo.clearbit.com/dropbox.com',
-    reddit: 'https://logo.clearbit.com/reddit.com',
-    atlassian: 'https://logo.clearbit.com/atlassian.com',
-    shopify: 'https://logo.clearbit.com/shopify.com',
-    cloudflare: 'https://logo.clearbit.com/cloudflare.com',
-    docker: 'https://logo.clearbit.com/docker.com',
-    datadog: 'https://logo.clearbit.com/datadoghq.com',
-    snowflake: 'https://logo.clearbit.com/snowflake.com',
-    palantir: 'https://logo.clearbit.com/palantir.com',
-    oracle: 'https://logo.clearbit.com/oracle.com',
-    cisco: 'https://logo.clearbit.com/cisco.com',
-    intel: 'https://logo.clearbit.com/intel.com',
-    ibm: 'https://logo.clearbit.com/ibm.com',
-    mongodb: 'https://logo.clearbit.com/mongodb.com',
-    redis: 'https://logo.clearbit.com/redis.io',
-    postman: 'https://logo.clearbit.com/postman.com',
-    vercel: 'https://logo.clearbit.com/vercel.com',
-    supabase: 'https://logo.clearbit.com/supabase.com',
-    linear: 'https://logo.clearbit.com/linear.app',
-    raycast: 'https://logo.clearbit.com/raycast.com',
-    replit: 'https://logo.clearbit.com/replit.com',
-    coinbase: 'https://logo.clearbit.com/coinbase.com',
-    robinhood: 'https://logo.clearbit.com/robinhood.com',
-    bytedance: 'https://logo.clearbit.com/bytedance.com',
-    tiktok: 'https://logo.clearbit.com/tiktok.com',
-    pinterest: 'https://logo.clearbit.com/pinterest.com',
-    snapchat: 'https://logo.clearbit.com/snapchat.com',
-    snap: 'https://logo.clearbit.com/snapchat.com',
-    paypal: 'https://logo.clearbit.com/paypal.com',
-    square: 'https://logo.clearbit.com/squareup.com',
-    block: 'https://logo.clearbit.com/squareup.com',
-    doordash: 'https://logo.clearbit.com/doordash.com',
-    instacart: 'https://logo.clearbit.com/instacart.com',
-    lyft: 'https://logo.clearbit.com/lyft.com',
-    walmart: 'https://logo.clearbit.com/walmart.com',
-    spacex: 'https://logo.clearbit.com/spacex.com',
-    crowdstrike: 'https://logo.clearbit.com/crowdstrike.com',
-    paloaltonetworks: 'https://logo.clearbit.com/paloaltonetworks.com',
-    servicenow: 'https://logo.clearbit.com/servicenow.com',
-    workday: 'https://logo.clearbit.com/workday.com',
-    intuit: 'https://logo.clearbit.com/intuit.com',
-    gitlab: 'https://logo.clearbit.com/gitlab.com',
-    hashicorp: 'https://logo.clearbit.com/hashicorp.com',
-    databricks: 'https://logo.clearbit.com/databricks.com',
-    retool: 'https://logo.clearbit.com/retool.com',
-    ramp: 'https://logo.clearbit.com/ramp.com',
-    plaid: 'https://logo.clearbit.com/plaid.com',
-    rippling: 'https://logo.clearbit.com/rippling.com',
-    gusto: 'https://logo.clearbit.com/gusto.com',
-    carta: 'https://logo.clearbit.com/carta.com',
-    perplexity: 'https://logo.clearbit.com/perplexity.ai',
-    cursor: 'https://logo.clearbit.com/cursor.com',
-    huggingface: 'https://logo.clearbit.com/huggingface.co',
-    cohere: 'https://logo.clearbit.com/cohere.com',
-    scaleai: 'https://logo.clearbit.com/scale.com',
-    mistral: 'https://logo.clearbit.com/mistral.ai',
-    modal: 'https://logo.clearbit.com/modal.com',
-    langchain: 'https://logo.clearbit.com/langchain.com',
-    pinecone: 'https://logo.clearbit.com/pinecone.io',
+    google: 'https://unavatar.io/google.com',
+    alphabet: 'https://unavatar.io/google.com',
+    microsoft: 'https://unavatar.io/microsoft.com',
+    amazon: 'https://unavatar.io/amazon.com',
+    apple: 'https://unavatar.io/apple.com',
+    meta: 'https://unavatar.io/meta.com',
+    facebook: 'https://unavatar.io/meta.com',
+    netflix: 'https://unavatar.io/netflix.com',
+    spotify: 'https://unavatar.io/spotify.com',
+    stripe: 'https://unavatar.io/stripe.com',
+    uber: 'https://unavatar.io/uber.com',
+    airbnb: 'https://unavatar.io/airbnb.com',
+    openai: 'https://unavatar.io/openai.com',
+    anthropic: 'https://unavatar.io/anthropic.com',
+    adobe: 'https://unavatar.io/adobe.com',
+    salesforce: 'https://unavatar.io/salesforce.com',
+    nvidia: 'https://unavatar.io/nvidia.com',
+    tesla: 'https://unavatar.io/tesla.com',
+    github: 'https://unavatar.io/github.com',
+    linkedin: 'https://unavatar.io/linkedin.com',
+    twitter: 'https://unavatar.io/x.com',
+    x: 'https://unavatar.io/x.com',
+    figma: 'https://unavatar.io/figma.com',
+    notion: 'https://unavatar.io/notion.so',
+    canva: 'https://unavatar.io/canva.com',
+    slack: 'https://unavatar.io/slack.com',
+    discord: 'https://unavatar.io/discord.com',
+    zoom: 'https://unavatar.io/zoom.us',
+    dropbox: 'https://unavatar.io/dropbox.com',
+    reddit: 'https://unavatar.io/reddit.com',
+    atlassian: 'https://unavatar.io/atlassian.com',
+    shopify: 'https://unavatar.io/shopify.com',
+    cloudflare: 'https://unavatar.io/cloudflare.com',
+    docker: 'https://unavatar.io/docker.com',
+    datadog: 'https://unavatar.io/datadoghq.com',
+    snowflake: 'https://unavatar.io/snowflake.com',
+    palantir: 'https://unavatar.io/palantir.com',
+    oracle: 'https://unavatar.io/oracle.com',
+    cisco: 'https://unavatar.io/cisco.com',
+    intel: 'https://unavatar.io/intel.com',
+    ibm: 'https://unavatar.io/ibm.com',
+    mongodb: 'https://unavatar.io/mongodb.com',
+    redis: 'https://unavatar.io/redis.io',
+    postman: 'https://unavatar.io/postman.com',
+    vercel: 'https://unavatar.io/vercel.com',
+    supabase: 'https://unavatar.io/supabase.com',
+    linear: 'https://unavatar.io/linear.app',
+    raycast: 'https://unavatar.io/raycast.com',
+    replit: 'https://unavatar.io/replit.com',
+    coinbase: 'https://unavatar.io/coinbase.com',
+    robinhood: 'https://unavatar.io/robinhood.com',
+    bytedance: 'https://unavatar.io/bytedance.com',
+    tiktok: 'https://unavatar.io/tiktok.com',
+    pinterest: 'https://unavatar.io/pinterest.com',
+    snapchat: 'https://unavatar.io/snapchat.com',
+    snap: 'https://unavatar.io/snapchat.com',
+    paypal: 'https://unavatar.io/paypal.com',
+    square: 'https://unavatar.io/squareup.com',
+    block: 'https://unavatar.io/squareup.com',
+    doordash: 'https://unavatar.io/doordash.com',
+    instacart: 'https://unavatar.io/instacart.com',
+    lyft: 'https://unavatar.io/lyft.com',
+    walmart: 'https://unavatar.io/walmart.com',
+    spacex: 'https://unavatar.io/spacex.com',
+    crowdstrike: 'https://unavatar.io/crowdstrike.com',
+    paloaltonetworks: 'https://unavatar.io/paloaltonetworks.com',
+    servicenow: 'https://unavatar.io/servicenow.com',
+    workday: 'https://unavatar.io/workday.com',
+    intuit: 'https://unavatar.io/intuit.com',
+    gitlab: 'https://unavatar.io/gitlab.com',
+    hashicorp: 'https://unavatar.io/hashicorp.com',
+    databricks: 'https://unavatar.io/databricks.com',
+    retool: 'https://unavatar.io/retool.com',
+    ramp: 'https://unavatar.io/ramp.com',
+    plaid: 'https://unavatar.io/plaid.com',
+    rippling: 'https://unavatar.io/rippling.com',
+    gusto: 'https://unavatar.io/gusto.com',
+    carta: 'https://unavatar.io/carta.com',
+    perplexity: 'https://unavatar.io/perplexity.ai',
+    cursor: 'https://unavatar.io/cursor.com',
+    huggingface: 'https://unavatar.io/huggingface.co',
+    cohere: 'https://unavatar.io/cohere.com',
+    scaleai: 'https://unavatar.io/scale.com',
+    mistral: 'https://unavatar.io/mistral.ai',
+    modal: 'https://unavatar.io/modal.com',
+    langchain: 'https://unavatar.io/langchain.com',
+    pinecone: 'https://unavatar.io/pinecone.io',
 
     // ── Leading Indian Tech, Unicorns & Global Enterprises ──────────────────
-    swiggy: 'https://logo.clearbit.com/swiggy.com',
-    zomato: 'https://logo.clearbit.com/zomato.com',
-    razorpay: 'https://logo.clearbit.com/razorpay.com',
-    flipkart: 'https://logo.clearbit.com/flipkart.com',
-    phonepe: 'https://logo.clearbit.com/phonepe.com',
-    paytm: 'https://logo.clearbit.com/paytm.com',
-    tcs: 'https://logo.clearbit.com/tcs.com',
-    tataconsultancyservices: 'https://logo.clearbit.com/tcs.com',
-    infosys: 'https://logo.clearbit.com/infosys.com',
-    wipro: 'https://logo.clearbit.com/wipro.com',
-    hcl: 'https://logo.clearbit.com/hcltech.com',
-    hcltech: 'https://logo.clearbit.com/hcltech.com',
-    techmahindra: 'https://logo.clearbit.com/techmahindra.com',
-    accenture: 'https://logo.clearbit.com/accenture.com',
-    deloitte: 'https://logo.clearbit.com/deloitte.com',
-    goldmansachs: 'https://logo.clearbit.com/goldmansachs.com',
-    jpmorgan: 'https://logo.clearbit.com/jpmorgan.com',
-    jpmorganchase: 'https://logo.clearbit.com/jpmorgan.com',
-    morganstanley: 'https://logo.clearbit.com/morganstanley.com',
-    zepto: 'https://logo.clearbit.com/zeptonow.com',
-    cred: 'https://logo.clearbit.com/cred.club',
-    meesho: 'https://logo.clearbit.com/meesho.io',
-    groww: 'https://logo.clearbit.com/groww.in',
-    urbancompany: 'https://logo.clearbit.com/urbancompany.com',
-    ola: 'https://logo.clearbit.com/olacabs.com',
-    inmobi: 'https://logo.clearbit.com/inmobi.com',
-    browserstack: 'https://logo.clearbit.com/browserstack.com',
-    hasura: 'https://logo.clearbit.com/hasura.io',
-    yellowai: 'https://logo.clearbit.com/yellow.ai',
-    slice: 'https://logo.clearbit.com/sliceit.com',
-    navi: 'https://logo.clearbit.com/navi.com',
-    juspay: 'https://logo.clearbit.com/juspay.in',
-    darwinbox: 'https://logo.clearbit.com/darwinbox.com',
-    porter: 'https://logo.clearbit.com/porter.in',
-    atherelectric: 'https://logo.clearbit.com/atherenergy.com',
-    ather: 'https://logo.clearbit.com/atherenergy.com',
-    spinny: 'https://logo.clearbit.com/spinny.com',
-    khatabook: 'https://logo.clearbit.com/khatabook.com',
-    clevertap: 'https://logo.clearbit.com/clevertap.com',
-    chargebee: 'https://logo.clearbit.com/chargebee.com',
-    leadsquared: 'https://logo.clearbit.com/leadsquared.com',
-    moengage: 'https://logo.clearbit.com/moengage.com',
-    zeta: 'https://logo.clearbit.com/zeta.tech',
-    lenskart: 'https://logo.clearbit.com/lenskart.com',
-    upstox: 'https://logo.clearbit.com/upstox.com',
-    curefit: 'https://logo.clearbit.com/cult.fit',
-    cars24: 'https://logo.clearbit.com/cars24.com',
-    mpl: 'https://logo.clearbit.com/mpl.live',
-    unacademy: 'https://logo.clearbit.com/unacademy.com',
-    zoho: 'https://logo.clearbit.com/zoho.com',
-    freshworks: 'https://logo.clearbit.com/freshworks.com',
-    sprinklr: 'https://logo.clearbit.com/sprinklr.com',
-    jio: 'https://logo.clearbit.com/jio.com',
-    reliancejio: 'https://logo.clearbit.com/jio.com',
-    airtel: 'https://logo.clearbit.com/airtel.in',
-    cognizant: 'https://logo.clearbit.com/cognizant.com',
-    capgemini: 'https://logo.clearbit.com/capgemini.com',
-    ltimindtree: 'https://logo.clearbit.com/ltimindtree.com',
-    persistent: 'https://logo.clearbit.com/persistent.com',
-    mphasis: 'https://logo.clearbit.com/mphasis.com',
-    hexaware: 'https://logo.clearbit.com/hexaware.com',
-    birlasoft: 'https://logo.clearbit.com/birlasoft.com',
-    coforge: 'https://logo.clearbit.com/coforge.com',
-    cyient: 'https://logo.clearbit.com/cyient.com',
-    tataelxsi: 'https://logo.clearbit.com/tataelxsi.com',
+    swiggy: 'https://unavatar.io/swiggy.com',
+    zomato: 'https://unavatar.io/zomato.com',
+    razorpay: 'https://unavatar.io/razorpay.com',
+    flipkart: 'https://unavatar.io/flipkart.com',
+    phonepe: 'https://unavatar.io/phonepe.com',
+    paytm: 'https://unavatar.io/paytm.com',
+    tcs: 'https://unavatar.io/tcs.com',
+    tataconsultancyservices: 'https://unavatar.io/tcs.com',
+    infosys: 'https://unavatar.io/infosys.com',
+    wipro: 'https://unavatar.io/wipro.com',
+    hcl: 'https://unavatar.io/hcltech.com',
+    hcltech: 'https://unavatar.io/hcltech.com',
+    techmahindra: 'https://unavatar.io/techmahindra.com',
+    accenture: 'https://unavatar.io/accenture.com',
+    deloitte: 'https://unavatar.io/deloitte.com',
+    goldmansachs: 'https://unavatar.io/goldmansachs.com',
+    jpmorgan: 'https://unavatar.io/jpmorgan.com',
+    jpmorganchase: 'https://unavatar.io/jpmorgan.com',
+    morganstanley: 'https://unavatar.io/morganstanley.com',
+    zepto: 'https://unavatar.io/zeptonow.com',
+    cred: 'https://unavatar.io/cred.club',
+    meesho: 'https://unavatar.io/meesho.io',
+    groww: 'https://unavatar.io/groww.in',
+    urbancompany: 'https://unavatar.io/urbancompany.com',
+    ola: 'https://unavatar.io/olacabs.com',
+    inmobi: 'https://unavatar.io/inmobi.com',
+    browserstack: 'https://unavatar.io/browserstack.com',
+    hasura: 'https://unavatar.io/hasura.io',
+    yellowai: 'https://unavatar.io/yellow.ai',
+    slice: 'https://unavatar.io/sliceit.com',
+    navi: 'https://unavatar.io/navi.com',
+    juspay: 'https://unavatar.io/juspay.in',
+    darwinbox: 'https://unavatar.io/darwinbox.com',
+    porter: 'https://unavatar.io/porter.in',
+    atherelectric: 'https://unavatar.io/atherenergy.com',
+    ather: 'https://unavatar.io/atherenergy.com',
+    spinny: 'https://unavatar.io/spinny.com',
+    khatabook: 'https://unavatar.io/khatabook.com',
+    clevertap: 'https://unavatar.io/clevertap.com',
+    chargebee: 'https://unavatar.io/chargebee.com',
+    leadsquared: 'https://unavatar.io/leadsquared.com',
+    moengage: 'https://unavatar.io/moengage.com',
+    zeta: 'https://unavatar.io/zeta.tech',
+    lenskart: 'https://unavatar.io/lenskart.com',
+    upstox: 'https://unavatar.io/upstox.com',
+    curefit: 'https://unavatar.io/cult.fit',
+    cars24: 'https://unavatar.io/cars24.com',
+    mpl: 'https://unavatar.io/mpl.live',
+    unacademy: 'https://unavatar.io/unacademy.com',
+    zoho: 'https://unavatar.io/zoho.com',
+    freshworks: 'https://unavatar.io/freshworks.com',
+    sprinklr: 'https://unavatar.io/sprinklr.com',
+    jio: 'https://unavatar.io/jio.com',
+    reliancejio: 'https://unavatar.io/jio.com',
+    airtel: 'https://unavatar.io/airtel.in',
+    cognizant: 'https://unavatar.io/cognizant.com',
+    capgemini: 'https://unavatar.io/capgemini.com',
+    ltimindtree: 'https://unavatar.io/ltimindtree.com',
+    persistent: 'https://unavatar.io/persistent.com',
+    mphasis: 'https://unavatar.io/mphasis.com',
+    hexaware: 'https://unavatar.io/hexaware.com',
+    birlasoft: 'https://unavatar.io/birlasoft.com',
+    coforge: 'https://unavatar.io/coforge.com',
+    cyient: 'https://unavatar.io/cyient.com',
+    tataelxsi: 'https://unavatar.io/tataelxsi.com',
 };
 
 // Clean company name to standard slug
@@ -382,90 +382,60 @@ export const FirstAlphabetLogo = ({ company = '', size = 40, className = '' }) =
 };
 
 export const CompanyIcon = ({ company = '', logoUrl, size = 40, className = '' }) => {
-    const [sourceIndex, setSourceIndex] = useState(0);
-    const [imgFailed, setImgFailed] = useState(false);
     const cleanName = (company || '').trim();
-    const slug = useMemo(() => toCompanySlug(cleanName), [cleanName]);
-    const domain = useMemo(() => getDomainFromCompany(cleanName), [cleanName]);
+    const [imgFailed, setImgFailed] = useState(false);
+    const [imgLoaded, setImgLoaded] = useState(false);
 
-    // Reset error fallback whenever company name or logo changes
     useEffect(() => {
-        setSourceIndex(0);
         setImgFailed(false);
+        setImgLoaded(false);
     }, [cleanName, logoUrl]);
 
-    // Hierarchy of real logo sources:
-    // 1. Verified official brand logo registry (Clearbit/GitHub vector asset)
-    // 2. Clean scraped logo from job posting (if provided)
-    // 3. Clearbit brand logo CDN
-    // 4. Unavatar brand resolver (fallback=false so it 404s if missing)
-    // (Notice: We deliberately omit generic favicon/globe APIs so missing logos fall back to first alphabet)
-    const candidateSources = useMemo(() => {
-        const list = [];
-        // 1. Verified official original logo registry
-        if (slug && KNOWN_ORIGINAL_LOGOS[slug]) {
-            list.push(KNOWN_ORIGINAL_LOGOS[slug]);
-        }
-        // 2. Direct clean logoUrl passed from scraper
-        if (logoUrl && typeof logoUrl === 'string' && logoUrl.startsWith('http') && !/placeholder|default|avatar|blank|icon-company|globe|favicon/i.test(logoUrl)) {
-            list.push(logoUrl);
-        }
-        // 3. Official Clearbit Brand Logo CDN
-        if (domain && domain !== 'company.com') {
-            list.push(`https://logo.clearbit.com/${domain}`);
-        }
-        // 4. Unavatar Universal CDN (without generic fallback)
-        if (domain && domain !== 'company.com') {
-            list.push(`https://unavatar.io/${domain}?fallback=false`);
-        }
-        return list;
-    }, [slug, domain, logoUrl]);
+    const hasLogoCandidate = Boolean(
+        logoUrl &&
+        typeof logoUrl === 'string' &&
+        logoUrl.startsWith('http') &&
+        !/placeholder|default|avatar|blank|icon-company|globe|favicon|clearbit\.com|unavatar\.io/i.test(logoUrl)
+    );
 
-    const currentImageSrc = (!imgFailed && sourceIndex < candidateSources.length) ? candidateSources[sourceIndex] : null;
-
-    const handleImageError = () => {
-        setSourceIndex((prev) => {
-            const next = prev + 1;
-            if (next >= candidateSources.length) {
-                setImgFailed(true);
-            }
-            return next;
-        });
-    };
-
-    const handleImageLoad = (e) => {
-        // If the image is a 1x1 blank pixel or tiny spacer, fall back to first alphabet logo
-        if (e.currentTarget.naturalWidth <= 1 || e.currentTarget.naturalHeight <= 1) {
-            handleImageError();
-        }
-    };
-
-    // If real company logo exists and hasn't errored, display it inside crisp white container
-    if (currentImageSrc) {
+    // If no logo candidate or image failed, immediately render the stylish FirstAlphabetLogo
+    if (!hasLogoCandidate || imgFailed) {
         return (
-            <div
-                style={{ width: size, height: size }}
-                className={`rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs hover:shadow-md transition-all ${className}`}
-                title={cleanName}
-            >
-                <img
-                    src={currentImageSrc}
-                    alt={`${cleanName} logo`}
-                    loading="lazy"
-                    className="w-full h-full object-contain rounded-lg transition-transform duration-200 hover:scale-105"
-                    onError={handleImageError}
-                    onLoad={handleImageLoad}
-                />
-            </div>
+            <FirstAlphabetLogo
+                company={cleanName}
+                size={size}
+                className={className}
+            />
         );
     }
 
-    // Otherwise, add the first alphabet as a logo for everyone!
     return (
-        <FirstAlphabetLogo
-            company={cleanName}
-            size={size}
-            className={className}
-        />
+        <div
+            style={{ width: size, height: size }}
+            className={`rounded-xl bg-white border border-slate-200/90 flex items-center justify-center shrink-0 overflow-hidden shadow-xs hover:shadow-md transition-all relative ${className}`}
+            title={cleanName}
+        >
+            {!imgLoaded && (
+                <FirstAlphabetLogo
+                    company={cleanName}
+                    size={size}
+                    className="absolute inset-0 w-full h-full"
+                />
+            )}
+            <img
+                src={logoUrl}
+                alt=""
+                loading="lazy"
+                className={`w-full h-full object-contain rounded-lg transition-transform duration-200 hover:scale-105 ${imgLoaded ? 'block' : 'hidden'}`}
+                onError={() => setImgFailed(true)}
+                onLoad={(e) => {
+                    if (e.currentTarget.naturalWidth <= 1 || e.currentTarget.naturalHeight <= 1) {
+                        setImgFailed(true);
+                    } else {
+                        setImgLoaded(true);
+                    }
+                }}
+            />
+        </div>
     );
 };

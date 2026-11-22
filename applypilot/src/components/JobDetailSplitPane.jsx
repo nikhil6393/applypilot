@@ -4,9 +4,11 @@ import { ArrowLeft, MapPin, Briefcase, ExternalLink, Bookmark, Sparkles, ShieldC
 import { useAppStore } from '../store/appStore';
 import { getSafeJobApplyUrl } from '../utils/jobUtils';
 import { CompanyIcon } from './CompanyIcon';
+import { OpportunityTranslator } from './OpportunityTranslator';
+
 export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onTailorJob, onBackToFeed, }) => {
   const { isBookmarked, toggleBookmark, addToast } = useAppStore();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('translator');
   // Fallback to first job if none selected
   const currentJob = selectedJob || jobs[0];
   if (!currentJob) {
@@ -21,50 +23,62 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
   const bookmarked = isBookmarked(currentJob.id);
   return (<div className="w-full flex flex-col font-sans -mt-4 space-y-4">
     {/* Top back bar */}
-    <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-[#E5E7EB] shadow-2xs">
-      <button onClick={onBackToFeed} className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#5B7BE8] cursor-pointer">
+    <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs">
+      <button onClick={onBackToFeed} className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#ff6b35] transition-colors cursor-pointer">
         <ArrowLeft className="w-4 h-4" />
-        <span>Back to Recommended Jobs Grid</span>
+        <span>Back to Verified Opportunities Feed</span>
       </button>
-      <span className="text-xs text-slate-400 font-medium">Split-Pane Detail Mode</span>
+      <span className="text-xs text-slate-400 font-medium">Split-Pane Detailed View</span>
     </div>
 
     {/* Split Pane: detail right on desktop, top on mobile */}
     <div className="flex flex-col md:flex-row gap-5 items-start">
       {/* JOB DETAIL VIEW: primary on mobile */}
-      <div className="flex-1 bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-6 md:p-8 shadow-xs space-y-6 min-w-0 w-full order-1 md:order-2">
+      <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 md:p-8 shadow-xs space-y-6 min-w-0 w-full order-1 md:order-2">
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-start gap-3 sm:gap-4">
-            <CompanyIcon company={currentJob.company} logoUrl={currentJob.companyLogo} size={44} className="rounded-2xl shadow-sm shrink-0" />
+            <CompanyIcon company={currentJob.company} logoUrl={currentJob.companyLogo} size={48} className="rounded-2xl shadow-sm shrink-0 border border-slate-100" />
             <div className="min-w-0">
-              <span className="text-xs font-semibold text-slate-500">{currentJob.company}</span>
-              <h1 className="text-lg sm:text-2xl font-bold text-[#111827] mt-0.5 break-words">{currentJob.title}</h1>
+              <span className="text-xs font-bold text-[#ff6b35] uppercase tracking-wider">{currentJob.company}</span>
+              <h1 className="text-lg sm:text-2xl font-bold text-slate-900 mt-0.5 break-words">{currentJob.title}</h1>
               <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500 mt-1 flex-wrap">
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#5B7BE8]" />
+                <span className="flex items-center gap-1 font-medium text-slate-600">
+                  <MapPin className="w-3.5 h-3.5 text-[#ff6b35]" />
                   {currentJob.location || 'Remote'}
                 </span>
                 <span>•</span>
-                <span className="capitalize">{currentJob.source} Board</span>
+                <span className="capitalize font-medium text-slate-600">{currentJob.source} Board</span>
                 <span>•</span>
                 <span>Posted {currentJob.postedRelative || 'Recently'}</span>
               </div>
+              <span
+                className={`inline-flex mt-2 px-2.5 py-1 rounded-full text-xs font-bold ${
+                  Number.isFinite(currentJob.matchScore)
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+                title={currentJob.fitEvidence?.length ? `Based on ${currentJob.fitEvidence.join(', ')}` : currentJob.fitScoreUnavailableReason || ''}
+              >
+                {Number.isFinite(currentJob.matchScore)
+                  ? `${currentJob.matchScore}% personalized match`
+                  : 'Personalized score unavailable'}
+              </span>
             </div>
           </div>
 
           {/* Action Bar */}
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-            <button type="button" onClick={() => toggleBookmark(currentJob.id)} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[#F59E0B] hover:border-slate-300 transition-colors cursor-pointer" title="Bookmark position">
-              <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-[#F59E0B] text-[#F59E0B]' : ''}`} />
+            <button type="button" onClick={() => toggleBookmark(currentJob.id)} className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[#f59e0b] hover:border-amber-200 hover:bg-amber-50/50 transition-colors cursor-pointer" title="Bookmark position">
+              <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-[#f59e0b] text-[#f59e0b]' : ''}`} />
             </button>
-            <button type="button" onClick={() => onTailorJob(currentJob)} className="flex-1 sm:flex-initial px-3.5 sm:px-4 py-2 rounded-xl bg-[#111827] hover:bg-black text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6]" />
-              <span>Score &amp; Tailor</span>
+            <button type="button" onClick={() => onTailorJob(currentJob)} className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#6366f1] hover:opacity-95 text-white text-xs font-bold transition-all shadow-sm shadow-purple-500/20 cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Tailor Resume</span>
             </button>
-            <a href={getSafeJobApplyUrl(currentJob)} target="_blank" rel="noreferrer" className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-[#5B7BE8] hover:bg-[#3D5FD9] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap">
+            <a href={getSafeJobApplyUrl(currentJob)} target="_blank" rel="noreferrer" className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff6b35] to-[#ea580c] hover:opacity-95 text-white text-xs font-bold transition-all shadow-sm shadow-orange-500/20 cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap">
               <span>Direct Apply</span>
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
@@ -72,13 +86,13 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
         {/* ── 4 HOVIN-STYLE INFO CHIPS (SALARY / TYPE / APPLICANTS / SKILL) ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Chip 1: Salary */}
-          <div className="p-3 rounded-xl bg-[#EEF2FF] border border-[#5B7BE8]/20 text-[#1E3A8A]">
-            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#3D5FD9]">Estimated Pay</span>
-            <div className="text-sm font-extrabold mt-0.5">{currentJob.salary || '₹28L–₹35L/yr'}</div>
+          <div className="p-3.5 rounded-xl bg-[#fff7ed] border border-[#ffedd5] text-[#9a3412]">
+            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#ea580c]">Estimated Pay</span>
+            <div className="text-sm font-extrabold mt-0.5">{currentJob.salary || 'Competitive'}</div>
           </div>
 
           {/* Chip 2: Job Type */}
-          <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#10B981]/20 text-[#065F46]">
+          <div className="p-3.5 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46]">
             <span className="text-[10px] font-bold uppercase tracking-wider block text-[#059669]">Position Type</span>
             <div className="text-sm font-extrabold mt-0.5 capitalize">
               {currentJob.isInternship ? 'Internship' : currentJob.seniority || 'Full-Time'}
@@ -86,16 +100,16 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
           </div>
 
           {/* Chip 3: Applicants */}
-          <div className="p-3 rounded-xl bg-[#FFFBEB] border border-[#F59E0B]/20 text-[#92400E]">
-            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#D97706]">Applicant Load</span>
+          <div className="p-3.5 rounded-xl bg-[#fefce8] border border-[#fef08a] text-[#854d0e]">
+            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#d97706]">Applicant Load</span>
             <div className="text-sm font-extrabold mt-0.5">
               {currentJob.applicantCount ? `${currentJob.applicantCount} applied` : 'Early (< 15 applied)'}
             </div>
           </div>
 
           {/* Chip 4: Primary Skill */}
-          <div className="p-3 rounded-xl bg-[#F5F3FF] border border-[#8B5CF6]/20 text-[#5B21B6]">
-            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#7C3AED]">Key Competency</span>
+          <div className="p-3.5 rounded-xl bg-[#f5f3ff] border border-[#ddd6fe] text-[#5b21b6]">
+            <span className="text-[10px] font-bold uppercase tracking-wider block text-[#7c3aed]">Key Competency</span>
             <div className="text-sm font-extrabold mt-0.5 truncate">
               {(currentJob.skills || ['Full-Stack', 'React'])[0]}
             </div>
@@ -103,19 +117,24 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-4 border-b border-slate-200">
+        <div className="flex items-center gap-4 border-b border-slate-200 overflow-x-auto">
           {[
+            { id: 'translator', label: '🎯 Opportunity Breakdown (Evidence & Fit)' },
             { id: 'overview', label: 'Job Overview' },
             { id: 'requirements', label: 'Technical Stack & Requirements' },
             { id: 'company', label: 'Company Intel & Trust' },
-          ].map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-2 text-xs font-bold transition-all relative cursor-pointer ${activeTab === tab.id ? 'text-[#5B7BE8]' : 'text-slate-500 hover:text-slate-900'}`}>
+          ].map((tab) => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-2.5 text-xs font-bold transition-all relative cursor-pointer whitespace-nowrap ${activeTab === tab.id ? 'text-[#ff6b35]' : 'text-slate-500 hover:text-slate-900'}`}>
             {tab.label}
-            {activeTab === tab.id && (<motion.div layoutId="detailTab" className="absolute bottom-0 inset-x-0 h-0.5 bg-[#5B7BE8]" />)}
+            {activeTab === tab.id && (<motion.div layoutId="detailTab" className="absolute bottom-0 inset-x-0 h-0.5 bg-[#ff6b35]" />)}
           </button>))}
         </div>
 
         {/* Tab Content */}
         <div className="text-xs text-slate-700 leading-relaxed space-y-4">
+          {activeTab === 'translator' && (
+            <OpportunityTranslator job={currentJob} resume={resume} onProceedToTailoring={onTailorJob} />
+          )}
+
           {activeTab === 'overview' && (<div className="space-y-3">
             <p className="whitespace-pre-line">
               {currentJob.description ||
@@ -204,7 +223,7 @@ export const JobDetailSplitPane = ({ jobs, selectedJob, resume, onSelectJob, onT
                 }}
                 className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                   isSelected
-                    ? 'bg-[#EEF2FF] border-[#5B7BE8] shadow-2xs'
+                    ? 'bg-[#fff7ed] border-[#ff6b35] shadow-xs ring-1 ring-[#ff6b35]/30'
                     : 'bg-white border-slate-200/80 hover:bg-slate-50'
                 }`}
               >

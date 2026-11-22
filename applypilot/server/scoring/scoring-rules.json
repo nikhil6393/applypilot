@@ -77,11 +77,11 @@
 
   "grading": {
     "tiers": [
-      { "minScore": 92, "rating": "A+", "label": "Top 5% ATS Ready" },
-      { "minScore": 82, "rating": "A",  "label": "Strong ATS Compatibility" },
-      { "minScore": 70, "rating": "B",  "label": "Good ATS Foundation (Minor Tweaks)" },
-      { "minScore": 55, "rating": "C",  "label": "Average (Needs Polish)" },
-      { "minScore":  0, "rating": "D",  "label": "Under-Optimized" }
+      { "minScore": 92, "rating": "A+", "label": "Excellent Structural Hygiene & Readability" },
+      { "minScore": 82, "rating": "A",  "label": "Strong Formatting & Keyword Alignment" },
+      { "minScore": 70, "rating": "B",  "label": "Good Foundation (Minor Formatting Polish)" },
+      { "minScore": 55, "rating": "C",  "label": "Needs Structural Polish & Detail" },
+      { "minScore":  0, "rating": "D",  "label": "Needs Formatting & Bullet Revisions" }
     ]
   },
 

@@ -4,11 +4,13 @@ import { dirname, resolve } from 'node:path';
 import fs from 'node:fs';
 
 const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
-const projectEnvPath = resolve(currentDir, '../.env');
+const localEnvPath = resolve(currentDir, '.env');
+const parentEnvPath = resolve(currentDir, '../.env');
+const projectEnvPath = fs.existsSync(localEnvPath) ? localEnvPath : parentEnvPath;
 if (fs.existsSync(projectEnvPath)) {
     loadDotenv({ path: projectEnvPath, override: true });
 } else {
-    console.warn('[config] No .env file found at project root');
+    console.warn('[config] No .env file found');
 }
 
 function validateDbPath(p, nodeEnv) {

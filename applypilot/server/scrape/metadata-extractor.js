@@ -5,7 +5,7 @@
  */
 const VISA_SPONSOR_POSITIVE = [
     /visa\s*sponsorship\s*(?:is\s*)?(?:available|provided|offered|supported)/i,
-    /(?<!(?:not|cannot|unable\s*to|will\s*not|does\s*not|without|no|may\s*not\s*(?:be\s*able\s*to\s*)?)\s{1,25})(?:offers?|provides?|willing\s*to|supports?)\s+(?:(?:full|comprehensive|future)\s+)?(?:visa|work\s*authorization|h-?1b)\s*sponsorship/i,
+    /(?<!(?:not|cannot|unable\s*to|will\s*not|does\s*not|without|no|may\s*not\s*(?:be\s*able\s*to\s*)?)\s{1,25})(?:offers?|provides?|willing\s*to|supports?)\s+(?:(?:full|comprehensive|future)\s+)?(?:(?:h-?1b\s*(?:visa\s*)?)|visa|work\s*authorization)\s*sponsorship/i,
     /willing\s*to\s*sponsor/i,
     /we\s*(?:do\s*)?sponsor/i,
     /(?<!(?:not|cannot|unable|no|will\s*not)\s{1,20})(?:active\s*)?h-?1b\s*(?:transfer|filing)\s*(?:available|supported|provided)/i,

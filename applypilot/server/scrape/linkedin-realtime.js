@@ -647,7 +647,36 @@ export async function linkedinRealtime(req) {
     if (cached)
         return cached;
 
-    // ── 1. Primary Engine: Headless Chrome via Selenium ──
+    // ── 1. Fast Primary Engine: Direct Guest Scraper (Sub-second, zero-auth) ──
+    if (!isCircuitOpen()) {
+        try {
+            const guestJobs = await runDirectGuestScraper(req, cacheKey);
+            if (Array.isArray(guestJobs) && guestJobs.length >= 5) {
+                recordSuccess();
+                scrapeCache.set(cacheKey, guestJobs, 180);
+                return guestJobs;
+            }
+        } catch (err) {
+            console.warn('[linkedin-realtime] Direct guest attempt failed, testing fallbacks:', err.message);
+        }
+    }
+
+    // ── 2. Fallback Engine A: Search Engine Real-Time Index Dorking ──
+    try {
+        const dorkJobs = await linkedinSearchDork(req);
+        if (Array.isArray(dorkJobs) && dorkJobs.length > 0) {
+            recordSuccess();
+            const verified = validateAndFilterJobs(dorkJobs);
+            if (verified.length > 0) {
+                scrapeCache.set(cacheKey, verified, 180);
+                return verified;
+            }
+        }
+    } catch (err) {
+        console.warn('[linkedin-realtime] Dork fallback failed:', err.message);
+    }
+
+    // ── 3. Fallback Engine B: Headless Chrome via Selenium (If installed on host) ──
     try {
         const seleniumJobs = await runLinkedInSelenium(req);
         if (Array.isArray(seleniumJobs) && seleniumJobs.length > 0) {
@@ -659,26 +688,13 @@ export async function linkedinRealtime(req) {
             }
         }
     } catch (err) {
-        console.warn('[linkedin-realtime] Selenium attempt failed, using fallback:', err.message);
+        console.warn('[linkedin-realtime] Selenium attempt failed:', err.message);
     }
 
-    // ── 2. Fallback Engine: Search Engine Real-Time Index Dorking ──
-    try {
-        const dorkJobs = await linkedinSearchDork(req);
-        if (Array.isArray(dorkJobs) && dorkJobs.length > 0) {
-            recordSuccess();
-            const verified = validateAndFilterJobs(dorkJobs);
-            scrapeCache.set(cacheKey, verified, 180);
-            return verified;
-        }
-    } catch (err) {
-        console.warn('[linkedin-realtime] Dork fallback failed:', err.message);
-    }
+    return [];
+}
 
-    // ── 3. Direct Guest Scraper (Legacy) ──
-    if (isCircuitOpen()) {
-        return [];
-    }
+async function runDirectGuestScraper(req, cacheKey) {
     const query = (req.query || 'software engineer').trim();
     const rawLoc = (req.location || 'India').trim();
     const isGlobal = !rawLoc || /^(anywhere|global|worldwide|remote|all|any)$/i.test(rawLoc);

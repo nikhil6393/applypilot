@@ -151,24 +151,78 @@ export function matchesSalary(job, min, max) {
         return false;
     return true;
 }
-/** Uses only title, description and location supplied by the source; no inferred posting dates. */
+const NON_TECH_TITLE_PATTERNS = /\b(account\s+executive|account\s+manager|business\s+development|bdr|sdr|marketing\s+manager|marketing\s+specialist|recruiter|talent\s+acquisition|barista|line\s+cook|cook|chef|dishwasher|server|waiter|waitress|bartender|cashier|janitor|cleaner|custodian|driver|courier|nurse|dentist|dental|doctor|pharmacist|receptionist|store\s+associate|retail\s+associate|clerk|attendant|sales\s+representative|customer\s+service|customer\s+support|call\s+center|telecaller|tele-sales|data\s+entry|office\s+assistant|security\s+guard)\b/i;
+
+/** Uses only title, description and location supplied by the source; strict anti-hallucination and zero-noise gating. */
 export function matchesScrapeRequest(job, req) {
-    if (req.remoteOnly && !job.remote)
+    const titleLower = (job.title || '').toLowerCase();
+    const queryStr = (req.query || '').trim().toLowerCase();
+
+    // 1. Strict Anti-Hallucination & Negative Title Rejection:
+    // When searching for technical roles, strictly reject obvious non-tech noise unless the query explicitly asks for it
+    const queryIsTech = !queryStr || /\b(software|developer|engineer|engineering|fullstack|full-stack|frontend|front-end|backend|back-end|web|mobile|ios|android|ai|machine\s+learning|data|cloud|devops|security|qa|testing|sde|swe|architect|programmer|systems|firmware|intern|internship|tech)\b/i.test(queryStr);
+    if (queryIsTech && NON_TECH_TITLE_PATTERNS.test(titleLower)) {
+        const queryMentionsNonTech = NON_TECH_TITLE_PATTERNS.test(queryStr);
+        if (!queryMentionsNonTech) {
+            return false;
+        }
+    }
+
+    // 2. Strict Workplace Mode Guard
+    const wantsRemoteOnly = Boolean(req.remoteOnly || req.workplaceType === 'remote');
+    if (wantsRemoteOnly) {
+        if (!job.remote || job.workplace !== 'Remote' || job.isHybrid) {
+            return false;
+        }
+    } else if (req.workplaceType === 'hybrid' && job.workplace !== 'Hybrid') {
         return false;
-    if (req.internshipsOnly) {
+    } else if (req.workplaceType === 'onsite' && job.workplace !== 'Onsite') {
+        return false;
+    }
+
+    // 3. Strict Seniority & Internship Isolation
+    const isInternshipMode = Boolean(
+        req.internshipsOnly ||
+        req.jobType === 'internship' ||
+        /\b(intern|internship|trainee|co-?op)\b/i.test(queryStr)
+    );
+    const isSeniorRole = /\b(senior|sr\.?|lead|principal|staff|director|vp|head\s+of|manager)\b/i.test(titleLower);
+
+    if (isInternshipMode) {
+        if (isSeniorRole) return false;
         const isIntern = job.employmentType === 'internship' ||
             job.isInternship === true ||
-            /\bintern(ship)?\b|\bco-?op\b/i.test(`${job.title} ${job.description}`);
-        if (!isIntern)
+            /\bintern(ship)?\b|\bco-?op\b|\btrainee\b|\bfresher\b/i.test(`${job.title} ${job.description}`);
+        if (!isIntern) {
             return false;
+        }
+        const exp = extractExperienceYears(job.description);
+        if (exp >= 3) {
+            return false;
+        }
+    } else if (req.seniority === 'senior' || req.seniorityLevels?.includes('senior')) {
+        if (/\b(intern|internship|trainee|fresher|graduate\s+trainee)\b/i.test(titleLower)) {
+            return false;
+        }
     }
+
+    // 4. Strict Indian Citizen Eligibility / Visa Sponsorship Guard
+    if (req.requireIndianEligibility || req.sponsorsVisa || req.foreignRemoteOnly) {
+        if (job.indianCitizenEligibility?.allowed === false ||
+            job.indianCitizenEligibility?.status === 'restricted' ||
+            job.indianCitizenEligibility?.status === 'ineligible_no_sponsorship') {
+            return false;
+        }
+    }
+
+    // 5. Geographic & City Matching
     if (req.location?.trim() && !job.remote) {
         const wanted = req.location.toLowerCase().trim();
-        // If the user wants anywhere/global, do not drop jobs based on strict location strings
-        if (!/anywhere|global|worldwide/i.test(wanted)) {
-            const jobLoc = job.location.toLowerCase();
+        if (!/^(anywhere|global|worldwide|all|any)$/i.test(wanted)) {
+            const jobLoc = (job.location || '').toLowerCase();
             const isIndiaAlias = (wanted.includes('bangalore') && jobLoc.includes('bengaluru')) ||
-                (wanted.includes('bengaluru') && jobLoc.includes('bangalore'));
+                (wanted.includes('bengaluru') && jobLoc.includes('bangalore')) ||
+                (wanted.includes('delhi') && (jobLoc.includes('noida') || jobLoc.includes('gurgaon') || jobLoc.includes('gurugram')));
             if (!jobLoc.includes(wanted) && !isIndiaAlias) {
                 if (!['linkedin', 'naukri', 'naukari'].includes(job.source)) {
                     return false;
@@ -176,12 +230,15 @@ export function matchesScrapeRequest(job, req) {
             }
         }
     }
+
+    // 6. Recency filter
     if (req.postedWithinHours && req.postedWithinHours > 0) {
         const date = Date.parse(job.postedAt);
         const cutoff = Date.now() - req.postedWithinHours * 3_600_000;
         if (!Number.isFinite(date) || date < cutoff)
             return false;
     }
+
     if (req.advanceMode) {
         if (req.excludeKeywords?.length) {
             const haystack = `${job.title} ${job.description}`.toLowerCase();
@@ -194,7 +251,6 @@ export function matchesScrapeRequest(job, req) {
                 return false;
         }
         else if (req.preferredSkills?.length) {
-            // Preferred skills still apply when requiredSkills is empty — at least one should match
             const jobSkillsLower = job.skills.map((s) => s.toLowerCase());
             const hasAnyPreferred = req.preferredSkills.some((s) => jobSkillsLower.includes(s.toLowerCase()) ||
                 jobSkillsLower.some((js) => js.includes(s.toLowerCase())));
@@ -218,18 +274,17 @@ export function matchesScrapeRequest(job, req) {
                 return false;
         }
     }
-    const haystack = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
-    // Role Expansion Bypass: Do not drop if job matches any role in the searched domain
-    const queryStr = req.query || '';
+
+    const haystack = `${job.title || ''} ${job.description || ''} ${(Array.isArray(job.skills) ? job.skills : []).join(' ')}`.toLowerCase();
+    // Role Expansion Check
     const detectedDomain = detectDomainFromQuery(queryStr);
     if (detectedDomain) {
-        const isIntern = /\b(intern|internship|trainee|co-?op)\b/i.test(queryStr) || req.jobType === 'internship';
+        const isIntern = isInternshipMode;
         if (matchesDomainJob(detectedDomain.domainId, job.title, isIntern) ||
             matchesDomainJob(detectedDomain.domainId, haystack, isIntern)) {
             return true;
         }
     }
-    // Specialized check for Software Engineer Intern (20 roles) & Full Time (21 roles)
     if (isSoftwareEngineerInternQuery(queryStr)) {
         if (matchesSoftwareEngineerInternRole(job.title) || matchesSoftwareEngineerInternRole(haystack)) {
             return true;
@@ -245,13 +300,9 @@ export function matchesScrapeRequest(job, req) {
         return true;
     return clauses.some((terms) => {
         const matches = terms.filter((term) => haystack.includes(term)).length;
-        // If it's from a major job board (LinkedIn, Naukri), we generally trust their internal relevancy algorithm.
-        // We just want to make sure it's not complete junk. 1 matching keyword is enough.
-        // Specially for "intern", if the user searched "intern" and the job has "intern", it's highly relevant even if "Software Engineer" became "SDE".
         if (['linkedin', 'naukri', 'naukari'].includes(job.source)) {
             return matches >= 1;
         }
-        // For raw scrapers, use the stricter 2-word heuristic
         return matches >= Math.min(2, terms.length);
     });
 }
@@ -261,7 +312,7 @@ export function filterJobsForRequest(input, req) {
     if (req.advanceMode) {
         const scored = filtered.map((job) => {
             let score = 0;
-            const haystack = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
+            const haystack = `${job.title || ''} ${job.description || ''} ${(Array.isArray(job.skills) ? job.skills : []).join(' ')}`.toLowerCase();
             if (req.requiredSkills?.length) {
                 const result = matchSkills(job.skills, req.requiredSkills, req.preferredSkills ?? []);
                 score += result.score;

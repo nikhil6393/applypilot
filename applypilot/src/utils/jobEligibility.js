@@ -57,7 +57,7 @@ export const getIndianCitizenEligibility = (job) => {
   const hasSponsor = !hasRestriction && (
     sponsorsVisa === true ||
     /visa\s*sponsorship\s*(?:is\s*)?(?:available|provided|offered|supported)/i.test(combined) ||
-    /(?<!(?:not|cannot|unable\s*to|will\s*not|does\s*not|without|no|may\s*not\s*(?:be\s*able\s*to\s*)?)\s{1,25})(?:offers?|provides?|willing\s*to|supports?)\s+(?:(?:full|comprehensive|future)\s+)?(?:visa|work\s*authorization|h-?1b)\s*sponsorship/i.test(combined) ||
+    /(?<!(?:not|cannot|unable\s*to|will\s*not|does\s*not|without|no|may\s*not\s*(?:be\s*able\s*to\s*)?)\s{1,25})(?:offers?|provides?|willing\s*to|supports?)\s+(?:(?:full|comprehensive|future)\s+)?(?:(?:h-?1b\s*(?:visa\s*)?)|visa|work\s*authorization)\s*sponsorship/i.test(combined) ||
     /willing\s*to\s*sponsor/i.test(combined) ||
     /we\s*(?:do\s*)?sponsor/i.test(combined) ||
     /relocation\s*(?:assistance|support|package)\s*(?:is\s*)?(?:provided|available|offered)/i.test(combined)

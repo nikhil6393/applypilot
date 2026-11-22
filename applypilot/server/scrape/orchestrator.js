@@ -21,6 +21,7 @@ import { unstop } from './unstop.js';
 import { simplifyJobs } from './simplify-jobs.js';
 import { linkedinSearchDork } from './linkedin-dork.js';
 import { naukri } from './naukri.js';
+import { smartrecruiters } from './smartrecruiters.js';
 import { config } from '../config.js';
 import { filterJobsForRequest } from './normalize.js';
 import { scrapeCache } from './cache.js';
@@ -30,6 +31,7 @@ const ALL_SCRAPERS = {
     greenhouse,
     lever,
     ashby,
+    smartrecruiters,
     freehire,
     remotive,
     himalayas,
@@ -50,6 +52,7 @@ const DEFAULT_SOURCES = [
     'greenhouse',
     'lever',
     'ashby',
+    'smartrecruiters',
     'remoteok',
     'weworkremotely',
     'yc',

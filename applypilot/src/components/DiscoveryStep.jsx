@@ -1001,6 +1001,7 @@ export function DiscoveryStep({
           greenhouse: /greenhouse/,
           lever: /lever/,
           ashby: /ashby/,
+          smartrecruiters: /smartrecruiters/,
           'yc startups': /yc/,
           unstop: /unstop/,
           simplifyjobs: /simplify/,
@@ -1550,6 +1551,7 @@ export function DiscoveryStep({
                 <option value="Greenhouse">Greenhouse</option>
                 <option value="Lever">Lever</option>
                 <option value="Ashby">Ashby</option>
+                <option value="SmartRecruiters">SmartRecruiters</option>
                 <option value="YC Startups">YC Startups</option>
                 <option value="RemoteOK">RemoteOK</option>
                 <option value="Remotive">Remotive</option>

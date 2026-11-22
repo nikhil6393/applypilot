@@ -21,6 +21,8 @@ const VALID_SOURCES = new Set([
     'internshala',
     'unstop',
     'simplify_jobs',
+    'smartrecruiters',
+    'workable',
     'workingnomads',
     'linkedin_dork',
     'manual',
@@ -173,8 +175,15 @@ export function validateJobPosting(raw) {
         /\b(remote|wfh|work\s*from\s*home|anywhere|worldwide|virtual)\b/i.test(primaryWorkplaceText) ||
         /\b(100%\s*remote|fully\s*remote|strictly\s*remote|remote\s*first|work\s*from\s*anywhere)\b/i.test(descText)
     );
-    const workplace = isHybrid ? 'Hybrid' : (isRemote ? 'Remote' : 'Onsite');
-    const remote = isRemote;
+    const hasWorkplaceEvidence = Boolean(
+        raw.workplace ||
+        raw.remote !== undefined ||
+        raw.isRemote !== undefined ||
+        raw.isHybrid !== undefined ||
+        /\b(remote|wfh|work\s*from\s*home|hybrid|on[- ]?site|in[- ]office)\b/i.test(`${primaryWorkplaceText} ${descText}`)
+    );
+    const workplace = isHybrid ? 'Hybrid' : (isRemote ? 'Remote' : (cleanLocation ? 'Onsite' : (raw.workplace || 'Unverified')));
+    const remote = isRemote ? true : (raw.remote !== undefined ? Boolean(raw.remote) : (hasWorkplaceEvidence && cleanLocation ? false : undefined));
     const sponsorsVisa = raw.sponsorsVisa !== undefined ? raw.sponsorsVisa : extractVisaSponsorship(`${title} ${descText}`);
     const indianCitizenEligibility = raw.indianCitizenEligibility || extractIndianCitizenEligibility({
         text: descText,

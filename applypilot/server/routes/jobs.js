@@ -20,6 +20,7 @@ import { unstop } from '../scrape/unstop.js';
 import { simplifyJobs } from '../scrape/simplify-jobs.js';
 import { freehire } from '../scrape/freehire.js';
 import { naukri } from '../scrape/naukri.js';
+import { smartrecruiters } from '../scrape/smartrecruiters.js';
 import { validateAndFilterJobs, validateJobPosting, filterJobsByCriteria, verifyJobUrlLive, detectDuplicateJobs, cleanCanonicalUrl } from '../scrape/validator.js';
 import { resolveCompanyLogo } from '../scrape/logo-resolver.js';
 import { requireAdmin } from '../security/auth.js';
@@ -407,6 +408,8 @@ jobsRouter.get('/scrape', async (req, res) => {
             targetSource = 'lever';
         else if (rawSource.includes('ash'))
             targetSource = 'ashby';
+        else if (rawSource.includes('smart') || rawSource.includes('recruit'))
+            targetSource = 'smartrecruiters';
         else if (rawSource.includes('remoteko') || rawSource.includes('remoteok'))
             targetSource = 'remoteok';
         else if (rawSource.includes('remotiv'))
@@ -551,6 +554,7 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
         greenhouse: 0,
         lever: 0,
         ashby: 0,
+        smartrecruiters: 0,
         arbeitnow: 0,
         remoteok: 0,
         weworkremotely: 0,
@@ -643,6 +647,7 @@ jobsRouter.get('/stream-search', scrapeRateLimiter, async (req, res) => {
                 { key: 'greenhouse', name: 'Greenhouse ATS', fn: () => greenhouse({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 12 }) },
                 { key: 'lever', name: 'Lever ATS', fn: () => lever({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 }) },
                 { key: 'ashby', name: 'Ashby ATS', fn: () => ashby({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 10 }) },
+                { key: 'smartrecruiters', name: 'SmartRecruiters Enterprise', fn: () => smartrecruiters({ query: enrichedQuery, location, internshipsOnly, maxPerSource: 15 }) },
                 { key: 'jobicy', name: 'Jobicy', fn: () => jobicy({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 }) },
                 { key: 'himalayas', name: 'Himalayas', fn: () => himalayas({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 10 }) },
                 { key: 'arbeitnow', name: 'Arbeitnow', fn: () => arbeitnow({ query: enrichedQuery, location, internshipsOnly, timeWindow, fastMode: true, maxPerSource: 15 }) },
